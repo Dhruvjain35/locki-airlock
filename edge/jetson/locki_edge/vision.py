@@ -163,6 +163,35 @@ class DetectNetDetector(object):
         return out
 
 
+class OpenCvDnnDetector(object):
+    """MobileNet-SSD (Caffe, PASCAL VOC, class 15 = person) on OpenCV's DNN module, CPU.
+
+    The JetPack 6 fallback: TensorRT 10 cannot load jetson-inference's UFF SSD models, and the TAO
+    converter for PeopleNet links TensorRT 8. This needs only OpenCV, which JetPack already ships.
+    """
+
+    name = "opencv_dnn"
+    PERSON_CLASS = 15
+
+    def __init__(self, prototxt, caffemodel, threshold=0.5):
+        import cv2
+        self.cv2 = cv2
+        self.net = cv2.dnn.readNetFromCaffe(prototxt, caffemodel)
+        self.threshold = float(threshold)
+
+    def detect(self, frame):
+        blob = self.cv2.dnn.blobFromImage(self.cv2.resize(frame, (300, 300)), 0.007843, (300, 300), 127.5)
+        self.net.setInput(blob)
+        out = []
+        for d in self.net.forward()[0, 0]:
+            if int(d[1]) != self.PERSON_CLASS or float(d[2]) < self.threshold:
+                continue
+            x1, y1, x2, y2 = [min(1.0, max(0.0, float(v))) for v in d[3:7]]
+            if x2 > x1 and y2 > y1:
+                out.append(Detection("person", float(d[2]), (x1, y1, x2, y2)))
+        return out
+
+
 def make_detector(kind, zone, threshold=0.5, model="ssd-mobilenet-v2"):
     """kind: auto | detectnet | motion. auto = detectnet if importable, else motion (logged)."""
     if kind in ("auto", "detectnet"):

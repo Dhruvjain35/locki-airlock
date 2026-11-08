@@ -27,6 +27,7 @@ from .config import ConfigError, load_config
 from .contract import ContractError, make_event, utc_iso_ms
 from .normalizer import EventNormalizer
 from .observers import (AppleVisionPersonProvider, BaselineMotionProvider, DetectNetPersonProvider, FixtureProvider,
+                        OpenCvDnnPersonProvider,
                         load_plugin)
 from .outbox import DurableOutbox
 from .session import SessionTracker
@@ -71,6 +72,8 @@ def build_provider(cfg):
         return BaselineMotionProvider(cfg.zones)
     if cfg.observer == "detectnet":
         return DetectNetPersonProvider(cfg.zones, threshold=cfg.detectnet_threshold, model=cfg.detectnet_model)
+    if cfg.observer == "opencv_dnn":
+        return OpenCvDnnPersonProvider(cfg.zones, cfg.dnn_prototxt, cfg.dnn_model, threshold=cfg.person_threshold)
     if cfg.observer == "apple_vision":
         return AppleVisionPersonProvider(cfg.zones, threshold=cfg.person_threshold)
     if cfg.observer == "dhruv_cv":

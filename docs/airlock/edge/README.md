@@ -4,7 +4,7 @@
  camera (Mac webcam | Jetson Logitech /dev/v4l/by-id | gst: pipeline)
    │  capture.py: reader thread, newest-frame mailbox, mono+UTC stamps, FPS, drops, reconnect, watchdog
    ▼
- observer (observers.py)          baseline motion | Jetson detectNet | Dhruv's plugin | fixture(simulated)
+ observer (observers.py)          baseline motion | Jetson detectNet | OpenCV DNN | Dhruv's plugin | fixture(simulated)
    │  [VisionObservation(kind, confidence, zone_id, captured_at_utc, provider_version, metadata)]
    ▼
  normalizer.py                    capability guard → debounce/dwell → cooldown → rate limit → allowlist

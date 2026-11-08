@@ -58,6 +58,8 @@ DEFAULTS = {
     "AIRLOCK_DETECTNET_THRESHOLD": "0.5",
     "AIRLOCK_DETECTNET_MODEL": "ssd-mobilenet-v2",
     "AIRLOCK_PERSON_THRESHOLD": "0.5",
+    "AIRLOCK_DNN_PROTOTXT": "~/models/MobileNetSSD_deploy.prototxt",
+    "AIRLOCK_DNN_MODEL": "~/models/MobileNetSSD_deploy.caffemodel",
 }
 
 
@@ -136,8 +138,8 @@ class EdgeConfig(object):
         self.server = resolve_server(v["AIRLOCK_SERVER"])
         self.state_dir = os.path.expanduser(v["AIRLOCK_STATE_DIR"])
         self.observer = v["AIRLOCK_OBSERVER"].strip()
-        if self.observer not in ("baseline", "detectnet", "apple_vision", "dhruv_cv", "fixture"):
-            raise ConfigError("AIRLOCK_OBSERVER must be baseline|detectnet|apple_vision|dhruv_cv|fixture")
+        if self.observer not in ("baseline", "detectnet", "opencv_dnn", "apple_vision", "dhruv_cv", "fixture"):
+            raise ConfigError("AIRLOCK_OBSERVER must be baseline|detectnet|opencv_dnn|apple_vision|dhruv_cv|fixture")
         if self.observer == "apple_vision" and self.runtime != "mac_dev":
             raise ConfigError("AIRLOCK_OBSERVER=apple_vision is a Mac dev baseline: needs AIRLOCK_EDGE_RUNTIME=mac_dev")
         self.observer_plugin = v["AIRLOCK_OBSERVER_PLUGIN"].strip()
@@ -165,6 +167,12 @@ class EdgeConfig(object):
         self.detectnet_threshold = float(v["AIRLOCK_DETECTNET_THRESHOLD"])
         self.detectnet_model = v["AIRLOCK_DETECTNET_MODEL"].strip()
         self.person_threshold = float(v["AIRLOCK_PERSON_THRESHOLD"])
+        self.dnn_prototxt = os.path.expanduser(v["AIRLOCK_DNN_PROTOTXT"].strip())
+        self.dnn_model = os.path.expanduser(v["AIRLOCK_DNN_MODEL"].strip())
+        if self.observer == "opencv_dnn":
+            for f in (self.dnn_prototxt, self.dnn_model):
+                if not os.path.isfile(f):
+                    raise ConfigError("AIRLOCK_OBSERVER=opencv_dnn: model file missing: %s" % f)
         self.contract = (Contract.from_file(os.path.expanduser(v["AIRLOCK_CONTRACT_FILE"]))
                          if v["AIRLOCK_CONTRACT_FILE"].strip() else Contract())
         self.zones = self._zones(v)

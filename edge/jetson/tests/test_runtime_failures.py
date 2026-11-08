@@ -617,6 +617,15 @@ class TestConfigAuth(unittest.TestCase):
             self.cfg(AIRLOCK_EDGE_RUNTIME="mac_dev", platform_name="jetson")
         self.assertEqual(self.cfg(AIRLOCK_EDGE_RUNTIME="jetson", platform_name="jetson").runtime, "jetson")
 
+    def test_opencv_dnn_needs_its_model_files(self):
+        with self.assertRaises(ConfigError):
+            self.cfg(AIRLOCK_OBSERVER="opencv_dnn", AIRLOCK_DNN_PROTOTXT=os.path.join(self.d, "missing.prototxt"))
+        proto, model = os.path.join(self.d, "m.prototxt"), os.path.join(self.d, "m.caffemodel")
+        for f in (proto, model):
+            open(f, "w").close()
+        c = self.cfg(AIRLOCK_OBSERVER="opencv_dnn", AIRLOCK_DNN_PROTOTXT=proto, AIRLOCK_DNN_MODEL=model)
+        self.assertEqual((c.observer, c.dnn_prototxt, c.dnn_model), ("opencv_dnn", proto, model))
+
     def test_world_readable_token_is_refused(self):
         os.chmod(self.token_path, 0o644)
         with self.assertRaises(ConfigError):
@@ -735,6 +744,48 @@ class TestRuntimeEndToEnd(unittest.TestCase):
             audit = f.read()
         for word in ("jpeg", "embedding", "image"):
             self.assertNotIn(word, audit)
+
+
+class TestOpenCvDnnPersonProvider(unittest.TestCase):
+    """Fake cv2.dnn net: only VOC class 15 above threshold becomes a person box mapped to its zone."""
+
+    def test_person_only_threshold_and_zone(self):
+        try:
+            import numpy as np
+            import cv2
+        except ImportError:
+            self.skipTest("needs numpy + cv2")
+        from unittest import mock
+
+        dets = np.zeros((1, 1, 4, 7), np.float32)
+        dets[0, 0, 0] = [0, 15, 0.82, 0.5, 0.25, 1.0, 1.0]   # person in desk zone
+        dets[0, 0, 1] = [0, 15, 0.30, 0.0, 0.0, 0.04, 0.04]  # person below threshold
+        dets[0, 0, 2] = [0, 7, 0.99, 0.4, 0.4, 0.9, 0.9]     # car: never counts
+        dets[0, 0, 3] = [0, 15, 0.91, -0.1, -0.1, 0.05, 0.05]  # person in door zone, clamped to frame
+
+        class Net(object):
+            def setInput(self, blob):
+                self.blob = blob
+
+            def forward(self):
+                return dets
+
+        # create=True: some OpenCV wheels (the Mac venv's) ship without the dnn functions.
+        with mock.patch.object(cv2.dnn, "readNetFromCaffe", return_value=Net(), create=True), \
+                mock.patch.object(cv2.dnn, "blobFromImage", side_effect=lambda img, *a: img, create=True):
+            from locki_edge.observers import OpenCvDnnPersonProvider, Zone
+            p = OpenCvDnnPersonProvider([Zone("desk_01", 0.4, 0.3, 1.0, 1.0), Zone("door", 0.0, 0.0, 0.05, 0.05)],
+                                        "x.prototxt", "x.caffemodel", threshold=0.5)
+            obs = p.observe(np.zeros((480, 640, 3), np.uint8), "2026-11-08T00:00:00.000Z")
+        by_zone = {o.zone_id: o for o in obs}
+        self.assertEqual(p.capabilities, frozenset(("person",)))
+        self.assertEqual(sorted(by_zone), ["desk_01", "door"])
+        self.assertEqual(by_zone["desk_01"].kind, "person_in_zone")
+        self.assertAlmostEqual(by_zone["desk_01"].confidence, 0.82, places=5)
+        self.assertEqual(by_zone["desk_01"].metadata["bbox"], [0.5, 0.25, 1.0, 1.0])
+        self.assertAlmostEqual(by_zone["door"].confidence, 0.91, places=5)
+        self.assertEqual(by_zone["door"].metadata["bbox"], [0.0, 0.0, 0.05, 0.05])
+        self.assertEqual(p.version, "opencv-dnn/mobilenet-ssd-voc")
 
 
 if __name__ == "__main__":

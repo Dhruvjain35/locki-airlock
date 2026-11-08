@@ -6,6 +6,7 @@ Providers:
   BaselineMotionProvider  pixel change inside each zone (OpenCV MOG2, from vision.py). Capability
                           "motion" ONLY: it can emit motion_in_zone, never person or face kinds.
   DetectNetPersonProvider NVIDIA jetson-inference detectNet person boxes (Jetson only, TensorRT).
+  OpenCvDnnPersonProvider MobileNet-SSD person boxes on OpenCV DNN (JetPack 6, where detectNet's models fail).
   FixtureProvider         scripted observations for tests. Always simulated=true.
   PluginProvider          Dhruv's CV adapter, loaded from "package.module:factory" WITHOUT copying
                           his code. Its declared capabilities gate what it may emit.
@@ -126,6 +127,18 @@ class DetectNetPersonProvider(ObservationProvider):
                                              self.version, {"bbox": [round(v, 3) for v in best.bbox],
                                                             "zone_overlap": round(best_ov, 3)}))
         return out
+
+
+class OpenCvDnnPersonProvider(DetectNetPersonProvider):
+    """Same zone mapping as detectNet; the boxes come from MobileNet-SSD on OpenCV DNN (JetPack 6 path)."""
+    name = "opencv_dnn_person"
+
+    def __init__(self, zones, prototxt, caffemodel, threshold=0.5, min_overlap=0.3):
+        from .vision import OpenCvDnnDetector
+        self.detector = OpenCvDnnDetector(prototxt, caffemodel, threshold=threshold)
+        self.version = "opencv-dnn/mobilenet-ssd-voc"
+        self.zones = zones
+        self.min_overlap = float(min_overlap)
 
 
 def apple_vision_human_detector():
