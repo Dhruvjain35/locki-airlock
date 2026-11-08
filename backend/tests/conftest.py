@@ -57,6 +57,8 @@ def _no_real_models_or_investigator(monkeypatch, tmp_path):
         monkeypatch.setenv(name, "http://127.0.0.1:9")
     monkeypatch.setenv("LOCKI_INVESTIGATOR_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("LOCKI_INVESTIGATOR_KEY_FILE", str(tmp_path / "no-investigator.key"))
+    # Starlette's TestClient sends Host: testserver. Allowed in tests only; the production default is loopback alone.
+    monkeypatch.setenv("LOCKEDIN_TRUSTED_HOSTS", '["127.0.0.1", "localhost", "::1", "testserver"]')
 
 
 @pytest.fixture

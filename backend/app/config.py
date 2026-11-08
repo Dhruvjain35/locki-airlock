@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     data_dir: Path = PROJECT_ROOT / "data"
     models_dir: Path = PROJECT_ROOT / "backend" / "models"
     cors_origins: list[str] = ["http://localhost:5174", "http://127.0.0.1:5174"]
+    # Host names this backend answers to (any port). Loopback only, so a DNS-rebinding page is refused (app/api/local_only.py).
+    trusted_hosts: list[str] = ["127.0.0.1", "localhost", "::1"]
     log_level: str = "INFO"
 
     # Robot ------------------------------------------------------------------
