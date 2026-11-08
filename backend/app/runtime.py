@@ -2221,6 +2221,11 @@ class LockedInRuntime:
                                                                                  "investigation_id": view.get("investigation_id"), "evidence_badge": view.get("evidence_badge")})
         return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=self.nemotron_service.last)
 
+    def _recorded_security_refusal(self, kind: str) -> CommandResult:
+        """A recording asked to arm or disarm. It never does either, and no grant is touched; LOCKI says so aloud and where the owner acts."""
+        reply = self._say("security_recorded_cannot_disarm" if kind == "disarm" else "security_recorded_cannot_arm")
+        return self._result(False, "Recorded speech cannot arm or disarm. The owner arms and disarms in the authenticated LOCKI owner console.", reply)
+
     def stop_speaking(self) -> dict:
         """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
         self.speaker.interrupt("owner pressed stop speaking")
@@ -2287,7 +2292,7 @@ class LockedInRuntime:
 
         original_security_intent = security_voice_intent(text)
         if source == "recorded" and original_security_intent is not None:
-            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
+            return self._recorded_security_refusal(original_security_intent)
         text = (text or "").strip()[:300]
         exclude = frozenset() if self.missions.active else NEEDS_MISSION  # with no mission these mean what they always meant
         if not self.security.enabled:
@@ -2434,7 +2439,7 @@ class LockedInRuntime:
         n = intent.name
         s = intent.slots
         if origin == "recorded" and n in {IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION}:
-            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
+            return self._recorded_security_refusal("arm" if n == IntentName.ARM_WORKSTATION else "disarm")
         if n == IntentName.EMERGENCY_STOP:
             return await self.emergency_stop(origin=origin, reason=f"voice: {intent.text}")
         if n == IntentName.ARM_WORKSTATION:
