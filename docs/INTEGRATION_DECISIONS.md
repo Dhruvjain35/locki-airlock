@@ -33,7 +33,7 @@ agreed until Sid approves them in review. Apart from the one-line docstring in r
 |---|---|---|---|---|
 | 8 | `Makefile`: Sid's new top-level `SPACETIME` variable is the path of the `spacetime` CLI. Our Mac target read `$(SPACETIME)` as the database URL | Unchanged, `make airlock-mac` would have pointed the Mac backend at the CLI binary's path as its server | Our variable is renamed `SPACETIME_URL` (`make airlock-mac SPACETIME_URL=... SPACETIME_DB=...`) | Dhruv |
 | 9 | Sid's `backend/app/security/voice_service.py` (standalone loopback speech service), `announcements.py`, and `mac_observer.py` (USB snapshot poller) sit beside our voice stack and IOKit watcher | They are a second incident-to-speech path and a second USB monitor. `mac_observer.py` doesn't take our `usb-monitor.lock`, so it can run beside the backend. Nothing of ours imports them, and only Sid's `scripts/airlock_mac_bridge.ts`, `airlock_voice_bridge.ts` and `airlock_observer_smoke.ts` start them | Both kept and neither wired up. **Rule: one voice consumer and one USB monitor per workstation.** For the demo that's the Mac backend (`make airlock-mac`), so don't start Sid's voice or observer bridges beside it. Which one is the long-term path is for Sid and Dhruv | Sid and Dhruv |
-| 10 | Sid's ARM delegation (`authorize_arm`, `arm_session_delegated`, `revoke_arm_authorization`, `docs/airlock/ARM_DELEGATION.md`) | It's additive and tested locally, but **not deployed** to `locki-w91bw`, and no client issues a grant yet. Sid asks that it be wired into Dhruv's voice path explicitly, not through his generic speech handler | Not wired. Voice arming still asks the owner to confirm on the dashboard, and voice disarm stays denied. Wiring it is a later PR on `feature/voice`, after Sid deploys the reducers. A grant must come from the owner's persistent SDK WebSocket | Dhruv after Sid deploys |
+| 10 | Sid's ARM delegation (`authorize_arm`, `arm_session_delegated`, `revoke_arm_authorization`), **deployed to `locki-w91bw` on 2026-11-08** | Sid asked that it be wired into Dhruv's voice path explicitly, not through his generic speech handler | **Wired on the Mac** (`backend/app/security/arm_delegation.py`). The Mac follows `my_arm_authorizations`. A spoken ARM intent with a current grant for this device calls only `arm_session_delegated(workstation, authorization)`, and LOCKI says armed only when the armed session comes back through `my_sessions`. Voice disarm stays denied. The owner's grant must come from the dashboard's persistent SDK connection | Dhruv (Mac), Sid (owner grant UI) |
 | 11 | Old checkout paths in `docs/airlock/DEMO.md` (`~/locked-in`) | They would point at the old repository | Now `~/locki-airlock` | Dhruv |
 
 ## Requirements both sides keep
@@ -49,3 +49,11 @@ These are acceptance requirements, whichever side of a conflict they came from:
 - dry-run locks
 - owner-only arming and disarming
 - a face match never disarms
+
+## Added on `integration/voice-cv-sid`
+
+| What | Decision |
+|---|---|
+| Jetson person events | Sid's module keeps a jetson `person_in_zone` as a soft observation and opens no incident. So the Mac follows `my_device_events` for the cameras the owner lists (`LOCKEDIN_SPACETIME_REMOTE_CAMERAS=jetson-01`; none by default). A listed camera's real rows feed the same mode engine and presence warning as the Mac's camera, once each and only for the armed session. Age is judged on the server's `received_at_ms`, never on the camera's clock |
+| Natural arm and disarm phrases | More of the owner's own words reach the arm and disarm intents. "I'm back" while armed asks to stand down. No phrase arms or disarms by itself |
+| Sid's `43b40dd` | Added as a snapshot (investigator evidence access, the live ARM deployment record). The module source is Sid's exactly |
