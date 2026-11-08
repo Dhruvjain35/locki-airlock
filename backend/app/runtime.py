@@ -2276,6 +2276,8 @@ class LockedInRuntime:
         if n == IntentName.PAUSE:
             return await self.pause_session(origin=origin)
         if n == IntentName.RESUME:
+            if self.security.enabled and self.security.session is not None and not self.sessions.active and re.search(r"\b(i am|we are) back\b", intent.text or ""):
+                return self.security.request_disarm_by_voice()  # "I'm back" while armed means the owner wants to stand down; it still needs the dashboard
             if not self.sessions.active:
                 return await self.start_session(origin=origin)
             return await self.resume_session(origin=origin)

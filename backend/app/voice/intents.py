@@ -282,13 +282,16 @@ RULES: list[_Rule] = [
     _r(IntentName.UNMUTE, r"\b(unmute|you can talk( again)?|talk again|speak again|you can speak)\b"),
     _r(IntentName.MUTE, r"\b(stop talking|shut up|be quiet|quiet mode|mute( yourself)?|silence|hush|shush|shh+|zip it|pipe down|stop yapping|stop speaking)\b|^quiet( please)?$"),
     _r(IntentName.RELEASE, r"\b(give (me )?(back )?my phone( back)?|give (it|me it) back|phone back|release( the| my)? phone|release|i need my phone|let me (have|use|get) my phone|hand (me )?(over )?my phone|unlock my phone|i want my phone|(can|could|may) i (have|get) (my |the )?phone( back)?|give (it|that) (here|back)|phone please|i need (it|that) back)\b"),
-    _r(IntentName.DISARM_WORKSTATION, r"\bdisarm\b|\b(turn|switch) off (the )?security\b|\bstand down\b", 0.95, "disarm_workstation"),
+    _r(IntentName.DISARM_WORKSTATION, r"\bdisarm\b|\b(turn|switch) off (the )?security\b|\bstand down\b|\b(you can )?stop (watching|guarding)( my (desk|workstation|stuff|computer|laptop|mac))?\b"
+       r"|\b(you can )?(relax|chill)[, ]+(i am|we are) (back|good)\b", 0.95, "disarm_workstation"),
     _r(IntentName.SECURITY_DESK, r"\b(is|was|are|were) (any|some)(one|body) (at|near|by|on|using|touching) my (desk|workstation|computer|laptop|mac|keyboard)\b"
        r"|\bwho('s| is| was| has been| came| went)? ?(at|near|by|to|over to) my (desk|workstation|computer|laptop|mac)\b"
        r"|\bdid (any|some)(one|body) (touch|use|type on|go near|come near|mess with|plug (something|anything) into) my (laptop|computer|keyboard|mac|desk|workstation|stuff)\b"
        r"|\b(has|have) (any|some)(one|body) (touched|used|been at|been near|been to) my (laptop|computer|keyboard|mac|desk|workstation)\b", 0.9, "security_desk"),
     _r(IntentName.ARM_WORKSTATION, r"\barm\b.{0,20}\b(workstation|desk|mac|computer|laptop|station|security|system)\b|\b(watch|guard|protect|secure) my (desk|workstation|mac|computer|laptop|setup|stuff)\b"
-       r"|\bkeep an eye on my (desk|workstation|mac|computer|laptop|setup|stuff)\b", 0.95, "arm_workstation"),
+       r"|\b(watch|guard) (the|my) (desk|workstation|place|stuff|things)\b"
+       r"|\bkeep an eye on (my (desk|workstation|mac|computer|laptop|setup|stuff|things)|everything|things|it all|the (desk|place|workstation))\b"
+       r"|\b(make sure|do not let) (nobody|no one|anybody|anyone|no body) (touches|touch|messes with|mess with|uses|use|goes near|go near) (my|the) (desk|workstation|stuff|things|computer|laptop|mac|setup)\b", 0.95, "arm_workstation"),
     _r(IntentName.SECURITY_WHAT_HAPPENED, r"\bwhat (just )?happened\b|\bwhat did you (see|detect|find)\b|\bwhy did you (warn|alert|lock)\b|\bwhat (was|is) (that|the) (alert|warning|alarm)\b|\b(explain|tell me about) (the|that) (alert|incident|warning)\b|\bwas (anything|anyone) (here|plugged in)\b", 0.9, "security_what_happened"),
     _r(IntentName.ABANDON_MISSION, r"\b(abandon|cancel|drop|end|quit|stop|forget)\b.{0,12}\b(mission|quest)\b", 0.95, "abandon_mission"),
     _r(IntentName.START_MISSION, r"\b(start|begin|new|create|launch)\b.{0,15}\b(mission|quest)\b|\bcode quest\b|\bmy (mission|objective) is\b|\bi am (building|implementing|debugging|coding|shipping)\b"

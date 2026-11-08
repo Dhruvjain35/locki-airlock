@@ -639,3 +639,21 @@ async def test_a_bug_in_the_camera_handler_is_not_counted_as_a_bad_row():
     await sub._message(device_event_message([jetson_row()]))
     assert sub.rows_rejected == 0 and sub.camera_rows == 1 and "camera handler failed" in sub.last_error
 
+
+@pytest.mark.parametrize("phrase, intent", [
+    ("LOCKI, watch my desk.", "arm_workstation"), ("I'm heading out. Keep an eye on everything.", "arm_workstation"),
+    ("Yo LOCKI, secure my workstation.", "arm_workstation"), ("I'll be back. Make sure nobody touches my stuff.", "arm_workstation"),
+    ("You can stop watching now.", "disarm_workstation"), ("Alright, we're good. Stand down.", "disarm_workstation"),
+    ("stop", "stop_motion"), ("keep an eye on the time", "unknown"),
+])
+def test_the_owners_own_words_reach_the_security_intents(phrase, intent):
+    from app.voice.intents import IntentClassifier
+
+    assert IntentClassifier().classify(phrase).name == intent
+
+
+async def test_im_back_while_armed_asks_for_the_dashboard_and_leaves_the_database_armed(rt):
+    h = await following(rt)
+    rt.security.apply_remote_session(remote())
+    r = await rt.handle_utterance("LOCKI, I'm back.", source="text", stt_confidence=1.0)
+    assert not r.ok and "dashboard" in r.message and rt.security.session is not None and not rt.sessions.active
