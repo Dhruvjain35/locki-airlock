@@ -86,7 +86,8 @@ export function gateStatus(mac: MacLink): StatusLine & { tools: string[] } {
 export function warningAudio(mac: MacLink): StatusLine {
   if (mac.status !== "live") return { label: "Unverified", tone: "muted", detail: "This Mac's backend isn't responding." };
   const armedAt = Number(mac.data?.session?.armed_at_ms) || 0;
-  const w = (mac.data?.warnings ?? []).filter((x: any) => Number(x?.at) * 1000 >= armedAt).slice(-1)[0];
+  // A skipped record is a repeat the Mac deliberately didn't say again, never a newer warning: it can't hide the one that played.
+  const w = (mac.data?.warnings ?? []).filter((x: any) => Number(x?.at) * 1000 >= armedAt && !x?.skipped).slice(-1)[0];
   if (!w) return { label: "None yet", tone: "muted", detail: "No security warning has played this session." };
   if (warningPlayed(w)) return { label: "Played", tone: "ok", detail: w.audio?.source_label ? String(w.audio.source_label) : "Reached the speaker." };
   if (w.audio?.outcome) return { label: "Not played", tone: "alert", detail: playbackLabel(w).text.replace(/^Not played · /, "") };

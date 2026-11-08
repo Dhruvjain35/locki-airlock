@@ -5,7 +5,9 @@
 //   ?fixture=1 or ?fixture=incident  armed session with an open high-severity incident (investigator access approved)
 //   ?fixture=armed                    armed session, no incident
 //   ?fixture=off                      protection off, one past session in History
-//   &native=off                       (with an armed scenario) the native alert window is reported as not running
+//   &native=off                       (with an armed scenario) the native alert window is reported as not running; with the
+//                                     incident scenario the console's own full-viewport fallback view opens, labelled degraded
+//   &present=1                        presentation mode
 import { useState } from "react";
 import type { AirlockData, ConnectionConfig } from "./client";
 import { INVESTIGATOR_IDENTITY } from "./protection";
@@ -51,8 +53,8 @@ function data(): AirlockData {
     ],
     events: [...(armed ? sessionEvents : []), past],
     incidents: [
-      ...(withIncident ? [{ id: INCIDENT, workstationId: WS, sessionId: SESSION, ruleId: "correlated_usb_physical", severity: "high", state: "open", createdAtMs: at(367.6), physicalEventId: person.id, digitalEventId: usb.id, summary: "Unknown USB storage connected 4.0 s after a person entered the desk zone.", eventIdsJson: JSON.stringify([person.id, usb.id]) }] : []),
-      { id: "incident:2a9c4e7f0b3d41e8a6c5d9f2b1e7a043", workstationId: WS, sessionId: PAST, ruleId: "unknown_usb", severity: "medium", state: "open", createdAtMs: at(4.7 * 3600), summary: "Unknown USB while armed.", eventIdsJson: "[]" },
+      ...(withIncident ? [{ id: INCIDENT, workstationId: WS, sessionId: SESSION, ruleId: "correlated_usb_physical", severity: "high", state: "open", simulated: false, createdAtMs: at(367.6), physicalEventId: person.id, digitalEventId: usb.id, summary: "Unknown USB storage connected 4.0 s after a person entered the desk zone.", eventIdsJson: JSON.stringify([person.id, usb.id]) }] : []),
+      { id: "incident:2a9c4e7f0b3d41e8a6c5d9f2b1e7a043", workstationId: WS, sessionId: PAST, ruleId: "unknown_usb", severity: "medium", state: "open", simulated: false, createdAtMs: at(4.7 * 3600), summary: "Unknown USB while armed.", eventIdsJson: "[]" },
     ],
     health: [
       { workstationId: WS, deviceId: "jetson-01", component: "camera", status: "online", detail: "Brio 101 · 15 fps", lastSeenMs: at(2) },
@@ -87,12 +89,13 @@ function security(now: number) {
     remote_camera: armed ? { kind: "person_in_zone", device_id: "jetson-01", event_id: "9a3c5e71-2d4f-4b86-a1e0-c7f3b8d2e649", server_received_at_ms: now - 4_200, acted_on: true } : null,
     camera_events: [{ event_id: "9a3c5e71-2d4f-4b86-a1e0-c7f3b8d2e649", kind: "person_in_zone", zone: "desk_01", confidence: 0.91 }],
     warnings: armed ? [
-      { event_id: "0b9f8c11", reason: "person_at_desk", spoken: true, at: at(789) / 1000, audio: { outcome: "finished", source_label: "Kokoro" } },
-      ...(withIncident ? [{ event_id: "c41e7b20", reason: "correlated", spoken: true, at: at(367.2) / 1000, audio: { outcome: "finished", source_label: "Kokoro" } }] : []),
+      { event_id: "0b9f8c11", reason: "person_at_desk", spoken: true, played: true, at: at(789) / 1000, audio: { outcome: "finished", source: "kokoro", source_label: "Kokoro" } },
+      ...(withIncident ? [{ event_id: "c41e7b20", reason: "correlated", spoken: true, played: true, at: at(367.2) / 1000, audio: { outcome: "finished", source: "kokoro", source_label: "Kokoro" } }] : []),
       { event_id: "9a3c5e71", reason: "person_at_desk", skipped: true, at: at(7) / 1000 },
     ] : [],
     locks: withIncident ? [{ session_id: SESSION, status: "dry_run_recorded", dry_run: true }] : [],
     monitor: { running: true, usb: { connected: 3, error: null }, apps: { error: null } },
+    gate: { frozen: null, tools: [] },
     spacetimedb: { connected: true, authorized: true },
     takeover: {
       now_ms: now, armed, session_id: armed ? SESSION : null, workstation_id: WS, active: withIncident,

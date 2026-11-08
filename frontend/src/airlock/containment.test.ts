@@ -81,6 +81,13 @@ describe("status lines never claim more than the backend reports", () => {
     expect(warningAudio(m({ at: NOW / 1000, spoken: true })).label).toBe("Queued");
     expect(warningAudio(m({ at: (NOW - 5000) / 1000, spoken: true, audio: { outcome: "finished" } })).label).toBe("None yet");
   });
+  it("a skipped repeat never hides the warning that played", () => {
+    const played = { at: (NOW - 4000) / 1000, spoken: true, played: true, audio: { outcome: "finished", source: "kokoro_cache", source_label: "Local Kokoro voice" } };
+    const skipped = { at: (NOW - 1000) / 1000, reason: "person_at_desk", skipped: true };
+    const m2 = mac({ session: { session_id: S, armed_at_ms: NOW - 10_000 }, warnings: [played, skipped] });
+    expect(warningAudio(m2).label).toBe("Played");
+    expect(warningAudio(mac({ session: { session_id: S, armed_at_ms: NOW - 10_000 }, warnings: [skipped] })).label).toBe("None yet");
+  });
 });
 
 describe("Protect → Detect → Contain → Explain → Recover", () => {
