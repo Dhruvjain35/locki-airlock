@@ -1,5 +1,7 @@
 # LOCKI AIRLOCK judging runbook (target 2:40)
 
+This covers the timed run. Power-on, launch, READY and shutdown are in [`scripts/airlock_launcher/RUNBOOK.md`](../../scripts/airlock_launcher/RUNBOOK.md).
+
 Everything on screen is the real dashboard on real data. The only rehearsal path is the **Synthetic rehearsal** section under Advanced controls, which labels every row as synthetic and never appears in a live session.
 
 ## Before judges arrive (not timed)
@@ -9,7 +11,7 @@ Everything on screen is the real dashboard on real data. The only rehearsal path
      - backend: `cd <backend checkout> && LOCKEDIN_SPACETIME_REMOTE_CAMERAS=jetson-01 LOCKEDIN_LOCAL_LLM_BACKEND=ollama LOCKEDIN_OLLAMA_URL=http://127.0.0.1:11435 LOCKEDIN_AIRLOCK_OLLAMA_URL=http://127.0.0.1:11435 make airlock-mac`
      - dashboard: `cd <frontend checkout>/frontend && VITE_SPACETIMEDB_URI=https://maincloud.spacetimedb.com VITE_SPACETIMEDB_DATABASE=locki-w91bw npm run dev`
    - Keep `LOCK` and `VISION` unset, so screen lock stays dry run and the camera stays off.
-2. Open `http://127.0.0.1:5174/?product=airlock&present=1` in the owner's browser profile. Signed in as **Owner**, it shows **PROTECTION OFF**, three green indicators (Mac, Jetson, SpacetimeDB), and the flow strip Protect → Detect → Contain → Explain → Recover.
+2. Open the owner dashboard from the **LOCKI AIRLOCK** app, or from the saved owner address. That address carries `client=owner-recovered-…`; a bare `127.0.0.1:5174` opens the wrong browser slot and shows Unenrolled. Then pick **owner menu → Presentation mode**, or append `&present=1` to that address. Signed in as **Owner**, it shows **PROTECTION OFF**, three green indicators (Mac, Jetson, SpacetimeDB) and the strip Protect → Detect → Contain → Explain → Recover.
 3. Speaker: the JBL is the macOS default output and is **not muted**. The dashboard shows a red "Voice output is muted" line otherwise.
 4. If an amber "investigator still has read access" line shows, click **Revoke access** so the run starts clean.
 5. Have one harmless USB stick ready that was **unplugged** when protection starts.

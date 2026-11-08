@@ -1,5 +1,6 @@
 import { type Row, milliseconds, words } from "./format";
 import { type MacLink, reportedStage } from "./macSecurity";
+import { playbackLabel, warningPlayed } from "./protection";
 
 /** An incident older than this never opens the full-screen view by itself: a reload, a reconnect or a replayed subscription shows it in
  *  the dashboard, never as a fresh takeover. */
@@ -87,9 +88,8 @@ export function warningAudio(mac: MacLink): StatusLine {
   const armedAt = Number(mac.data?.session?.armed_at_ms) || 0;
   const w = (mac.data?.warnings ?? []).filter((x: any) => Number(x?.at) * 1000 >= armedAt).slice(-1)[0];
   if (!w) return { label: "None yet", tone: "muted", detail: "No security warning has played this session." };
-  const outcome = w.audio?.outcome;
-  if (outcome === "finished") return { label: "Played", tone: "ok", detail: w.audio?.source_label ? String(w.audio.source_label) : "Finished playing." };
-  if (outcome) return { label: words(outcome), tone: "warn", detail: "Reported by the Mac's speaker." };
+  if (warningPlayed(w)) return { label: "Played", tone: "ok", detail: w.audio?.source_label ? String(w.audio.source_label) : "Reached the speaker." };
+  if (w.audio?.outcome) return { label: "Not played", tone: "alert", detail: playbackLabel(w).text.replace(/^Not played · /, "") };
   return { label: w.spoken ? "Queued" : "Not played", tone: w.spoken ? "warn" : "muted", detail: "No playback receipt yet." };
 }
 

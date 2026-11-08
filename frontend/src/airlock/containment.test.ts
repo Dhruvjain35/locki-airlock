@@ -75,7 +75,9 @@ describe("status lines never claim more than the backend reports", () => {
   });
   it("reports warning audio from the playback receipt", () => {
     const m = (w: any) => mac({ session: { armed_at_ms: NOW - 1000 }, warnings: [w] });
-    expect(warningAudio(m({ at: NOW / 1000, spoken: true, audio: { outcome: "finished", source_label: "Local Kokoro voice" } })).label).toBe("Played");
+    expect(warningAudio(m({ at: NOW / 1000, spoken: true, audio: { outcome: "finished", source: "kokoro_cache", source_label: "Local Kokoro voice" } })).label).toBe("Played");
+    expect(warningAudio(m({ at: NOW / 1000, spoken: true, audio: { outcome: "finished", source: "text_only", source_label: "Text only" } }))).toMatchObject({ label: "Not played", tone: "alert", detail: "Text only" });
+    expect(warningAudio(m({ at: NOW / 1000, spoken: true, played: false, audio: { outcome: "finished", source: "kokoro_live" } })).label).toBe("Not played");
     expect(warningAudio(m({ at: NOW / 1000, spoken: true })).label).toBe("Queued");
     expect(warningAudio(m({ at: (NOW - 5000) / 1000, spoken: true, audio: { outcome: "finished" } })).label).toBe("None yet");
   });

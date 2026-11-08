@@ -127,11 +127,22 @@ export function describeEvent(e: Row): EventView {
   }
 }
 
+/** Whether a warning's audio actually reached a speaker. The Mac's own `played` verdict wins: a clip that "finished" as text only (no output
+ *  device, or the device in its retry window) was never heard, and a function returning is never treated as audio success. */
+export function warningPlayed(w: any): boolean {
+  if (typeof w?.played === "boolean") return w.played;
+  const audio = w?.audio;
+  return audio?.outcome === "finished" && typeof audio?.source === "string" && !["text_only", "none", ""].includes(audio.source);
+}
+
 /** What actually happened to a spoken warning, from the Mac's own playback receipt. */
 export function playbackLabel(w: any): { text: string; ok: boolean } {
   const audio = w?.audio;
-  if (audio?.outcome === "finished") return { text: `Played${audio.source_label ? ` · ${audio.source_label}` : ""}`, ok: true };
-  if (audio?.outcome) return { text: words(audio.outcome), ok: false };
+  if (warningPlayed(w)) return { text: `Played${audio?.source_label ? ` · ${audio.source_label}` : ""}`, ok: true };
+  if (audio?.outcome) {
+    const why = [audio.source_label || (audio.source === "text_only" ? "Text only" : ""), audio.detail].filter(Boolean).join(" · ");
+    return { text: `Not played${why ? ` · ${why}` : audio.outcome === "finished" ? " · no audio source reported" : ` · ${words(audio.outcome)}`}`, ok: false };
+  }
   if (w?.skipped) return { text: "Not repeated", ok: false };
   return { text: w?.spoken ? "Queued for playback" : "Not played", ok: false };
 }

@@ -110,7 +110,11 @@ describe("presentation helpers", () => {
     expect(describeEvent({ kind: "usb_added", deviceId: "mac-1", metadataJson: "{}" }).detail).toBe("");
   });
   it("reports playback from the receipt", () => {
-    expect(playbackLabel({ spoken: true, audio: { outcome: "finished", source_label: "Local Kokoro voice (pre-rendered)" } })).toEqual({ text: "Played · Local Kokoro voice (pre-rendered)", ok: true });
+    expect(playbackLabel({ spoken: true, audio: { outcome: "finished", source: "kokoro_cache", source_label: "Local Kokoro voice (pre-rendered)" } })).toEqual({ text: "Played · Local Kokoro voice (pre-rendered)", ok: true });
+    expect(playbackLabel({ spoken: true, audio: { outcome: "finished", source: "text_only", source_label: "Text only", detail: "audio output unavailable" } })).toEqual({ text: "Not played · Text only · audio output unavailable", ok: false });
+    expect(playbackLabel({ spoken: true, played: false, audio: { outcome: "finished", source: "kokoro_live" } }).ok).toBe(false);
+    expect(playbackLabel({ spoken: true, played: true, audio: { outcome: "finished", source: "kokoro_live", source_label: "Local Kokoro voice" } }).ok).toBe(true);
+    expect(playbackLabel({ spoken: true, audio: { outcome: "finished" } })).toEqual({ text: "Not played · no audio source reported", ok: false });
     expect(playbackLabel({ spoken: true }).ok).toBe(false);
     expect(playbackLabel({ spoken: false, skipped: true }).text).toBe("Not repeated");
   });
