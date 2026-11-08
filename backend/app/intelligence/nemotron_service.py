@@ -14,8 +14,10 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import stat
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -35,17 +37,29 @@ class NemotronService:
         self.url = (url or os.environ.get("LOCKI_INVESTIGATOR_URL") or "http://127.0.0.1:18787").rstrip("/")
         self.key_file = Path(os.path.expanduser(key_file or os.environ.get("LOCKI_INVESTIGATOR_KEY_FILE") or "~/.locki/investigator.key"))
         self._client = client
-        self.last: dict | None = None  # the last run: ids, status, badge and timings (no evidence text)
+        self.last: dict | None = None  # the current or last run: ids, status, badge and timings (no evidence text)
+
+    def loopback(self) -> bool:
+        """The key only ever goes to the local end of the SSH tunnel."""
+        parts = urlsplit(self.url)
+        return parts.scheme == "http" and (parts.hostname or "") in ("127.0.0.1", "localhost", "::1")
 
     def configured(self) -> bool:
+        """A loopback URL and an owner-only, regular, non-empty key file (a symlink or a group/world-readable file is refused)."""
+        if not self.loopback():
+            return False
         try:
-            return self.key_file.is_file() and self.key_file.stat().st_size > 0
+            st = self.key_file.lstat()
         except OSError:
             return False
+        return stat.S_ISREG(st.st_mode) and st.st_size > 0 and (st.st_mode & 0o077) == 0
+
+    def _new_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=8.0, trust_env=False)  # never through a proxy from the environment
 
     @staticmethod
     def accepts(incident_id: str | None) -> bool:
-        return bool(incident_id and LIVE_INCIDENT.match(incident_id))
+        return isinstance(incident_id, str) and LIVE_INCIDENT.fullmatch(incident_id) is not None
 
     def _headers(self) -> dict:
         try:
@@ -58,10 +72,20 @@ class NemotronService:
 
     async def investigate(self, incident_id: str, note: str = "owner asked by voice: what happened?") -> dict:
         """Start a live investigation of one real incident and wait for its voice view. Returns the voice view plus timings."""
+        self.last = {"incident_id": incident_id, "status": "starting", "evidence_badge": None}  # never a previous run's result
+        try:
+            return await self._investigate(incident_id, note)
+        except InvestigatorUnavailable as exc:
+            self.last.update(status="unavailable", error=str(exc), evidence_badge=None)
+            raise
+
+    async def _investigate(self, incident_id: str, note: str) -> dict:
         if not self.accepts(incident_id):
             raise InvestigatorUnavailable("that incident isn't a live SpacetimeDB incident")
+        if not self.loopback():
+            raise InvestigatorUnavailable("the investigator URL is not on this Mac's loopback")
         t0 = time.monotonic()
-        client = self._client or httpx.AsyncClient(timeout=8.0)
+        client = self._client or self._new_client()
         try:
             body = {"incident_id": incident_id, "evidence_mode": "live", "requester": {"identity": "dhruv-m4-backend", "display_name": "LOCKI voice"},
                     "context": {"note": note[:500]}}
@@ -72,7 +96,7 @@ class NemotronService:
             inv_id = inv["investigation_id"]
             if inv.get("evidence_mode") != "live":
                 raise InvestigatorUnavailable("the service did not accept the run as live evidence")
-            self.last = {"investigation_id": inv_id, "incident_id": incident_id, "status": inv.get("status"), "started_ms": round((time.monotonic() - t0) * 1000, 1)}
+            self.last.update(investigation_id=inv_id, status=inv.get("status"), started_ms=round((time.monotonic() - t0) * 1000, 1))
             deadline = t0 + DEADLINE_S
             view: dict = {}
             while time.monotonic() < deadline:
@@ -85,15 +109,18 @@ class NemotronService:
                     break
             else:
                 raise InvestigatorUnavailable(f"no result within {DEADLINE_S:.0f} s")
-            self.last.update(status=view.get("status"), evidence_badge=view.get("evidence_badge"), total_ms=round((time.monotonic() - t0) * 1000, 1),
+            self.last.update(status=view.get("status"), total_ms=round((time.monotonic() - t0) * 1000, 1),
                              needs_review=view.get("needs_review"), spoken_summary_source=view.get("spoken_summary_source"))
             if view.get("status") not in ANSWERED or not view.get("spoken_summary"):
                 raise InvestigatorUnavailable(f"the investigation ended {view.get('status')} without an assessment")
             if view.get("evidence_mode") != "live" or view.get("evidence_badge") != "LIVE" or view.get("evidence_live") is False:
                 raise InvestigatorUnavailable("the result was not marked as live evidence")
+            self.last["evidence_badge"] = "LIVE"  # only now: an answered run on live, authorized evidence
             return {**view, "total_ms": self.last["total_ms"]}
         except httpx.HTTPError as exc:
             raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
+        except (ValueError, KeyError, TypeError, UnicodeError) as exc:
+            raise InvestigatorUnavailable("the investigator's reply could not be read") from exc
         finally:
             if self._client is None:
                 await client.aclose()
@@ -101,9 +128,9 @@ class NemotronService:
 
     async def record(self, investigation_id: str) -> dict:
         """One of this requester's investigations, trimmed for display (read-only)."""
-        if not INVESTIGATION_ID.match(investigation_id or ""):
+        if not isinstance(investigation_id, str) or INVESTIGATION_ID.fullmatch(investigation_id) is None:
             raise InvestigatorUnavailable("that is not an investigation id")
-        client = self._client or httpx.AsyncClient(timeout=8.0)
+        client = self._client or self._new_client()
         try:
             r = await client.get(f"{self.url}/investigations/{investigation_id}", headers=self._headers())
             if r.status_code != 200:
@@ -111,6 +138,8 @@ class NemotronService:
             return trim_record(r.json())
         except httpx.HTTPError as exc:
             raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
+        except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+            raise InvestigatorUnavailable("the investigator's reply could not be read") from exc
         finally:
             if self._client is None:
                 await client.aclose()

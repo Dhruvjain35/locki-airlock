@@ -286,6 +286,7 @@ class LockedInRuntime:
         from .intelligence.nemotron_service import NemotronService
 
         self.nemotron_service = NemotronService()  # Mustafa's investigator through the M4 tunnel; used only when its key file exists
+        self._nemotron_run: tuple[str, asyncio.Future] | None = None  # (incident id, running investigation)
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -2206,9 +2207,14 @@ class LockedInRuntime:
         the service's own spoken summary. If it can't, LOCKI says so and reads only the local record, never presented as Nemotron's."""
         from .intelligence.nemotron_service import InvestigatorUnavailable
 
+        running = self._nemotron_run
+        if running is not None and not running[1].done() and running[0] == incident_id:
+            return self._result(True, "already investigating this incident with Nemotron", self._say("security_checking"))  # one run per incident
         self._say("security_checking_nemotron")
+        task = asyncio.ensure_future(self.nemotron_service.investigate(incident_id))
+        self._nemotron_run = (incident_id, task)
         try:
-            view = await self.nemotron_service.investigate(incident_id)
+            view = await task
         except InvestigatorUnavailable as exc:
             reply = self._say("security_report", report=f"Nemotron couldn't review this one: {exc}. From the local record: {self.security.describe_record()}")
             return self._result(False, f"Nemotron unavailable ({exc}); answered from the local record", reply, nemotron=self.nemotron_service.last)
