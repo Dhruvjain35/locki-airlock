@@ -22,6 +22,7 @@ const VIEWS = {
   health: "myDeviceHealth", locks: "myLockRequests", actions: "myProtectedActions",
   approvals: "myApprovals", runs: "myAgentRuns", steps: "myAgentSteps",
   acknowledgements: "myAcknowledgements", audit: "myAuditEvents", baselines: "myBaselineSnapshots",
+  armAuthorizations: "myArmAuthorizations",
 } as const;
 
 export type TableName = keyof typeof VIEWS;

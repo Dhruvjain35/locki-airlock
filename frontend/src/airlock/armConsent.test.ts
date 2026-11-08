@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { armConsent, maySubmitLiveArm } from "./armConsent";
+import { armConsent, maySubmitLiveArm, voiceArmGrant } from "./armConsent";
 
 const station = { id: "desk", owner: "owner-a", ownerPolicyHash: "policy-a", policyVersion: 1, autoLockEnabled: true, lockCooldownMs: 30000n };
 const capture = { deviceId: "mac-a", publisher: { toHexString: () => "publisher-a" }, baselineJson: '["usb-b","usb-a"]', observedAtMs: 100000n };
@@ -54,5 +54,34 @@ describe("live arm consent", () => {
     }
     expect(armConsent(station, { ...capture, publisher: "" }, [], "60")).toBeNull();
     expect(armConsent(station, undefined, [], "60")).toBeNull();
+  });
+});
+
+describe("voice arm grant", () => {
+  const disarmedStation = { ...station, autoLockEnabled: false };
+  const liveCapture = { ...capture, activeAppId: "com.apple.Terminal" };
+  const ids = () => { let n = 0; return () => `id-${++n}`; };
+
+  it("carries only reviewed server values, fresh ids, and Sid's u64 limits", () => {
+    const g = voiceArmGrant(disarmedStation, liveCapture, armConsent(disarmedStation, liveCapture, ["b", "a", "a"], "15"), ["b", "a", "a"], "15", ids())!;
+    expect(g).toEqual({
+      workstationId: "desk", authorizationId: "voice-arm-id-1", deviceId: "mac-a", sessionId: "session-id-2", baselineJson: '["usb-a","usb-b"]',
+      activeAppId: "com.apple.Terminal", approvedAppsJson: '["a","b"]', expectedOwnerPolicyHash: "policy-a", durationMs: 900000n, ttlMs: 60000n,
+    });
+  });
+
+  it("refuses what authorize_arm would refuse", () => {
+    const reviewedLive = armConsent(disarmedStation, liveCapture, [], "60");
+    expect(voiceArmGrant(disarmedStation, liveCapture, reviewedLive, [], "240")).toBeNull();  // over an hour
+    expect(voiceArmGrant(station, liveCapture, armConsent(station, liveCapture, [], "60"), [], "60")).toBeNull();  // auto-lock on
+    expect(voiceArmGrant(disarmedStation, liveCapture, null, [], "60")).toBeNull();  // no reviewed capture
+    expect(voiceArmGrant({ ...disarmedStation, ownerPolicyHash: "" }, liveCapture, reviewedLive, [], "60")).toBeNull();
+  });
+
+  it("never reuses an id", () => {
+    const a = voiceArmGrant(disarmedStation, liveCapture, armConsent(disarmedStation, liveCapture, [], "60"), [], "60")!;
+    const b = voiceArmGrant(disarmedStation, liveCapture, armConsent(disarmedStation, liveCapture, [], "60"), [], "60")!;
+    expect(a.authorizationId).not.toBe(b.authorizationId);
+    expect(a.sessionId).not.toBe(b.sessionId);
   });
 });

@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Cable, Check, Copy, KeyRound, Laptop, LockKeyhole, ShieldCheck, Users, Wifi } from "lucide-react";
+import { Cable, Check, Copy, KeyRound, Laptop, LockKeyhole, Mic, ShieldCheck, Users, Wifi } from "lucide-react";
 import type { ConnectionConfig } from "./client";
 import { type Row, textValue, shortId, parseJson } from "./format";
 import { Badge, Button, FormField, Modal } from "./ui";
-import { armConsent, maySubmitLiveArm } from "./armConsent";
+import { armConsent, maySubmitLiveArm, voiceArmGrant, VOICE_MAX_DURATION_MIN } from "./armConsent";
 
 export type Perform = (reducer: string, args: Row, success?: string) => Promise<boolean>;
 const asList = (s: string) => s.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
@@ -33,7 +33,9 @@ export function RegisterForm({ perform, onClose, pending }: { perform: Perform; 
 }
 
 export function ArmForm({ station, previous, snapshots, perform, onClose, pending }: { station: Row; previous?: Row; snapshots: Row[]; perform: Perform; onClose: () => void; pending: boolean }) {
-  const [simulated, setSimulated] = useState(true);
+  const [simulated, setSimulatedState] = useState(true);
+  const [voice, setVoice] = useState(false);  // a one-use grant LOCKI consumes when the owner says "watch my desk", instead of arming now
+  const setSimulated = (v: boolean) => { setSimulatedState(v); setVoice(false); };
   const [baseline, setBaseline] = useState((parseJson(previous?.baselineJson, []) as string[]).join("\n"));
   const [apps, setApps] = useState((parseJson(previous?.approvedAppsJson, []) as string[]).join("\n"));
   const [consentedFingerprint, setConsentedFingerprint] = useState<string | null>(null);
@@ -45,21 +47,29 @@ export function ArmForm({ station, previous, snapshots, perform, onClose, pendin
   const fingerprint = reviewed?.fingerprint ?? null;
   const verified = fingerprint !== null && consentedFingerprint === fingerprint;
   // The derived match also gates submit immediately, before this effect runs.
-  useEffect(() => { setConsentedFingerprint(null); }, [fingerprint, simulated]);
+  useEffect(() => { setConsentedFingerprint(null); }, [fingerprint, simulated, voice]);
+  useEffect(() => { if (voice && Number(duration) > VOICE_MAX_DURATION_MIN) setDuration(String(VOICE_MAX_DURATION_MIN)); }, [voice, duration]);
   const capturedKeys = reviewed ? JSON.parse(reviewed.baselineJson) as string[] : [];
   return <Modal title="Arm the workstation" subtitle="Freeze a device baseline and response policy for this session." onClose={onClose}><form className="al-form" onSubmit={async e => {
     e.preventDefault();
     if (!simulated && !maySubmitLiveArm(consentedFingerprint, reviewed, latest?.observedAtMs, Date.now())) return;
+    if (voice) {
+      const grant = voiceArmGrant(station, latest, reviewed, asList(apps), duration);
+      if (!grant) return;
+      if (await perform("authorizeArm", grant, "Voice arming approved for 60 seconds on this console's connection. Say \u201cLOCKI, watch my desk.\u201d")) onClose();
+      return;
+    }
     const ok = await perform("armSession", { workstationId: station.id, sessionId: `session-${crypto.randomUUID()}`, baselineJson: simulated ? JSON.stringify(asList(baseline)) : reviewed!.baselineJson, approvedAppsJson: JSON.stringify(asList(apps)), durationMs: BigInt(Number(duration) * 60000), simulated }, simulated ? "Synthetic session armed. Real screen locks are disabled." : "Live session armed with the enrolled Mac's fresh baseline.");
     if (ok) onClose();
   }}>
-    <div className="al-mode-choice"><button type="button" aria-pressed={simulated} onClick={() => setSimulated(true)} className={simulated ? "selected" : ""}><Badge tone="amber">Synthetic</Badge><strong>Fixture rehearsal</strong><span>DB-backed events. Never requests a real lock.</span></button><button type="button" aria-pressed={!simulated} onClick={() => setSimulated(false)} className={!simulated ? "selected" : ""}><Badge tone="cyan">Live</Badge><strong>Owned workstation</strong><span>Uses enrolled Mac and Jetson publishers.</span></button></div>
+    <div className="al-mode-choice"><button type="button" aria-pressed={simulated} onClick={() => setSimulated(true)} className={simulated ? "selected" : ""}><Badge tone="amber">Synthetic</Badge><strong>Fixture rehearsal</strong><span>DB-backed events. Never requests a real lock.</span></button><button type="button" aria-pressed={!simulated && !voice} onClick={() => setSimulated(false)} className={!simulated && !voice ? "selected" : ""}><Badge tone="cyan">Live</Badge><strong>Owned workstation</strong><span>Uses enrolled Mac and Jetson publishers.</span></button><button type="button" aria-pressed={voice} onClick={() => { setSimulatedState(false); setVoice(true); }} className={voice ? "selected" : ""}><Badge tone="cyan">Voice</Badge><strong>Let LOCKI arm</strong><span>One use, 60 seconds, from this connection. Say it to arm.</span></button></div>
     <FormField label={simulated ? "Approved fixture USB keys" : "Captured USB baseline"} hint={simulated ? "One fixture identifier per line." : fresh ? `Captured by ${latest.deviceId} ${Math.max(0, Math.round(captureAge / 1000))}s ago. The server freezes this inventory when arming.` : "Connect the enrolled Mac publisher. Live arming requires a successful capture from the last 30 seconds."}><textarea rows={3} readOnly={!simulated} value={simulated ? baseline : capturedKeys.join("\n")} onChange={e => setBaseline(e.target.value)} placeholder={simulated ? "synthetic-approved-usb" : fresh ? "No USB peripherals currently enumerated" : "Waiting for a fresh Mac capture"} /></FormField>
     {!simulated && <div className="al-form-note"><Laptop size={17} /><div><strong>{fresh ? "Fresh authenticated capture" : "Mac capture unavailable or stale"}</strong><p>Active app: {latest?.activeAppId || "unknown"}. Camera at capture: {latest?.cameraStatus || "unavailable"}. Camera loss does not prevent USB protection.</p></div></div>}
     <FormField label="Approved app identifiers" hint="One app identifier per line. Only metadata is monitored."><textarea rows={2} value={apps} onChange={e => setApps(e.target.value)} placeholder="com.apple.Terminal" /></FormField>
-    <div className="al-form-inline"><FormField label="Session length"><select value={duration} onChange={e => setDuration(e.target.value)}><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option><option value="480">8 hours</option></select></FormField><div className="al-policy-readout"><LockKeyhole size={15} /><span>Auto-lock policy</span><strong>{station.autoLockEnabled ? "Enabled" : "Disabled"}</strong><small>{simulated ? "Suppressed for synthetic sessions" : `Policy version ${station.policyVersion}`}</small></div></div>
+    <div className="al-form-inline"><FormField label="Session length"><select value={duration} onChange={e => setDuration(e.target.value)}><option value="15">15 minutes</option><option value="60">1 hour</option>{!voice && <option value="240">4 hours</option>}{!voice && <option value="480">8 hours</option>}</select></FormField><div className="al-policy-readout"><LockKeyhole size={15} /><span>Auto-lock policy</span><strong>{station.autoLockEnabled ? "Enabled" : "Disabled"}</strong><small>{simulated ? "Suppressed for synthetic sessions" : `Policy version ${station.policyVersion}`}</small></div></div>
+    {voice && <div className="al-form-note"><Mic size={17} /><div><strong>Nothing is armed yet</strong><p>This grants the enrolled Mac one ARM of exactly this baseline, app list and duration, valid for 60 seconds while this console stays connected. LOCKI arms only when you ask it to, and says so only after the database confirms. {station.autoLockEnabled ? "Turn automatic locking off first: voice arming requires it." : "Disarming stays here, with you."}</p></div></div>}
     {!simulated && <label className="al-checkbox"><input type="checkbox" required checked={verified} disabled={!reviewed || !fresh} onChange={e => setConsentedFingerprint(e.target.checked ? fingerprint : null)} /><span>I verified this Mac baseline and consent to the displayed policy on my workstation.</span></label>}
-    <div className="al-modal-actions"><Button type="button" onClick={onClose}>Cancel</Button><Button kind="primary" disabled={pending || (!simulated && (!verified || !fresh))} type="submit"><ShieldCheck size={15} />Arm {simulated ? "synthetic" : "live"} session</Button></div>
+    <div className="al-modal-actions"><Button type="button" onClick={onClose}>Cancel</Button><Button kind="primary" disabled={pending || (!simulated && (!verified || !fresh)) || (voice && (Boolean(station.autoLockEnabled) || !voiceArmGrant(station, latest, reviewed, asList(apps), duration)))} type="submit">{voice ? <><Mic size={15} />Approve voice arming</> : <><ShieldCheck size={15} />Arm {simulated ? "synthetic" : "live"} session</>}</Button></div>
   </form></Modal>;
 }
 
