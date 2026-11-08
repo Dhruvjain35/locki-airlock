@@ -1,0 +1,12 @@
+# Reviewed initial-import test fixtures only. These fingerprints do not exclude
+# later commits, whole files, credential formats, or any production source.
+# Mission sandbox tests write the same constructed educational API-key marker
+# into temporary files/logs and assert it is blocked or redacted. The service
+# test uses ScriptedLLM, not provider authentication.
+a10001117da810d6011b49bbb20497a5f8a3385a:backend/tests/test_mission_service.py:generic-api-key:268
+a10001117da810d6011b49bbb20497a5f8a3385a:backend/tests/test_mission_workspace.py:generic-api-key:32
+a10001117da810d6011b49bbb20497a5f8a3385a:backend/tests/test_mission_workspace.py:generic-api-key:54
+a10001117da810d6011b49bbb20497a5f8a3385a:backend/tests/test_mission_workspace.py:generic-api-key:59
+# Serialized USB-event metadata: deviceKey is a device fingerprint, not an API
+# credential. This assertion checks the publisher's reducer payload contract.
+a10001117da810d6011b49bbb20497a5f8a3385a:backend/tests/test_security_spacetime.py:generic-api-key:91

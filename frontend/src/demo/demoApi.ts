@@ -39,6 +39,7 @@ export interface VisualState {
 }
 
 export interface DemoSnap {
+  face_identification_enabled?: boolean;
   active: boolean;
   id: string | null;
   mode: "live" | "rehearsal" | null;
@@ -51,7 +52,7 @@ export interface DemoSnap {
   recognized: boolean;
   template: string | null;
   thresholds: { match: number; reject: number; calibrated: boolean } | null;
-  steps: Record<Step, "done" | "pending" | "default">;
+  steps: Partial<Record<Step, "done" | "pending" | "default">>;
   readiness: Record<string, Ready>;
   timings: Record<string, Stat | number>;
   history: Record<string, Stat>;

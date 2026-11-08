@@ -41,6 +41,8 @@ export function useAirlock(config: ConnectionConfig) {
   const [lastSyncedAt, setLastSyncedAt] = useState(0);
   const [retry, setRetry] = useState(0);
   const [pending, setPending] = useState("");
+  const [connectionId, setConnectionId] = useState("");
+  const [armAuthorizationAvailable, setArmAuthorizationAvailable] = useState(false);
   const connection = useRef<DbConnection | null>(null);
   const configKey = `${config.uri}|${config.database}|${config.profile}`;
 
@@ -51,12 +53,17 @@ export function useAirlock(config: ConnectionConfig) {
     let syncTimer: number | undefined;
     setData(emptyData());
     setIdentity("");
+    setConnectionId("");
+    setArmAuthorizationAvailable(false);
     setError("");
     setStatus(retry ? "reconnecting" : "connecting");
 
     const reschedule = (message: string) => {
       if (stopped) return;
       setStatus("offline");
+      setConnectionId("");
+      setArmAuthorizationAvailable(false);
+      setData(current => ({ ...current, armAuthorizations: [] }));
       setError(message);
       window.clearTimeout(retryTimer);
       retryTimer = window.setTimeout(() => setRetry(v => v + 1), Math.min(15000, 1500 + retry * 1000));
@@ -85,6 +92,7 @@ export function useAirlock(config: ConnectionConfig) {
           if (stopped) { ctx.disconnect(); return; }
           localStorage.setItem(tokenKey(config), token);
           setIdentity(id.toHexString());
+          setConnectionId(ctx.connectionId.toHexString());
           setStatus("subscribing");
           setError("");
           for (const accessor of Object.values(VIEWS)) {
@@ -106,7 +114,21 @@ export function useAirlock(config: ConnectionConfig) {
               }, 5000);
             })
             .onError(ctx => reschedule(`Subscription rejected: ${ctx.event?.message || "check the database name and published module"}`))
-            .subscribe(Object.values(VIEWS).map(name => `SELECT * FROM ${sqlName(name)}`));
+            .subscribe(Object.values(VIEWS).filter(name => name !== "myArmAuthorizations").map(name => `SELECT * FROM ${sqlName(name)}`));
+          // Additive rollout: an old module must not lose its existing dashboard
+          // because the narrowly scoped voice ARM view has not been deployed yet.
+          ctx.subscriptionBuilder()
+            .onApplied(() => {
+              if (stopped) return;
+              setArmAuthorizationAvailable(true);
+              sync(ctx);
+            })
+            .onError(() => {
+              if (stopped) return;
+              setArmAuthorizationAvailable(false);
+              setData(current => ({ ...current, armAuthorizations: [] }));
+            })
+            .subscribe("SELECT * FROM my_arm_authorizations");
         })
         .onConnectError((_ctx, err) => reschedule(err.message || "Could not reach SpacetimeDB"))
         .onDisconnect((_ctx, err) => reschedule(err?.message || "SpacetimeDB connection closed"))
@@ -136,5 +158,5 @@ export function useAirlock(config: ConnectionConfig) {
     finally { setPending(""); }
   }, [status]);
 
-  return { data, status, identity, error, lastSyncedAt, pending, call, reconnect: () => setRetry(v => v + 1) };
+  return { data, status, identity, connectionId, armAuthorizationAvailable, error, lastSyncedAt, pending, call, reconnect: () => setRetry(v => v + 1) };
 }

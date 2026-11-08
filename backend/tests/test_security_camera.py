@@ -18,6 +18,54 @@ from .test_security_service import CODE, WARNING, Harness
 PRESENCE = "someone's at your workstation"
 
 
+@pytest.mark.parametrize("calibrated", [False, True])
+def test_default_camera_ignores_existing_face_template_and_keeps_person_and_hand_paths(settings, monkeypatch, calibrated):
+    from app.security.camera import CameraWatch
+    from app.vision.airlock.geometry import ZoneMap
+
+    assert settings.airlock_face_identification is False
+    existing = settings.data_dir / "airlock" / "owner_face.json"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("existing template must not be read")
+    zones = ZoneMap(calibrated=calibrated)
+    zones.zones["keyboard_zone"] = [(0.1, 0.6), (0.9, 0.6), (0.9, 0.9), (0.1, 0.9)]
+    zones.save(existing.parent / "zones.json")
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("default camera must not read a template or construct face models")
+
+    monkeypatch.setattr("app.vision.airlock.enrollment.load_template", forbidden)
+    monkeypatch.setattr("app.vision.airlock.faces.FaceStage", forbidden)
+    hand_calls = []
+    hands = object()
+    monkeypatch.setattr("app.vision.airlock.interaction.HandStage", lambda models, zone_map: hand_calls.append((models, zone_map)) or hands)
+    camera = CameraWatch(settings, on_event=lambda _event: None, session=lambda: None)
+    vision = camera._build()  # construct only: no camera or person model starts
+    assert vision.faces is None and vision.presence is not None
+    assert vision.hands is (hands if calibrated else None)
+    assert len(hand_calls) == int(calibrated)
+    camera.vision = vision
+    camera.use_template(object(), "demo")
+    camera.use_template(None, "production")
+    with pytest.raises(RuntimeError, match="face identification is disabled"):
+        camera.start_enrollment(object(), on_enrolled=lambda _enroller: None)
+    assert vision.enroller is None and vision.faces is None
+    assert existing.read_text() == "existing template must not be read"
+
+
+def test_explicit_legacy_camera_option_preserves_face_stage(settings, monkeypatch):
+    from app.security.camera import CameraWatch
+
+    settings.airlock_face_identification = True
+    template, faces = object(), object()
+    loaded = []
+    monkeypatch.setattr("app.vision.airlock.enrollment.load_template", lambda path: loaded.append(path) or template)
+    monkeypatch.setattr("app.vision.airlock.faces.FaceStage", lambda models, owner: faces if owner is template else None)
+    camera = CameraWatch(settings, on_event=lambda _event: None, session=lambda: None)
+    assert camera._build().faces is faces
+    assert loaded == [settings.data_dir / "airlock" / "owner_face.json"]
+
+
 class FakeCamera:
     instances: list = []
 

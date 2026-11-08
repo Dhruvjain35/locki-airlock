@@ -429,10 +429,9 @@ class LockedInRuntime:
 
     def _kokoro_lines(self) -> list[str]:
         """Fixed lines for the current personality that have no cloud clip, most needed first."""
+        from .voice.delivery import CATEGORY_MODE, MODE_SPEED
         from .voice.personality import Style as _Style
         from .voice.personality import cacheable_lines
-
-        from .voice.delivery import CATEGORY_MODE, MODE_SPEED
 
         cloud = self._cached_line_check()
         lines = cacheable_lines([self.style(), _Style(tone="serious")])
@@ -2102,10 +2101,15 @@ class LockedInRuntime:
         self, text: str, source: str, stt_confidence: float, stt_ms: float | None, during_playback: bool
     ) -> CommandResult:
         t0 = time.monotonic()
+        from .security.arm_delegation import security_voice_intent
+
+        original_security_intent = security_voice_intent(text)
         text = (text or "").strip()[:300]
         exclude = frozenset() if self.missions.active else NEEDS_MISSION  # with no mission these mean what they always meant
         if not self.security.enabled:
             exclude |= AIRLOCK_INTENTS
+        if original_security_intent is None or during_playback:
+            exclude |= {IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION}
         intent = self.classifier.classify(text, stt_confidence, exclude=exclude)
         turn = _TURN.get()
         if turn is not None:

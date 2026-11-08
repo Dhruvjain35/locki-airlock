@@ -68,17 +68,20 @@ class CameraWatch:
     def _build(self):
         if self._vision_factory is not None:
             return self._vision_factory(self)
-        from ..vision.airlock.enrollment import load_template, template_path
         from ..vision.airlock.events import SecurityEventSink
-        from ..vision.airlock.faces import FaceStage
         from ..vision.airlock.geometry import ZoneMap
         from ..vision.airlock.interaction import HandStage
         from ..vision.airlock.pipeline import AirlockVision
 
         s = self.settings
         zones = ZoneMap.load(s.data_dir / "airlock" / "zones.json")
-        template = self.demo_template if self.template_source == "demo" else load_template(template_path(s.data_dir))
-        faces = FaceStage(s.models_dir, template)
+        faces = None
+        if s.airlock_face_identification:
+            from ..vision.airlock.enrollment import load_template, template_path
+            from ..vision.airlock.faces import FaceStage
+
+            template = self.demo_template if self.template_source == "demo" else load_template(template_path(s.data_dir))
+            faces = FaceStage(s.models_dir, template)
         hands = HandStage(s.models_dir, zones) if zones.calibrated and len(zones.zones) > 1 else None
         sink = SecurityEventSink(self.publisher, armed=self._armed, on_event=lambda event, _ev: self.on_event(event))
         vision = AirlockVision(s.models_dir, sink, zones=zones, camera_label=s.airlock_vision_label, faces=faces, hands=hands)
@@ -87,6 +90,8 @@ class CameraWatch:
 
     def use_template(self, template, source: str) -> None:
         """Switch the owner template the camera compares against: the demo's own, or the production one."""
+        if not self.settings.airlock_face_identification:
+            return
         from ..vision.airlock.enrollment import load_template, template_path
 
         with self._lock:
@@ -96,6 +101,8 @@ class CameraWatch:
                 self.vision.faces.set_template(template if source == "demo" else load_template(template_path(self.settings.data_dir)))
 
     def start_enrollment(self, enroller, on_enrolled) -> None:
+        if not self.settings.airlock_face_identification:
+            raise RuntimeError("face identification is disabled")
         if self.vision is None:
             raise RuntimeError("the camera is not running")
         self.vision.enroll_progress = enroller.progress(None)

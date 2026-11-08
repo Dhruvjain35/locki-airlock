@@ -155,6 +155,8 @@ class Settings(BaseSettings):
     airlock_vision: bool = False
     airlock_vision_source: str = "0"  # camera index, MJPEG URL or file
     airlock_vision_label: str = "mac_webcam"
+    # Legacy face identification is outside the AIRLOCK PRD. Retained only for explicitly reviewed optional work.
+    airlock_face_identification: bool = False
     # SpacetimeDB, owner of the incident state. Unset: nothing leaves this Mac and the record stays local. A token here wins over the one created for this Mac.
     # Also read from data/security/spacetime.json (not a secret: url, database, workstation_id). The agent's token is in its own owner-only file there.
     spacetime_url: str | None = None
