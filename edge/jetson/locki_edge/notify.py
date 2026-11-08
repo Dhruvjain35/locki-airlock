@@ -156,11 +156,12 @@ class PresencePusher(object):
             self._worker.start()
 
     # -- camera thread ---------------------------------------------------------------------------
-    def note_event(self, event_id, zone_id, observed_at_ms, simulated=False):
-        """A person_in_zone was enqueued for SpacetimeDB: remember where/when and which visit it belongs to."""
+    def note_event(self, event_id, zone_id, observed_at_ms, simulated=False, quiet=False):
+        """A person_in_zone was enqueued for SpacetimeDB: remember where/when and which visit it belongs to.
+        `quiet` marks a re-assert of a visit already under way: sent to SpacetimeDB, never pushed."""
         with self.lock:
             visit = self.limiter.visit_of((self.workstation_id, zone_id or ""))
-            self.events[event_id] = (zone_id, visit, int(observed_at_ms), bool(simulated))
+            self.events[event_id] = (zone_id, visit, int(observed_at_ms), bool(simulated), bool(quiet))
             while len(self.events) > MAX_TRACKED_EVENTS:
                 self.events.popitem(last=False)
 
@@ -180,7 +181,9 @@ class PresencePusher(object):
             info = self.events.pop(receipt.event_id, None)
             if receipt.status != "accepted":
                 return None
-            zone_id, visit, observed_ms, simulated = info if info else (None, None, None, False)
+            zone_id, visit, observed_ms, simulated, quiet = info if info else (None, None, None, False, False)
+            if quiet:
+                return None   # a re-assert of a visit: never a push of its own
             reason = self.limiter.decide((self.workstation_id, zone_id or ""), visit)
             if reason:
                 self.counts["suppressed"] += 1

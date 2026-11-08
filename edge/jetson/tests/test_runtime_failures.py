@@ -266,10 +266,11 @@ class TestNormalizer(unittest.TestCase):
 
     def test_one_event_per_sustained_crossing(self):
         prov = FixtureProvider({}, capabilities=("person",))
-        norm = EventNormalizer(prov, ["desk_01"], enter_frames=3, exit_s=2.0)
+        # re-asserts off: this pins one enter + one clear per crossing (re-asserts: tests/test_presence_reassert.py)
+        norm = EventNormalizer(prov, ["desk_01"], enter_frames=3, exit_s=2.0, reassert_s=0)
         events = self.run_frames(norm, set(range(10, 310)), 400)   # 10 s of presence at 30 fps
         kinds = [e.kind for e in events]
-        self.assertEqual(kinds, ["person_in_zone", "person_left_zone"])
+        self.assertEqual(kinds, ["person_in_zone", "person_cleared"])
         enter, left = events
         self.assertEqual(enter.observed_at_ms, int(1794100000000 + 10 * 1000 / 30.0))  # first frame of streak
         self.assertEqual(enter.metadata["frames_confirmed"], 3)
@@ -286,7 +287,7 @@ class TestNormalizer(unittest.TestCase):
         prov = FixtureProvider({}, capabilities=("motion",))
         norm = EventNormalizer(prov, ["desk_01"], enter_frames=1)
         for kind in ("person_in_zone", "unrecognized_face", "owner_face_match", "usb_zone_interaction",
-                     "camera_unavailable"):
+                     "camera_offline", "camera_online"):
             self.assertEqual(self.run_frames(norm, set(range(0, 30)), 40, kind=kind), [], kind)
         self.assertGreaterEqual(norm.counters["capability_violations"], 4 * 30)
 
@@ -306,7 +307,7 @@ class TestNormalizer(unittest.TestCase):
         norm.camera_lost()
         self.assertEqual(norm.occupied_zones(), [])
         after = self.run_frames(norm, set(), 200, t0=2000.0)
-        self.assertEqual(after, [])  # no person_left_zone invented after the outage
+        self.assertEqual(after, [])  # no person_cleared invented after the outage
 
     def test_privacy_and_allowlist_on_provider_metadata(self):
         prov = FixtureProvider({}, capabilities=("person",))
@@ -728,9 +729,9 @@ class TestRuntimeEndToEnd(unittest.TestCase):
             # health is sampled at 4 Hz: let the monitor report "streaming" (sent as "online") before unplugging
             self.assertTrue(wait_for(lambda: ["camera", "online"] in [h[2:4] for h in self.fake.health], 5))
             cam.plugged = False                                     # unplug while a person is present
-            self.assertTrue(wait_for(lambda: rt.events.get("camera_unavailable") == 1, 5))
+            self.assertTrue(wait_for(lambda: rt.events.get("camera_offline") == 1, 5))
             time.sleep(0.6)
-            self.assertNotIn("person_left_zone", rt.events)          # no fake clear during the outage
+            self.assertNotIn("person_cleared", rt.events)            # no fake clear during the outage
             self.assertTrue(wait_for(lambda: len(self.fake.events) == 2, 5))
             h = rt.health()
             self.assertEqual(h["status"], "camera_unavailable")
@@ -741,7 +742,7 @@ class TestRuntimeEndToEnd(unittest.TestCase):
         self.assertFalse(loop.is_alive())
         self.assertTrue(rt.shutdown_done)
         kinds = sorted(a[4] for a in self.fake.events.values())
-        self.assertEqual(kinds, ["camera_unavailable", "person_in_zone"])
+        self.assertEqual(kinds, ["camera_offline", "person_in_zone"])
         for args in self.fake.events.values():
             typed = dict(zip([p[0] for p in C.INGEST_PARAMS], args))
             self.assertEqual(typed["device_id"], "jetson-01")

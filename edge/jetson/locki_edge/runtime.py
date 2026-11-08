@@ -2,7 +2,7 @@
 
     cd edge/jetson && python3 -m locki_edge.runtime --env-file ~/.config/locki-edge/airlock.env
 
-Threads: capture (owns the device), main (observe + normalize), monitor (watchdog, camera_unavailable,
+Threads: capture (owns the device), main (observe + normalize), monitor (watchdog, camera_offline/online,
 health reports), outbox (delivery), api (127.0.0.1 /health /metrics /receipts).
 SIGINT/SIGTERM -> clean shutdown: stop capture, final health report, flush outbox (undelivered events
 stay on disk for the next start), close everything. Frames never leave this process.
@@ -36,6 +36,8 @@ from .publish import SequenceStore
 from .stdb import SpacetimePublisher, StdbClient
 
 ALARM_KINDS = ("person_in_zone", "unrecognized_face")   # the optional on-device LocalAlarm only; never a push
+# A visit alarms and pushes once, on its enter. The periodic person_in_zone re-asserts the normalizer sends while
+# the zone stays occupied (for the module's 10 s correlation window) never sound the alarm or push again.
 
 
 def log(level, msg, **fields):
@@ -99,7 +101,8 @@ class EdgeRuntime(object):
         self.audit_path = os.path.join(cfg.state_dir, "events.jsonl")
         self.provider = provider or build_provider(cfg)
         self.normalizer = EventNormalizer(self.provider, [z.zone_id for z in cfg.zones], cfg.enter_frames,
-                                          cfg.exit_s, cooldown_s=cfg.cooldown_s)
+                                          cfg.exit_s, cooldown_s=cfg.cooldown_s,
+                                          reassert_s=cfg.presence_reassert_s)
         self.norm_lock = threading.Lock()
         self.emit_lock = threading.Lock()
         self.capture = capture or CaptureSource(cfg.camera_source, cfg.runtime, cfg.width, cfg.height, cfg.fps,
@@ -143,7 +146,9 @@ class EdgeRuntime(object):
         self.monitor_thread = None
 
     # -- events -------------------------------------------------------------------------------
-    def emit(self, kind, confidence, observed_at_ms, captured_mono, metadata):
+    def emit(self, kind, confidence, observed_at_ms, captured_mono, metadata, reassert=False):
+        """`reassert` is local only: it marks the audit line and silences the alarm and push. It is never put in
+        the event or its metadata, so the wire payload is identical to an enter's."""
         md = dict(metadata)
         md["runtime"] = self.cfg.runtime
         md["capture_source"] = self.capture.capture_source
@@ -155,13 +160,13 @@ class EdgeRuntime(object):
             # (it refuses person_left_zone for role jetson), so it is handled before any contract/armed check.
             self.push.visit_ended(md.get("zone_id"))
         if kind not in self.cfg.contract.kinds:
-            return self._local_only(kind, confidence, observed_at_ms, md, simulated, "kind_not_in_contract")
+            return self._local_only(kind, confidence, observed_at_ms, md, simulated, "kind_not_in_contract", reassert)
         if self.session is not None:
             session_id, armed = self.session.current()
         else:
             session_id, armed = ("" if self.cfg.session_auto else self.cfg.session_id), True
         if self.outbox is not None and not armed:
-            return self._local_only(kind, confidence, observed_at_ms, md, simulated, "not_armed")
+            return self._local_only(kind, confidence, observed_at_ms, md, simulated, "not_armed", reassert)
         with self.emit_lock:  # seq order == enqueue order across threads
             try:
                 event = make_event(self.cfg.contract, self.seq.next, self.cfg.workstation_id or "unassigned",
@@ -170,19 +175,22 @@ class EdgeRuntime(object):
             except ContractError as err:
                 log("error", "event_rejected_locally", kind=kind, error=str(err))
                 return None
+            rec = event._asdict()
+            if reassert:
+                rec["reassert"] = True   # audit only
             with open(self.audit_path, "a") as f:
-                f.write(json.dumps(event._asdict(), sort_keys=True) + "\n")
+                f.write(json.dumps(rec, sort_keys=True) + "\n")
             if self.outbox is not None:
                 if self.push is not None and kind in PUSH_KINDS:
-                    self.push.note_event(event.event_id, md.get("zone_id"), observed_at_ms, event.simulated)
+                    self.push.note_event(event.event_id, md.get("zone_id"), observed_at_ms, event.simulated, quiet=reassert)
                 self.outbox.enqueue(event, captured_mono)
         self.events[kind] = self.events.get(kind, 0) + 1
         if "capture_to_event_ms" in md:
             self._push(self.event_latency_ms, md["capture_to_event_ms"])
         log("info", "event", kind=kind, seq=event.seq, event_id=event.event_id, observed_at=event.observed_at,
             confidence=event.confidence, simulated=event.simulated, zone=md.get("zone_id"),
-            capture_to_event_ms=md.get("capture_to_event_ms"))
-        if self.alarm is not None and kind in ALARM_KINDS:
+            capture_to_event_ms=md.get("capture_to_event_ms"), reassert=reassert)
+        if self.alarm is not None and kind in ALARM_KINDS and not reassert:
             self.alarm.play()
         return event
 
@@ -205,18 +213,20 @@ class EdgeRuntime(object):
             self.seq.value = server_last
         log("info", "seq_synced", server_last_seq=server_last, local_was=local)
 
-    def _local_only(self, kind, confidence, observed_at_ms, md, simulated, reason):
+    def _local_only(self, kind, confidence, observed_at_ms, md, simulated, reason, reassert=False):
         """Observed, kept in the local audit, NOT sent: the module would reject it (disarmed / kind)."""
         rec = {"local_only": True, "reason": reason, "kind": kind, "observed_at": utc_iso_ms(int(observed_at_ms)),
                "observed_at_ms": int(observed_at_ms), "confidence": confidence, "metadata": md,
                "device_id": self.cfg.device_id, "workstation_id": self.cfg.workstation_id, "simulated": simulated}
+        if reassert:
+            rec["reassert"] = True
         with self.emit_lock:
             with open(self.audit_path, "a") as f:
                 f.write(json.dumps(rec, sort_keys=True) + "\n")
         self.events[kind] = self.events.get(kind, 0) + 1
         self.local_only[reason] = self.local_only.get(reason, 0) + 1
         log("info", "event_local_only", kind=kind, reason=reason, observed_at=rec["observed_at"],
-            confidence=confidence, zone=md.get("zone_id"))
+            confidence=confidence, zone=md.get("zone_id"), reassert=reassert)
         return None
 
     def _on_session_change(self, session_id, armed, detail):
@@ -278,15 +288,18 @@ class EdgeRuntime(object):
         # Startup gets a longer grace (V4L2/AVFoundation open + first frame can take seconds).
         grace = self.cfg.unavailable_after_s if state != STATE_STARTING else max(5.0, self.cfg.unavailable_after_s)
         if state == STATE_STREAMING:
-            self.unavailable_sent = False
+            if self.unavailable_sent:   # an announced outage ended (Sid's airlock_camera.py does the same)
+                self.unavailable_sent = False
+                self.emit("camera_online", None, int(time.time() * 1000), None,
+                          {"reason": "recovered", "zone_id": self.cfg.zones[0].zone_id, "observation": "camera"})
         elif state in (STATE_DISCONNECTED, STATE_STALLED, STATE_STARTING) and h["state_for_s"] >= grace \
                 and not self.unavailable_sent:
             self.unavailable_sent = True
             with self.norm_lock:
                 occupied = self.normalizer.occupied_zones()
-                self.normalizer.camera_lost()   # forget presence; never send a fake "left/clear"
+                self.normalizer.camera_lost()   # forget presence; never send a fake person_cleared, stop re-asserts
             reason = {STATE_STALLED: "stalled", STATE_STARTING: "no_frames"}.get(state, "disconnected")
-            self.emit("camera_unavailable", None, int(time.time() * 1000), None,
+            self.emit("camera_offline", None, int(time.time() * 1000), None,
                       {"reason": reason, "zone_id": self.cfg.zones[0].zone_id, "observation": "camera"})
             if occupied:
                 log("warn", "zone_state_unknown_after_camera_loss", zones=occupied)
@@ -393,7 +406,7 @@ class EdgeRuntime(object):
         with self.norm_lock:
             pending = self.normalizer.process(observations, frame.captured_utc_ms, frame.captured_mono)
         for pe in pending:
-            self.emit(pe.kind, pe.confidence, pe.observed_at_ms, pe.captured_mono, pe.metadata)
+            self.emit(pe.kind, pe.confidence, pe.observed_at_ms, pe.captured_mono, pe.metadata, reassert=pe.reassert)
         return True
 
     def run(self, run_seconds=0):

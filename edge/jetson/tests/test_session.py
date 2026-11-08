@@ -123,7 +123,7 @@ class RuntimeSessionTest(unittest.TestCase):
             self.fake.active_session = "ws-session-9"       # owner arms (Dhruv's action, not the edge's)
             self.assertTrue(wait_for(lambda: rt.session.current() == ("ws-session-9", True), 5))
             present["on"] = False                           # walk out ...
-            self.assertTrue(wait_for(lambda: "person_left_zone" in rt.events, 5))
+            self.assertTrue(wait_for(lambda: "person_cleared" in rt.events, 5))
             present["on"] = True                            # ... and back in while armed
             entered = lambda: [a for a in self.fake.events.values() if a[4] == "person_in_zone"]  # noqa: E731
             self.assertTrue(wait_for(lambda: len(entered()) == 1, 5))

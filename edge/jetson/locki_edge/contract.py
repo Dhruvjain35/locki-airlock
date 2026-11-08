@@ -52,11 +52,15 @@ RUNTIMES = ("mac_dev", "jetson")
 
 # Which provider capability is REQUIRED before a kind may be emitted. A motion detector has only
 # "motion", so it can never produce person or face kinds, whatever it claims (PRD E2).
+# The presence exit is person_cleared: the deployed module refused person_left_zone for role jetson
+# (00:39:57Z) and its source permits person_cleared (spacetime/src/index.ts), which the M4 handles.
 KIND_CAPABILITY = {
     "person_in_zone": "person",
-    "person_left_zone": "person",
+    "person_cleared": "person",
     "motion_in_zone": "motion",
-    "camera_unavailable": "runtime",
+    # Runtime-only camera kinds, the module's names for role jetson (it refused camera_unavailable, 07:13:25Z).
+    "camera_offline": "runtime",
+    "camera_online": "runtime",
     "owner_face_match": "face",
     "unrecognized_face": "face",
     "face_uncertain": "face",

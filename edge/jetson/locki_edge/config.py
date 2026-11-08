@@ -15,6 +15,7 @@ import stat
 
 from .contract import Contract, DEVICE_ID
 from .notify import PushConfigError, clamp_priority, parse_push_url
+from .normalizer import check_reassert_s
 from .observers import parse_zones
 from .stdb import resolve_server, token_identity
 
@@ -51,6 +52,9 @@ DEFAULTS = {
     "AIRLOCK_FPS": "",
     "AIRLOCK_ENTER_FRAMES": "3",
     "AIRLOCK_EXIT_S": "2.0",
+    # While a zone stays occupied, re-send person_in_zone this often so an unknown USB anywhere in the visit is
+    # within the module's 10 s correlation window (HIGH incident). 0 = off; otherwise > 0 and < 10.
+    "AIRLOCK_PRESENCE_REASSERT_S": "5.0",
     "AIRLOCK_COOLDOWN_S": "10",
     "AIRLOCK_UNAVAILABLE_AFTER_S": "2.0",
     "AIRLOCK_RESTART_ON_STALL_S": "0",
@@ -166,6 +170,10 @@ class EdgeConfig(object):
         self.fps = float(v["AIRLOCK_FPS"]) if v["AIRLOCK_FPS"].strip() else None
         self.enter_frames = int(v["AIRLOCK_ENTER_FRAMES"])
         self.exit_s = float(v["AIRLOCK_EXIT_S"])
+        try:
+            self.presence_reassert_s = check_reassert_s(v["AIRLOCK_PRESENCE_REASSERT_S"])
+        except ValueError as err:
+            raise ConfigError("AIRLOCK_PRESENCE_REASSERT_S: %s" % err)
         self.cooldown_s = float(v["AIRLOCK_COOLDOWN_S"])
         self.unavailable_after_s = float(v["AIRLOCK_UNAVAILABLE_AFTER_S"])
         self.restart_on_stall_s = float(v["AIRLOCK_RESTART_ON_STALL_S"])
@@ -279,7 +287,7 @@ class EdgeConfig(object):
                 "session_id": self.session_id, "server": self.server, "database": self.database,
                 "observer": self.observer, "zones": [z._asdict() for z in self.zones],
                 "publish": self.publish, "publish_reason": self.publish_reason, "identity": self.identity,
-                "local_alarm": self.local_alarm}
+                "local_alarm": self.local_alarm, "presence_reassert_s": self.presence_reassert_s}
 
 
 def load_config(env_file=None, environ=None, platform_name=None):

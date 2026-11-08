@@ -41,7 +41,7 @@ class TrialsRuntimeAuditTest(unittest.TestCase):
             {"local_only": True, "reason": "not_armed", "kind": "person_in_zone",
              "observed_at": utc_iso_ms(T0 + 21000), "observed_at_ms": T0 + 21000, "confidence": 0.7,
              "metadata": {"provider": "detectnet"}},
-            {"local_only": True, "reason": "kind_not_in_contract", "kind": "person_left_zone",
+            {"local_only": True, "reason": "kind_not_in_contract", "kind": "person_cleared",
              "observed_at": utc_iso_ms(T0 + 44000), "observed_at_ms": T0 + 44000, "confidence": None, "metadata": {}}])
         rows = trials.score(trials.load_jsonl(os.path.join(self.d, "trials.jsonl")),
                             trials.load_jsonl(os.path.join(self.d, "events.jsonl")), 1500)
