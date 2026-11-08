@@ -12,6 +12,9 @@ import pytest
 
 from app.intelligence import nemotron_service as ns
 from app.intelligence.nemotron_service import InvestigatorUnavailable, NemotronService
+from app.security.contracts import IncidentUpdateV1
+
+from .test_security_spacetime import remote
 
 REAL = "incident:" + "a" * 32
 SUMMARY = "LOCKI rated this incident high severity. An unknown USB device was connected. Nemotron's evidence review: medium risk, medium confidence. The official high severity stands. This needs human review."
@@ -20,6 +23,7 @@ SUMMARY = "LOCKI rated this incident high severity. An unknown USB device was co
 def service(tmp_path, handler, key="test-key"):
     kf = tmp_path / "investigator.key"
     kf.write_text(key)
+    kf.chmod(0o600)
     return NemotronService(url="http://127.0.0.1:18787", key_file=str(kf), client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
 
 
@@ -36,6 +40,7 @@ def api(statuses=("running", "completed_with_warnings"), badge="LIVE", post_stat
         status = states.pop(0) if len(states) > 1 else states[0]
         return httpx.Response(200, json={"investigation_id": "inv_1", "status": status, "incident_id": REAL, "evidence_mode": mode, "evidence_badge": badge,
                                          "evidence_live": badge == "LIVE", "spoken_summary": SUMMARY if status != "running" else None, "needs_review": True,
+                                         "incident_simulated": False, "official_severity": "high", "effective_severity": "high",
                                          "spoken_summary_source": "grounded_facts"})
     return handler
 
@@ -105,12 +110,17 @@ class StandIn:
 
 def real_incident(rt, incident_id=REAL, authoritative=True):
     rt.security.enabled = True
+    rt.security.apply_remote_session(remote(session_id="nemotron-session"))
+    rt.security._last_incident_update = IncidentUpdateV1(incident_id=incident_id, session_id="nemotron-session", severity="high",
+                                                       state="SUSPECTED_INTRUSION", evidence_ids=["e1"], is_fixture=False)
     rt.security.incident = {"incident_id": incident_id, "source": "spacetimedb" if authoritative else "local", "authoritative": authoritative, "state": "SUSPECTED_INTRUSION",
                             "severity": "high", "reason": "correlated_usb_physical", "evidence_ids": ["e1"]}
 
 
 async def test_what_happened_about_a_real_incident_speaks_nemotrons_summary(rt):
-    rt.nemotron_service = StandIn({"spoken_summary": SUMMARY, "status": "completed_with_warnings", "evidence_badge": "LIVE", "investigation_id": "inv_1", "total_ms": 9100})
+    rt.nemotron_service = StandIn({"spoken_summary": SUMMARY, "status": "completed_with_warnings", "evidence_badge": "LIVE", "investigation_id": "inv_1", "total_ms": 9100,
+                                  "incident_id": REAL, "evidence_mode": "live", "evidence_live": True, "incident_simulated": False,
+                                  "official_severity": "high", "effective_severity": "high"})
     old = []
     rt.security.what_happened = lambda origin="voice": old.append(origin)  # the older on-Mac investigator must not answer
     real_incident(rt)

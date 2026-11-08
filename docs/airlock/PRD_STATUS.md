@@ -2,7 +2,7 @@
 
 **Current integration reconciliation (2026-11-08):** the authoritative integration
 repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251` with
-the source handoffs imported through pinned main `529885c40f3bf00c55a4e38b35a3b9f022298431`.
+the source handoffs now including main client-wiring commit `1bbbfbf8282d7430d8395a188dff2ea20776fe89`.
 See [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the current P0 and named-test
 matrix, differences from the original PRD, and the distinction between inspected
 artifacts and teammate-reported hardware/model results. The older entries below
@@ -10,10 +10,11 @@ are historical evidence from Sid's original lane; their old repository links,
 test counts, hardware discovery and missing-branch statements are not current
 release certification. Full PRD acceptance remains incomplete.
 
-The final full backend run passed **1,772 tests/20 skipped in 182.14s**; the separate
-investigator service suite passed **387, one skipped and three live-model tests
-deselected in 4.18s**. Frontend 54 tests are recorded, and final typecheck/build
-passed after the recorded-input copy/Send-enable correction. The build retains a
+The prior full backend checkpoint passed **1,772 tests/20 skipped in 182.14s**,
+before the new M4 service-client merge; the investigator service baseline passed
+**387, one skipped and three live-model tests
+deselected in 4.18s**. The earlier frontend checkpoint records 54 tests and passing
+typecheck/build after the recorded-input copy/Send-enable correction. That build retains a
 980.06kB JavaScript chunk warning. Earlier 1,699- and 1,729-pass backend checkpoints
 retain their own pre-/post-dispatch scope. Node adapters passed 151 tests; combined
 investigator/owner HTTP boundaries passed 50. The latter includes 35 fixture investigator-verifier tests and
@@ -27,8 +28,9 @@ workflow at `7328c4e`. The earlier OAuth workflow-scope rejection is resolved;
 there is no current workflow-delivery credential blocker. Actions run
 [42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
 last reported `startup_failure` with zero jobs; its cause remains unverified.
-Current source/log hashes cover the remaining investigator hardening and docs
-without asserting a future delivery commit or an M4/M5 restart. Backend modified
+Checkpoint source/log hashes cover the earlier investigator hardening and docs;
+the new client/runtime route is under independent review and needs fresh checks
+and hash binding. No new delivery commit or M4/M5 restart is asserted. Backend modified
 Python lint and investigator critical lint passed; pre-existing investigator
 style findings remain. The skipped/deselected tests close no acceptance gate.
 Mustafa's v0.3 service source is now present under `services/nemotron-investigator/`.
@@ -36,6 +38,10 @@ Its evidence-only principal, per-incident provenance and fresh-severity integrat
 are software review work. An actual M5 deployment/restart, scope grant/receipt,
 own-token authorization verification, model-selected multi-tool run and native LLM
 trace remain pending. Imported benchmark artifacts do not close those gates.
+The missing-M4-client gap is now closed in source: `nemotron_service.py` and the
+existing runtime select the API for configured authoritative live incident questions;
+local cases retain the in-process agent. Independent client/runtime hardening,
+current-host activation and an actual authorized model/spoken result remain open.
 Fresh cloud ARM authorization passed 12 checks; the production M4 service ARM path
 passed owner-consent HTTP/private fixture CLI issuance, session readback and replay
 denial without real M4 credentials or hardware/audio. Separate authorized stored-data

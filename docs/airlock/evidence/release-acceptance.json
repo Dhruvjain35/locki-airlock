@@ -1,5 +1,5 @@
 {
-  "recorded_at_utc": "2026-11-08T08:56:03.888842+00:00",
+  "recorded_at_utc": "2026-11-08T09:30:26.314404+00:00",
   "repository": "Dhruvjain35/locki-airlock",
   "base_commit": "221225129b77f773e5ed54792db84fcc0f4ce7b7",
   "review_scope": "Original PRD sections 0-16, ten P0 requirements, all 22 named acceptance criteria, additional EDGE-06",
@@ -38,7 +38,7 @@
     "backend/app/config.py": "42db3484a9ebdba3e58433fa9626333681b56ef5439d9bcc0a0103e501ba2770",
     "backend/app/intelligence/companion.py": "bb2a1618b495dfc0ed324890b9d849064ab4f4daf38bdbb2a6cbee381315c0a6",
     "backend/app/intelligence/ollama_llm.py": "aee4564fd298fe25eb49668b9899daed0128943472a700a83539f1a951a2d651",
-    "backend/app/runtime.py": "c5a680bf2e1c3fdb1ee6afc56baedd677912eee80994db517443bf9305332b9a",
+    "backend/app/runtime.py": "c2d586c31724db4ab1d85a4974d757c30a3c43bb1eb921f6e0a742e28a696188",
     "backend/app/security/arm_delegation.py": "acc1eb2d410b4ab358a0bc206ca959103592f38b2de3795e09f24eca5aa2ab34",
     "backend/app/security/camera.py": "277ff16114797ee3d917b04b3b88252c60787fdb65ae0936c4f255f47d83b0bc",
     "backend/app/security/demo.py": "1b71b2543f2774b49f91f991b101080e2081d858e77c762b48e20d56f80a4ea3",
@@ -47,7 +47,7 @@
     "backend/app/security/spacetime_adapter.py": "adade3f06980616c4757c387e69b5a7c3fd999fcdbcd2534a102984506cc63a2",
     "backend/app/voice/input.py": "a60b409242c737894f091a3bf8ec5292cbc002668428aa61c4e656187fb04c95",
     "backend/app/voice/intents.py": "2d153234d4a18c33e81f77d7b588d5dfb51b7e81d47ed6fa315490e935b7bd5e",
-    "backend/app/voice/personality.py": "eadaed90d8680a3627fd47772de6a1112a43978ab26bbc417f148c9f27ae09f8",
+    "backend/app/voice/personality.py": "8a5fe97ce06986e0eedd80206c33db19adbaaecc6a01c1f46c5bfc42cd772215",
     "backend/app/voice/recorded.py": "c9cadef588afa3d42b2466453f481b3b66143f690658ff90ec5b0025cd7ec40a",
     "backend/app/voice/service.py": "5b8a68e1415dc6466e525007133fea5b85594b04da06f5ddadc2e2615309f1df",
     "backend/app/voice/tts.py": "f90e18ea9618860a91e397be35658a7af5788e56e2dddf2f5a28ae998574d50c",
@@ -66,7 +66,7 @@
     "frontend/src/airlock/DeskView.tsx": "445c9a049ef7cc2ecb5e0aea56ffd171853a963468e216b0610336254e4b2ca7",
     "frontend/src/airlock/DispatchPanel.tsx": "da468c38185b46ab72a8f792113bca825bde1d4d679997f140dfabcdc3184de7",
     "frontend/src/airlock/IncidentAlerts.tsx": "dcbbab64804b42f08fb9e196868bfe83cdcde0c8197040da6c4dac41bd9fc2e2",
-    "frontend/src/airlock/RecordedVoicePanel.tsx": "58f62f7af62fb81f1b53c822995f196c6c87c99ce4d641c8d38d2e3b9198bc90",
+    "frontend/src/airlock/RecordedVoicePanel.tsx": "52a5c75f852be9e1fca5c6374f0cd6c4d6f278538d242723734358aca36e9416",
     "frontend/src/airlock/VoiceArm.tsx": "15e3edde71dc7e4bedb7118e47b717e79ee5e29f3ceb467acc8d6c8f3d68b87f",
     "frontend/src/airlock/client.ts": "033b1f9dc877856d1b3e065aadabc7b8a2f3d2e3d966964799a135fda86cd67f",
     "frontend/src/airlock/forms.tsx": "cb2304fbb79dadfadd6c861afbf0a3b043474ca9ae063d2175c6f433c97eb8b4",
@@ -100,9 +100,13 @@
     "services/nemotron-investigator/tests/test_tools.py": "1e87aa6fdde2ace296036ad7cd8d7c8f24331d7abda380d25fab40d066cdd109",
     "spacetime/src/index.ts": "2e5b7bde07ba3bfeb96eb8308a6b8cc6d8f175bc4d50fb7188c6999085ef1751",
     "spacetime/tests/investigator-evidence.test.ts": "9b6e4f3894f9219e641f3a9c4ae43478dbd598244b99a45fdab3c79020f4f83a",
-    "README.md": "f70f7bfe5efb35af2fa185d4eb107a9918b1f35998093957330beeffe64c2db0",
-    "docs/airlock/PROJECT_MAP.md": "b517c69388873a6eedee2fe3ebf95efa3c88dcdb135bb781529a8880598c0530",
-    "docs/airlock/PRD.md": "eec390f7a60fc31604f502e373a036dd91fb56f2b7784028d151cc773ed4c1c7"
+    "README.md": "d21a2c1d4c66f948cbb3f22a874a3d01503016cb2115a5eca96fbaf2cb20ec4f",
+    "docs/airlock/PROJECT_MAP.md": "b1da5af41e37ffbd919b4d7f8a842136473ef7aa34d8f2c733b851b76c075aad",
+    "docs/airlock/PRD.md": "eec390f7a60fc31604f502e373a036dd91fb56f2b7784028d151cc773ed4c1c7",
+    "backend/app/intelligence/nemotron_service.py": "be6aae5f726198d4dedd2b7442e8e7c889c2c138ddb5fbd4f84b6ffed073254d",
+    "backend/tests/test_nemotron_service.py": "31449130d46e6148687fc2f8d7099075ffad2442ddc09696da4b77df232f3dad",
+    "backend/tests/test_nemotron_service_contract.py": "483424c35a35eed891a502189cea3caa9ad9e2a9327da160dd7d7514b34dbd8e",
+    "backend/tests/test_nemotron_service_runtime.py": "d93d779d6aa99e0390def4f5f76df2583dc45dd4a9403e696b0be91db1fbfcfd"
   },
   "final_integration_checks": [
     {
@@ -309,9 +313,15 @@
     "data/acceptance/spacetime-audit.log": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
     "data/acceptance/tsx-final.log": "4057de01d6ffab958cbec235a9ca3c4fe9af01cd710451b55ec1872fa98fa3c1",
     "data/acceptance/voice-input-hold-focused.log": "e98de813ee67b362e11773dd367c6a74fcd00b7814e6e10f9181f2de9c87d8e4",
-    "data/acceptance/investigator-ci-command-final.log": "ba81714300b820de483d75925958ff36c09f1285c071e08216e81ca84a12893d"
+    "data/acceptance/investigator-ci-command-final.log": "ba81714300b820de483d75925958ff36c09f1285c071e08216e81ca84a12893d",
+    "data/acceptance/backend-final-nemotron-verified.log": "dbb60e7f7d25b3c9acbf4d55705d5830775f356f138e5b455a3c2f355b8d7281",
+    "data/acceptance/backend-final-nemotron-integrated.log": "7b95d6655505e09d49ec775ac62f11e8c65d8784479a55af2b843f53cd902f1f",
+    "data/acceptance/legacy-mock-timing-retest.log": "92ac036c13a84d4498b02791993ebe86196313cc42491482dc810335b27578ec",
+    "data/acceptance/nemotron-client-runtime-focused.log": "88e1e1f152f0434badff66900035d96b4737a5437c23613dcafbf556b4c1a90c",
+    "data/acceptance/nemotron-client-runtime-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "data/acceptance/frontend-nemotron-final-build.log": "0c40c3eb8dbba170c75beeae6e163a299023af248170521d9169bd2a63a0086f"
   },
-  "merged_upstream_commit": "529885c40f3bf00c55a4e38b35a3b9f022298431",
+  "merged_upstream_commit": "1bbbfbf8282d7430d8395a188dff2ea20776fe89",
   "source_binding": {
     "scope": "Current frozen integration working-tree code and service contract at the recorded check cutoff; the subsequent investigator/docs delivery commit is not asserted.",
     "upstream_pins": [
@@ -402,36 +412,57 @@
     "confirmed_credentials": 0,
     "reviewed_findings": [
       {
-        "manifest_key": "frontend/src/demo/demoApi.ts",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "frontend/src/demo/demoApi.ts"
       },
       {
-        "manifest_key": "frontend/src/services/api.ts",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "frontend/src/services/api.ts"
       },
       {
-        "manifest_key": "services/nemotron-investigator/src/nemotron_investigator/api.py",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "services/nemotron-investigator/src/nemotron_investigator/api.py"
       },
       {
-        "manifest_key": "services/nemotron-investigator/src/nemotron_investigator/auth.py",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "services/nemotron-investigator/src/nemotron_investigator/auth.py"
       },
       {
-        "manifest_key": "services/nemotron-investigator/tests/test_api.py",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "services/nemotron-investigator/tests/test_api.py"
       },
       {
-        "manifest_key": "data/acceptance/investigator-api-readback.log",
         "rule": "generic-api-key",
-        "disposition": "Verified SHA256 of named source or log; not an authentication credential"
+        "disposition": "Verified SHA256 of named source or log; not an authentication credential",
+        "path": "data/acceptance/investigator-api-readback.log"
       }
     ],
     "scope": "Staged application/documentation patch; no scanner rule or ignore was weakened."
+  },
+  "latest_integrated_client_check": {
+    "backend_passed": 1852,
+    "backend_skipped": 20,
+    "seconds": 193.71,
+    "log": "data/acceptance/backend-final-nemotron-verified.log",
+    "focused_client_runtime_passed": 79,
+    "focused_log": "data/acceptance/nemotron-client-runtime-focused.log",
+    "source": "Integrated M4 API client; source proof, not actual host activation."
+  },
+  "earlier_failed_attempt": {
+    "log": "data/acceptance/backend-final-nemotron-integrated.log",
+    "passed": 1851,
+    "failed": 1,
+    "skipped": 20,
+    "failed_test": "test_robot_mock.py::test_translation_directions[strafe_left-x--1]",
+    "source_unchanged_legacy_test": true,
+    "isolated_module_retest_passed": 10,
+    "retest_log": "data/acceptance/legacy-mock-timing-retest.log",
+    "subsequent_full_run_passed": true,
+    "assertions_weakened": false
   }
 }

@@ -286,6 +286,10 @@ class LockedInRuntime:
         from .intelligence.nemotron_service import NemotronService
 
         self.nemotron_service = NemotronService()  # Mustafa's investigator through the M4 tunnel; used only when its key file exists
+        self._nemotron_task: asyncio.Task | None = None
+        self._nemotron_case: tuple | None = None
+        self._nemotron_reply_lease: dict = {}
+        self._latest_utterance_id: str | None = None
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -350,7 +354,7 @@ class LockedInRuntime:
                 await self.safety.stop("backend shutting down", source="system")
         except Exception:
             log.exception("stop on shutdown failed")
-        for task in (self._tick_task, self._return_task, self._demo_task, self._link_test_task):
+        for task in (self._tick_task, self._return_task, self._demo_task, self._link_test_task, self._nemotron_task):
             if task:
                 task.cancel()
         await self.watchdog.stop()
@@ -2201,25 +2205,88 @@ class LockedInRuntime:
         if self.voice is held_voice and not self._recorded_busy:
             held_voice.hold_input(False)
 
+    def _nemotron_incident_snapshot(self, incident_id: str) -> tuple | None:
+        """Bind enrichment to an actual non-fixture subscriber update and its active session."""
+        from .security.contracts import IncidentUpdateV1
+
+        incident = self.security.incident or {}
+        update = self.security._last_incident_update
+        session = self.security.session
+        if (incident.get("authoritative") is not True or incident.get("source") != "spacetimedb"
+                or incident.get("incident_id") != incident_id or incident.get("simulated") is True
+                or incident.get("is_fixture") is True or not isinstance(update, IncidentUpdateV1)
+                or update.incident_id != incident_id or update.is_fixture is not False
+                or session is None or session.source != "spacetimedb" or session.expired()
+                or update.session_id != session.session_id
+                or incident.get("severity") != update.severity.value or incident.get("state") != update.state.value
+                or set(incident.get("evidence_ids", [])) != set(update.evidence_ids)):
+            return None
+        return (incident_id, session.session_id, update.severity.value, update.state.value,
+                tuple(sorted(update.evidence_ids)), update.updated_at, update.created_at,
+                session.armed_at_ms, session.owner_policy_hash)
+
+    def _nemotron_unavailable(self, incident_id: str, reason: str, *, speak: bool = True) -> CommandResult:
+        incident = self.security.incident or {}
+        severity = incident.get("severity")
+        official = (f"LOCKI rated the current incident {severity} severity. "
+                    if incident.get("authoritative") is True and severity in ("low", "medium", "high", "critical") else "")
+        report = f"Nemotron couldn't review this one: {reason}. From the local record: {official}{self.security.describe_record()}"
+        reply = self._say("security_report", report=report) if speak else None
+        return self._result(False, f"Nemotron unavailable ({reason}); local record only", reply,
+                            nemotron={"incident_id": incident_id, "status": "unavailable", "error": reason})
+
     async def _what_happened_from_nemotron(self, incident_id: str) -> CommandResult:
-        """"What happened?" about a real SpacetimeDB incident: Mustafa's Nemotron investigator reviews the live evidence and LOCKI speaks
-        the service's own spoken summary. If it can't, LOCKI says so and reads only the local record, never presented as Nemotron's."""
+        """Join one current-case investigation; cancellation of a waiter cannot cancel shared work."""
+        snapshot = self._nemotron_incident_snapshot(incident_id)
+        if snapshot is None:
+            return self._nemotron_unavailable(incident_id, "current non-simulated incident and session could not be verified")
+        if not self.nemotron_service.configured():
+            return self._nemotron_unavailable(incident_id, "the investigator service is not configured")
+        turn = _TURN.get()
+        if self._nemotron_task is not None and not self._nemotron_task.done():
+            if self._nemotron_case != snapshot:
+                return self._nemotron_unavailable(incident_id, "another incident review is still pending")
+        else:
+            self._say("security_checking_nemotron")
+            self._nemotron_case = snapshot
+            self._nemotron_task = asyncio.create_task(self._run_nemotron_review(snapshot), name="live-incident-enrichment")
+        self._nemotron_reply_lease = {"epoch": self.speaker.epoch, "turn_id": self._latest_utterance_id, "turn": turn}
+        result = await asyncio.shield(self._nemotron_task)
+        return replace(result, data={**result.data, "nemotron": dict(result.data.get("nemotron") or {})})
+
+    async def _run_nemotron_review(self, snapshot: tuple) -> CommandResult:
         from .intelligence.nemotron_service import InvestigatorUnavailable
 
-        self._say("security_checking_nemotron")
+        incident_id = snapshot[0]
+
+        def may_reply() -> bool:
+            return (self.speaker.epoch == self._nemotron_reply_lease.get("epoch")
+                    and self._latest_utterance_id == self._nemotron_reply_lease.get("turn_id"))
+
         try:
             view = await self.nemotron_service.investigate(incident_id)
         except InvestigatorUnavailable as exc:
-            reply = self._say("security_report", report=f"Nemotron couldn't review this one: {exc}. From the local record: {self.security.describe_record()}")
-            return self._result(False, f"Nemotron unavailable ({exc}); answered from the local record", reply, nemotron=self.nemotron_service.last)
+            return self._nemotron_unavailable(incident_id, str(exc), speak=may_reply())
+        if not may_reply():
+            return self._nemotron_unavailable(incident_id, "pending reply was interrupted or superseded", speak=False)
+        if self._nemotron_incident_snapshot(incident_id) != snapshot:
+            return self._nemotron_unavailable(incident_id, "the current incident or session changed during review")
+        levels = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+        if (view.get("incident_id") != incident_id or view.get("evidence_mode") != "live"
+                or view.get("evidence_badge") != "LIVE" or view.get("evidence_live") is not True
+                or view.get("incident_simulated") is not False
+                or view.get("official_severity") not in levels or snapshot[2] not in levels
+                or levels[view["official_severity"]] < levels[snapshot[2]]):
+            return self._nemotron_unavailable(incident_id, "the result did not match the current real incident and severity")
         text = str(view["spoken_summary"])
-        turn = _TURN.get()
+        turn = self._nemotron_reply_lease.get("turn")
         trace = {"kind": "turn", "id": turn["id"], "t0": turn["heard_mono"]} if turn is not None else None
         audible = self.speaker.say(text, priority=1, category="nemotron_investigation", trace=trace)
         self.last_reply = {"text": text, "category": "nemotron_investigation", "at": time.time(), "audible": audible, "priority": 1}
         self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, {"category": "nemotron_investigation", "text": text, "audible": audible,
                                                                                  "investigation_id": view.get("investigation_id"), "evidence_badge": view.get("evidence_badge")})
-        return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=self.nemotron_service.last)
+        metadata = {key: view.get(key) for key in ("investigation_id", "incident_id", "status", "evidence_badge", "total_ms", "needs_review", "spoken_summary_source")}
+        return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=metadata)
 
     def stop_speaking(self) -> dict:
         """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
@@ -2229,7 +2296,7 @@ class LockedInRuntime:
     def _barge_in(self, data: dict) -> None:
         """The owner started talking over LOCKI: stop the line now (interrupt() never drops a P0 warning). Their words are then
         transcribed and answered as a normal turn."""
-        if not self.speaker.speaking:
+        if not self.speaker.speaking and not (self._nemotron_task is not None and not self._nemotron_task.done()):
             return
         self.speaker.interrupt("barge-in")
         self.bus.publish(EventType.VOICE_BARGE_IN, EventSource.VOICE, data)
@@ -2261,6 +2328,7 @@ class LockedInRuntime:
             "reply_to_audio_ms": None,
         }
         self._turn_index[turn["id"]] = turn
+        self._latest_utterance_id = turn["id"]
         if len(self._turn_index) > 60:
             for old in list(self._turn_index)[:-30]:
                 self._turn_index.pop(old, None)
@@ -2444,7 +2512,9 @@ class LockedInRuntime:
             return self.security.request_disarm_by_voice()
         if n == IntentName.SECURITY_WHAT_HAPPENED:
             incident = self.security.incident or {}
-            if incident.get("authoritative") and self.nemotron_service.configured() and self.nemotron_service.accepts(incident.get("incident_id")):
+            if incident.get("authoritative") is True:
+                if not self.nemotron_service.accepts(incident.get("incident_id")):
+                    return self._nemotron_unavailable("unverified", "the authoritative incident ID could not be verified")
                 return await self._what_happened_from_nemotron(incident["incident_id"])
             return await self.security.what_happened(origin=origin)
         if n == IntentName.SECURITY_DESK:

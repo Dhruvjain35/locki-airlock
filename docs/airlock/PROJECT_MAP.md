@@ -9,6 +9,11 @@ The PRD is a historical engineering plan, not a description of completed feature
 Its older repository references and proposed reducer/state names do not override
 the current `Dhruvjain35/locki-airlock` source and deployed contract.
 
+Source update: main `1bbbfbf8282d7430d8395a188dff2ea20776fe89` adds the M4 client
+for Mustafa's API and a question-driven runtime route. Independent client/runtime
+hardening is in progress. This source wiring does not verify activation on M4/M5,
+an actual evidence grant, a model response or a spoken result.
+
 ## Product and success case
 
 AIRLOCK is a workstation security companion. The owner explicitly arms a Mac,
@@ -35,7 +40,8 @@ unrelated agents, motor movement or automatic emergency-services dispatch.
 | WATCH: Mac | `backend/app/security/`, `backend/app/vision/airlock/` | Dhruv | IOKit USB, visible app launches, local camera/zone observations and transport. Local warnings continue without model inference. |
 | WATCH: edge | `edge/jetson/` | Areeb; current fallback adapter by Sid | Separate enrolled publisher, original capture time, sequence and sanitized metadata. Current checked-in adapter establishes presence, not identity or intent. Areeb's newer runtime needs its own integration record. |
 | SPEAK / runtime | `backend/app/runtime.py`, `backend/app/voice/` | Dhruv | Existing ASR, deterministic intents, conversation and priority speech. One backend, one voice consumer and one monitor per device. |
-| Existing M4 investigator | `backend/app/intelligence/airlock_agent.py`, `backend/app/security/tools.py` | Dhruv | Current in-process investigation path invoked by the M4 service, with gated tools and Ollama/fallback model selection. |
+| Retained local investigator | `backend/app/intelligence/airlock_agent.py`, `backend/app/security/tools.py` | Dhruv | In-process path for local cases, with gated tools and Ollama/fallback model selection. Its action-capable tools do not belong to the evidence-only M5 principal. |
+| M4 → M5 API client | `backend/app/intelligence/nemotron_service.py`, `backend/app/runtime.py` | Dhruv | Question-driven route for authoritative live incident IDs when the M4 API requester key is configured; client/runtime hardening and actual-host proof remain open. |
 | Restricted M5 investigator | `services/nemotron-investigator/` | Mustafa | Separate authenticated API with evidence-only read tools, grounding and advisory risk. No membership, approvals, arm/disarm, acknowledgement, resolution or lock authority. |
 | Owner/reviewer interface | `frontend/src/airlock/`, `frontend/src/airlock-bindings/` | Sid | Reads actual server state, obtains owner consent, presents policy/evidence and submits permitted human actions. Human reviewers and the investigator have different permissions. |
 | Managed tool boundary | `backend/app/missions/`, `backend/app/security/tool_gate.py` | Dhruv | Limits the owned Code Quest workflow; native Relay evidence and actual allowed/denied callbacks require separate proof. |
@@ -58,9 +64,11 @@ unrelated agents, motor movement or automatic emergency-services dispatch.
 5. **Coordinate.** Scoped subscriptions update the Mac and dashboards. Session state,
    incident lifecycle, lock delivery and local delivery mode are separate facts,
    not one invented global state enum. The PRD's state diagram is conceptual.
-6. **Investigate.** Tools expose only the permitted evidence. Server severity is
-   authoritative; model risk is a separately labelled assessment. A missing source
-   is uncertainty, not permission to invent data or silently use fixtures.
+6. **Investigate.** The new source route sends an authoritative live incident ID
+   to Mustafa's API when the owner asks what happened and the M4 requester key is
+   configured; local cases retain the in-process agent. The M5 reads only its
+   owner-granted evidence. Server severity remains authoritative; model risk is
+   advisory. Missing or withheld evidence must not become an invented or fixture result.
 7. **Recover.** An authorized human acknowledges/reviews; the owner controls disarm.
    A model, camera, recording or unauthenticated phrase cannot grant those rights.
 
@@ -71,7 +79,8 @@ unrelated agents, motor movement or automatic emergency-services dispatch.
 | Browser voice grant | `AirlockApp` → `VoiceArmAuthorization` → `VoiceArm.tsx`; explicitly `ttlMs: 30000n` | `armConsent.ts` also retains an older 60-second builder, but the current rendered grant UI does not call it. Server ceiling is 60 seconds. |
 | Voice consume | Existing runtime → deterministic full-utterance intent → `SecurityService.request_arm_by_voice` → exact delegated reducer → fresh readback | No second voice service. Stopped/replaced/held/stale capture and uploaded recordings cannot consume a grant. |
 | Owner with CLI authentication only | Optional local consent window maintains the M4's persistent authenticated issuer connection | A short-lived CLI reducer connection cannot stand in for the persistent voice-grant issuer. No owner token enters voice. |
-| M4 investigation today | `SecurityService.agent()` builds `AirlockAgent(AirlockTools(...))`; `_agent_model()` selects raw Ollama/fallback | Mustafa API source exists, but no M4 backend client for `18787` is present. Its actual activation and one-consumer handoff remain open. |
+| Authoritative live incident question | Existing runtime → `NemotronService` → M4 loopback `18787` → M5 API, with `evidence_mode: "live"`, when the requester key is configured | Source client exists; independent credential/origin/report/cancellation review and actual M4/M5 adoption remain separate gates. |
+| Local case question | `SecurityService.agent()` builds `AirlockAgent(AirlockTools(...))`; `_agent_model()` selects raw Ollama/fallback | Retained local behavior, not an API response or evidence that Mustafa's model ran. |
 | M5 service | M5 loopback `8787`, M4 SSH forward `18787`, separate API bearer key | Raw Ollama `11434` / M4 forward `11435` is a different connection and permission surface. |
 | Camera reads | Enrolled `jetson` publisher sends observations | Empty `my_device_events` for the camera is expected under its publish-only role; use accepted receipts and authorized owner/Mac readback. |
 
@@ -92,14 +101,17 @@ audit files do not become a new authorization source.
 See [the full contract and grant handoff](INVESTIGATOR_INTEGRATION.md).
 Actual owner grant receipt, existing-identity negative tests and one genuine M5
 model investigation remain required; source code and mocked tests do not close them.
+The M4 requester API key is not the M5 investigator's SpacetimeDB token, and neither
+is an owner credential. The owner grants incident evidence separately.
 
 ## Work order and completion rules
 
 1. Preserve the existing runtime and source ownership; agree contracts before shared
    edits. New repository only, no force pushes or database resets.
 2. Close the owner-local incident grant and M5 own-identity read/denial proof.
-3. Coordinate activation of the reviewed M5 service and its client handoff in the
-   existing M4 runtime. Run one investigation consumer, not competing backends.
+3. Finish the independent M4 client/runtime review, then coordinate activation of
+   the reviewed M5 service and existing M4 runtime route. The source handoff exists;
+   it needs actual-host receipts, not another backend or competing consumer.
 4. Execute real owner-consent → microphone → delegated ARM → server state → audible
    confirmation on the actual M4, including expiry/replay/revocation negatives.
 5. Run real camera/USB/two-client recovery and native-model/Relay acceptance trials.

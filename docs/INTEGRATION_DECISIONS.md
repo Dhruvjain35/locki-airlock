@@ -164,3 +164,20 @@ reported startup failure with zero jobs, which is distinct from successful sourc
 or workflow delivery and has no established cause here. Pre-existing investigator
 style findings remain; critical Python checks passed. Actual M4/M5 restart,
 own-token grant verification, native model traces and physical trials remain open.
+
+## M4 API client source handoff
+
+Main `1bbbfbf8282d7430d8395a188dff2ea20776fe89` adds
+`backend/app/intelligence/nemotron_service.py` and routes “what happened?” in the
+existing runtime to Mustafa's API for an authoritative live
+`incident:<32 lowercase hex>` when the M4 requester key is configured. Local cases
+retain `AirlockAgent` and its Ollama/fallback path. This closes the earlier
+missing-client source gap without adding another voice/backend consumer.
+
+The M4 API key and M5 SpacetimeDB investigator token remain separate; neither
+grants owner authority. Independent review is hardening the client and runtime's
+credential/origin, report/provenance and cancellation boundaries. The prior 1,772
+backend and 387 service results keep their checkpoint scope and do not certify
+this new route. Actual reviewed-host activation, incident evidence grant/receipt,
+own-token verification and a live model/spoken result remain unverified. The
+original PRD and its physical/native-model acceptance gates are unchanged.

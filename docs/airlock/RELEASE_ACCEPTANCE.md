@@ -1,16 +1,26 @@
 # Release acceptance reconciliation
 
+Latest integrated M4 client checkpoint: **1,852 backend tests passed, 20 skipped
+in 193.71s** after merging `1bbbfbf` and independently reviewing the client and
+runtime safeguards. The combined client/runtime focus passed 79 tests. The M4
+client is wired in source; actual M4/M5 activation and owner access remain live gates.
+An earlier full attempt had one unchanged simulated-motion timing failure; all
+ten legacy mock tests passed on a targeted rerun and the subsequent full run passed.
+No actual motion, model, microphone, camera or lock was activated by these checks.
+
 Reviewed 2026-11-08 against the original supplied `LOCKI_AIRLOCK_PRD.md` §§0–16 and
 the `Dhruvjain35/locki-airlock` audited snapshot `2212251`, with the current source
-handoffs imported through pinned main `529885c40f3bf00c55a4e38b35a3b9f022298431`. This is the current
+handoffs now including main client-wiring commit `1bbbfbf8282d7430d8395a188dff2ea20776fe89`. This is the current
 integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane evidence.
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
 
-The final full backend run passed **1,772 tests, 20 skipped in 182.14s**.
-The investigator service separately passed **387 tests, one skipped and three live-model
-tests deselected in 4.18s**. Frontend **54 tests** are recorded; final typecheck and
-production build passed after the last recorded-input copy/Send-enable change.
+The prior full backend checkpoint passed **1,772 tests, 20 skipped in 182.14s**,
+before the new M4 service-client merge and its independent review.
+The investigator service's source-scoped baseline passed **387 tests, one skipped and three live-model
+tests deselected in 4.18s**. The earlier frontend checkpoint records **54 tests**;
+its typecheck/build passed after the recorded-input copy/Send-enable change, before
+the current client/runtime review.
 Earlier full backend checkpoints were 1,699/20 skipped before dispatch hardening
 and 1,729/20 skipped afterward; their source scopes and logs remain distinct.
 Node adapters passed **151** and the combined investigator/owner HTTP boundaries
@@ -28,8 +38,10 @@ not a current credential blocker; no additional user credentials are required.
 Separately, [Actions run 42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
 last reported `startup_failure` with zero jobs. Its cause is not established by
 that status, and local test results are not a claim of passing GitHub CI. The
-current investigator hardening/docs are bound by working-tree hashes below; their
-subsequent delivery commit is not invented here. Git delivery does not restart M4/M5.
+earlier investigator hardening/docs are bound by their checkpoint hashes below.
+The newly added M4 client/runtime branch is under independent review and needs
+fresh checks/hash binding; no new delivery commit or host activation is invented here.
+Git delivery does not restart M4/M5.
 
 The production M4 service method was earlier exercised against cloud using isolated fixture identities,
 the real owner-consent HTTP/SDK path and a private fixture CLI credential: first
@@ -66,7 +78,7 @@ Evidence levels used here:
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
 | 6 Authoritative SpacetimeDB | Server owns enrollment/session/incident/review/approval; private scoped views and deployment manifests are present. | Validate the merged host and two physical clients against the same deployed module; preserve database authority in all local fallback UI. |
-| 7 Operational local Nemotron E4B | Mustafa's v0.3 service source now exists at `services/nemotron-investigator/`, alongside the preserved M4 investigator/transport. Integration review adds authenticated-principal/no-membership checks and per-incident evidence/fresh-severity boundaries. Upstream benchmarks remain source-specific recorded artifacts. | Actual M5 deployed revision/configuration, owner scope grant and receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools on the correlated incident. Imported code is not host/model acceptance. |
+| 7 Operational local Nemotron E4B | Mustafa's v0.3 service source and the new M4 `NemotronService` client/runtime route are present. Configured authoritative live incident questions use the API; local cases retain the in-process agent. Client/runtime hardening is under independent review. | Fresh bounded checks of the reviewed client/runtime, actual M4/M5 activation, owner scope grant/receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools. Source wiring is not host/model acceptance. |
 | 8 Native Relay and protected Code Quest tools | Historical native Relay/managed boundary evidence and local gate source exist. | Actual merged-model LLM/tool spans, correlation IDs and pre-execution allowed/denied Code Quest callback proof; application logs do not substitute. |
 | 9 Existing live voice and safety priority | M4 speech stack and new turn/quiet/barge behavior are preserved. Fake tests cover microphone close/reopen failure, held/late ASR cancellation and immutable capture-epoch checks; no second voice service is needed. | Coordinated M4 restart, real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
 | 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. | Same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
@@ -153,6 +165,12 @@ but his identity has no verified actual-token grant/report in this work. Only th
 minimum read scope. Never substitute deployment/admin credentials or give the
 investigator mutation roles. [INVESTIGATOR_INTEGRATION.md](INVESTIGATOR_INTEGRATION.md)
 contains exact views/reducers and prepared owner commands.
+
+Main `1bbbfbf` additionally supplies the M4 HTTP client and “what happened?” route
+for configured authoritative live incident IDs. This replaces the earlier missing-client
+gap. It is undergoing independent client/runtime hardening; the old full-suite
+totals and manifest hashes do not certify this new branch. Actual M4/M5 adoption,
+evidence authorization and model/spoken receipts remain open.
 
 The service uses an evidence-only investigator identity, with no workstation
 membership/device role. Its API key does not create a database grant. Service

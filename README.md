@@ -6,8 +6,8 @@ and answers questions from the recorded evidence. An NVIDIA Nemotron model inves
 
 Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan.
 
-> **Status: integration snapshot, not a finished release.** Mustafa's investigator source and contract are now included.
-> Live host activation, scoped evidence receipts and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
+> **Status: integration snapshot, not a finished release.** Mustafa's service and its M4 runtime client are present in source.
+> Client/runtime hardening is under independent review. Actual M4/M5 activation, scoped evidence receipts and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
 
 **Start here:** [Project map and ownership](docs/airlock/PROJECT_MAP.md) · [Original PRD](docs/airlock/PRD.md) ·
 [Acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) · [Wire contracts](docs/airlock/CONTRACTS.md) ·
@@ -24,6 +24,8 @@ flowchart LR
     DB -->|Caller-scoped subscriptions| Mac
     DB -->|Incident and session state| Dashboard[Owner and reviewer dashboard]
     DB -->|Explicitly approved incident evidence| Investigator[M5 Nemotron investigator API]
+    Mac -->|What happened: live incident ID| Investigator
+    Investigator -->|Live voice view| Mac
     Investigator --> Report[Advisory report with evidence citations]
 ```
 
@@ -39,9 +41,11 @@ camera; matching physical evidence within the same session's 10-second window ra
 not a declaration of compromise. The present camera adapter does not prove whether someone walked past, stood nearby or interacted with
 the computer. Those differences must be measured with [consenting volunteer trials](docs/airlock/ACCURACY_TRIALS.md).
 
-**Current integration boundary.** The M4 currently invokes its in-process investigator through Ollama. Mustafa's separate, authenticated M5 API
-and restricted evidence adapter are included, but its live grant, host activation and connection to the M4 voice path still need receipts.
-The diagram shows that intended read-only evidence path; it is not a claim of a completed physical demonstration. Run one investigation consumer.
+**Current source wiring.** For “what happened?” about an authoritative live `incident:<32 lowercase hex>`, the existing runtime selects
+`NemotronService` when its M4 API requester key is configured. That client sends `evidence_mode: "live"` to Mustafa's authenticated API and
+polls its voice view. Local cases retain `AirlockAgent` through the existing Ollama/fallback path. This is one route selection in the existing
+voice runtime, not a second backend. Credential/origin checks, report binding and stale-result handling are under independent review.
+The source path is present; current M4/M5 activation, the actual evidence grant and model/voice receipts remain unverified. Alerts never wait on this enrichment.
 
 ## Repository layout
 
@@ -50,7 +54,7 @@ The diagram shows that intended read-only evidence path; it is not a claim of a 
 | `backend/app/security/` | Mac watchers, security service, SpacetimeDB adapter, security modes, demo mode, lock adapter (dry run) | Dhruv |
 | `backend/app/vision/airlock/` | Desk camera: person tracking and interaction zones; legacy face code is disabled by default | Dhruv |
 | `backend/app/voice/` | Speech queue, Kokoro / Fish Audio, Bluetooth tail fix, per-mode delivery (`delivery.py`), personality lines | Dhruv |
-| `backend/app/intelligence/` | Conversation, AIRLOCK investigator (`airlock_agent.py`), Sid's Nemotron transport (`nemotron_transport.py`) | Dhruv, Sid |
+| `backend/app/intelligence/` | Conversation, local investigator (`airlock_agent.py`), M5 API client (`nemotron_service.py`), Sid's transport (`nemotron_transport.py`) | Dhruv, Sid |
 | `services/nemotron-investigator/` | Authenticated Nemotron API, incident-scoped read tools, evidence grounding and benchmark artifacts | Mustafa |
 | `backend/app/` (other) | FastAPI runtime kept from LOCKED IN: API, bus, telemetry, voice input, and the robot and focus modules it still imports | Dhruv |
 | `frontend/src/airlock/`, `frontend/src/airlock-bindings/` | Security dashboard and generated SpacetimeDB bindings | Sid |
@@ -100,8 +104,8 @@ See [contracts and enrollment boundaries](docs/airlock/CONTRACTS.md).
 
 | Connection | M4 endpoint | Purpose |
 |---|---|---|
-| Raw Ollama tunnel | `127.0.0.1:11435` → M5 `127.0.0.1:11434` | Existing M4 in-process investigator; optional conversation uses separate settings |
-| Investigator API tunnel | `127.0.0.1:18787` → M5 `127.0.0.1:8787` | Mustafa's authenticated, evidence-only service; M4 client integration remains open |
+| Raw Ollama tunnel | `127.0.0.1:11435` → M5 `127.0.0.1:11434` | Retained in-process investigator for local cases; optional conversation uses separate settings |
+| Investigator API tunnel | `127.0.0.1:18787` → M5 `127.0.0.1:8787` | New M4 source client for authoritative live incident questions; current host activation remains unverified |
 
 The existing raw Ollama tunnel is:
 
@@ -111,7 +115,10 @@ ssh -N -L 11435:127.0.0.1:11434 <user>@<m5-tailscale-name>
 
 Then set `LOCKEDIN_AIRLOCK_OLLAMA_URL=http://127.0.0.1:11435`. Use the names from `tailscale status`, never a fixed address in committed config.
 That setting configures investigation. Conversation uses its own `LOCKEDIN_LOCAL_LLM_BACKEND=ollama` and `LOCKEDIN_OLLAMA_URL` settings.
-The separate API requires its own scoped bearer key and the [v0.3 handoff](services/nemotron-investigator/INTEGRATION.md). Neither key is an owner token.
+The API client uses `LOCKI_INVESTIGATOR_URL` (default `http://127.0.0.1:18787`) and `LOCKI_INVESTIGATOR_KEY_FILE`
+(default `~/.locki/investigator.key`). That M4 file holds the API requester key. It is distinct from the M5's `NI_STDB_TOKEN_FILE`, which
+holds the evidence-only SpacetimeDB investigator credential, and from the owner's grant credential. Follow the [v0.3 handoff](services/nemotron-investigator/INTEGRATION.md)
+and coordinate adoption of the reviewed client/runtime before a live trial; source configuration is not proof of a working tunnel or grant.
 
 **Voice.** `LOCKEDIN_SECURITY_VOICE=am_onyx` speaks every security line in local Kokoro, offline. Pick the output device in the dashboard's
 voice settings. Fish Audio is optional: it needs `FISH_AUDIO_API_KEY` in `.env`, and it's skipped while the one security voice is on.
@@ -124,7 +131,7 @@ zones once with `cd backend && .venv/bin/python scripts/airlock_zones.py`: `2` m
 Before you start, check that nothing else is using the camera or the USB monitor, and run only one backend.
 
 ```sh
-# terminal 1: the M5 tunnel (see above)
+# terminal 1: coordinated M5 tunnels (18787 API for live incident questions; 11435 raw Ollama for retained local/conversation paths)
 # terminal 2: inspect environment before starting the Mac runtime
 cd ~/locki-airlock
 make preflight
@@ -195,9 +202,9 @@ Historical camera, audio and model timings in the runbooks are attributed team m
 
 | Check | Status |
 |---|---|
-| Backend software | 1,772 passed; 20 skipped |
-| Investigator service software | 387 passed; one skipped; three real-model tests deliberately excluded |
-| Frontend | 54 tests; final typecheck and production build passed |
+| Backend software | Prior full checkpoint: 1,772 passed; 20 skipped, before the new M4 service-client merge and its review |
+| Investigator service software | Source-scoped baseline: 387 passed; one skipped; three real-model tests deliberately excluded |
+| Frontend | Prior checkpoint: 54 tests, typecheck and production build; current client/runtime review is separate |
 | GitHub Actions | Workflow published; latest inspected run failed at startup before any jobs. Cause unknown; local checks do not imply CI success |
 | Real M4 hardware | Team reports: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. The new face-disabled default has not been activated or verified on the running M4 |
 | Live SpacetimeDB | Current owner-armed session and committed non-simulated Jetson person rows independently read back; Mac USB/audio timings remain team reports. Separate M4 camera enrollment is still an owner action |
@@ -211,7 +218,8 @@ Historical camera, audio and model timings in the runbooks are attributed team m
   `feature/airlock-mission-control`. Neither was on this Mac, on GitHub or in the team's earlier repository, and Areeb's Mac couldn't be
   reached. `edge/jetson/` holds Sid's earlier adapter only.
 - **Mustafa's live investigator host.** The source and v0.3 contract are included under `services/nemotron-investigator/`.
-  Activation of the reviewed fixes on his M5, the actual owner-local evidence grant and an investigation using his existing identity
+  The M4 runtime client is now included too; its client/runtime hardening is under independent review. Activation of the reviewed changes
+  on both hosts, the actual owner-local evidence grant and an investigation using his existing identity
   still require host receipts. Model weights, credentials and private live investigation records never belong in git.
 
 To add a missing lane, follow "Adding your lane" in [CONTRIBUTING.md](CONTRIBUTING.md). It copies a snapshot of your files without the old history.
