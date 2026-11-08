@@ -14,7 +14,10 @@ install -m 700 "$HERE/locki_launch.sh" "$HERE/tunnel.sh" "$DEST/"; install -m 60
 CONF="$HOME/.locki/launcher.env"
 if [ ! -f "$CONF" ]; then
   # The M5 address and user of the tunnel that already works (no secrets: the key stays in ~/.ssh).
-  printf '%s\n' "LOCKI_M5_HOST=${LOCKI_M5_HOST:?set LOCKI_M5_HOST}" "LOCKI_M5_USER=${LOCKI_M5_USER:?set LOCKI_M5_USER}" "LOCKI_M5_KEY=\$HOME/.ssh/id_ed25519" > "$CONF"
+  # A new Mac: start LOCKI from the clone this installer runs from (backend/.venv and frontend/ made by `make setup`).
+  REPO="$(cd "$HERE/../.." && pwd)"
+  printf '%s\n' "LOCKI_M5_HOST=${LOCKI_M5_HOST:?set LOCKI_M5_HOST}" "LOCKI_M5_USER=${LOCKI_M5_USER:?set LOCKI_M5_USER}" "LOCKI_M5_KEY=${LOCKI_M5_KEY:-\$HOME/.ssh/id_ed25519}" \
+    "LOCKI_BACKEND_ROOT=$REPO" "LOCKI_FRONTEND_DIR=$REPO/frontend" > "$CONF"
 fi
 chmod 600 "$CONF"
 sed "s#__HOME__#$HOME#g" "$HERE/com.locki.airlock.m5-tunnel.plist" > "$AGENT"
