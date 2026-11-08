@@ -35,6 +35,7 @@ from .modes import ModeEngine, SecurityMode, VisualState
 from .monitor import Observation, SecurityMonitor
 from .publisher import LocalOnlyTransport, SecurityEventPublisher, Transport
 from .session import ArmedSession, ResponsePolicy, new_local_session
+from .takeover import TakeoverTracker
 
 if TYPE_CHECKING:
     from ..runtime import LockedInRuntime
@@ -143,7 +144,9 @@ class SecurityService:
         self._camera_reasons: set[str] = set()  # "armed" and/or "demo": the camera runs while either wants it
         self.modes = ModeEngine(on_change=self._mode_changed)
         self.demo = None  # DemoService, built on first use
+        self.takeover = TakeoverTracker()  # what the native alert window shows: read-only over this service (takeover.py)
         rt.bus.add_listener(self._on_bus_event)
+        rt.bus.add_listener(self.takeover.on_bus_event)
 
     def _on_bus_event(self, ev) -> None:
         if ev.event_type == EventType.VOICE_TTS_FINISHED:
@@ -152,6 +155,7 @@ class SecurityService:
     # ------------------------------------------------------------------ lifecycle
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
+        self.takeover.start(self.rt.settings.data_dir)  # a new alert token each backend start, owner-only on disk
         if self.enabled:
             try:
                 await self.start_monitoring()
@@ -1266,6 +1270,7 @@ class SecurityService:
             "camera": None if self.camera is None else self.camera.snapshot(),
             "demo": None if self.demo is None else self.demo.snapshot(),
             "visual_state": self.modes.state.to_dict(),
+            "takeover": self.takeover.view(self),
             "mode_transitions": self.modes.transitions[-10:],
             "remote_camera": self.remote_camera,
             "voice_arm": self.voice_arm,

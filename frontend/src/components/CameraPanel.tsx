@@ -67,7 +67,7 @@ function ZoneEditor({ points, editing, visible, onChange }: { points: Pt[]; edit
         onChange(next);
       }}
     >
-      <polygon points={poly} fill={editing ? "oklch(0.86 0.145 200 / 0.14)" : "oklch(0.86 0.145 200 / 0.06)"} stroke="var(--color-live)" strokeWidth={editing ? 2 : 1.5} vectorEffect="non-scaling-stroke" strokeDasharray={editing ? "0" : "6 5"} />
+      <polygon points={poly} fill={editing ? "rgba(118, 185, 0, 0.14)" : "rgba(118, 185, 0, 0.06)"} stroke="var(--color-live)" strokeWidth={editing ? 2 : 1.5} vectorEffect="non-scaling-stroke" strokeDasharray={editing ? "0" : "6 5"} />
       {editing
         ? points.map((p, i) => (
             <rect

@@ -8,7 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from ..security.contracts import LockRequestV1
 from ..security.service import SecurityError
@@ -34,6 +34,53 @@ def _refused(exc: SecurityError) -> HTTPException:
 @router.get("")
 async def state(request: Request):
     return rt_of(request).security.snapshot()
+
+
+# ------------------------------------------------------------------ the native alert window (security/takeover.py)
+class TakeoverReport(BaseModel):
+    takeover_id: str = Field(..., min_length=1, max_length=200)
+    event: Literal["shown", "dismissed", "handoff"]
+    view: Literal["explain", "evidence", "stop"] | None = None
+    at_ms: int | None = Field(None, ge=0)
+    latency_ms: int | None = Field(None, ge=0, le=3_600_000)
+    visible: bool | None = None
+    detail: str | None = Field(None, max_length=240)
+
+
+def _native_alert(request: Request):
+    """LOCKI Alert.app only: a request with any Origin header comes from a web page and is refused (403), and the rest need this
+    backend's current token from ~/.locki/run/alert.token (401). LocalOnly has already refused anything not on loopback."""
+    if request.headers.get("origin") is not None:
+        raise HTTPException(status_code=403, detail="only the native alert window may call this, never a web page")
+    security = rt_of(request).security
+    if not security.takeover.token_ok(request.headers.get("x-locki-alert-token")):
+        raise HTTPException(status_code=401, detail="missing or wrong alert token")
+    return security
+
+
+@router.get("/takeover")
+async def takeover(request: Request):
+    """The takeover decision, read-only. Each call is also the native window's heartbeat."""
+    security = _native_alert(request)
+    security.takeover.heard_from_native(request.headers.get("x-locki-alert-pid"), request.headers.get("x-locki-alert-version"))
+    return security.takeover.decide(security)
+
+
+@router.post("/takeover/report")
+async def takeover_report(request: Request):
+    """shown, dismissed or a hand-off to the dashboard. It changes only what the window shows: never the session, a mode, an incident,
+    evidence, a grant, the voice or a lock."""
+    security = _native_alert(request)  # before the body is read, so nothing unauthenticated is even parsed
+    try:
+        body = TakeoverReport.model_validate(await request.json())
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=f"bad report: {type(exc).__name__}") from None
+    if body.event == "handoff" and body.view is None:
+        raise HTTPException(status_code=422, detail="a handoff names its view: explain, evidence or stop")
+    try:
+        return security.takeover.report(body.takeover_id, body.event, view=body.view, at_ms=body.at_ms, latency_ms=body.latency_ms)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="not the current takeover") from None
 
 
 @router.get("/latency")

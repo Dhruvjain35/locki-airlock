@@ -18,6 +18,8 @@ import { RecordedVoicePanel } from "./RecordedVoicePanel";
 import { healthStatus, latestHealth } from "./coverage";
 import { FaceIdCard, SensorHealth } from "./CommandCenter";
 import { useMacSecurity } from "./macSecurity";
+import { HANDOFF_MAX_AGE_MS, markHandoffHandled, readHandledHandoff, readTakeover } from "./takeover";
+import { FIXTURE_ACTIVE, installFixtureFetch, useFixtureAirlock } from "./fixture";
 import { bySession, liveSession, pastSessions, pickIncident } from "./liveScope";
 import { type InvestigatorAccessContext, changeInvestigatorAccess, investigatorAccessReview } from "./investigatorAccessPolicy";
 import { EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, evidenceGrantState, explainBlocker, explainScope, grantApprovedAt, openGrantIncidentIds, protectionState } from "./protection";
@@ -25,6 +27,10 @@ import { type ConsoleActions, type ConsoleModel, type ConsoleView, type ExplainR
 import { api } from "../services/api";
 import "./airlock.css";
 import "./commandCenter.css";
+
+// Dev-only design review data (?fixture=… under `vite dev`); production builds always use the live subscription.
+if (import.meta.env.DEV && FIXTURE_ACTIVE) installFixtureFetch();
+const useLive = import.meta.env.DEV && FIXTURE_ACTIVE ? useFixtureAirlock : useAirlock;
 
 type Dialog = "connect" | "register" | "arm" | "start" | "access" | "policy" | "action" | "recover" | null;
 
@@ -63,7 +69,7 @@ function FixturePanel({ station, session, devices, owner, role, connected, pendi
 
 function ControlRoom() {
   const [config, setConfig] = useState<ConnectionConfig>(readConfig);
-  const live = useAirlock(config);
+  const live = useLive(config);
   const mac = useMacSecurity();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [stationId] = useState(new URLSearchParams(location.search).get("workstation") || "");
@@ -208,6 +214,24 @@ function ControlRoom() {
     setStop(prev => ({ ...prev, phase: "done", grants: ids.length, disarmed, revoked, failed }));
   };
 
+  // The native alert window hands off to this owner console: Explain opens the same consent flow, View evidence the Investigation view,
+  // Stop the same owner-confirmed Stop dialog. The window itself holds no credentials and changes nothing. Each request acts once; one
+  // seen before a reload, or older than a minute, is ignored.
+  const handoff = readTakeover(mac)?.handoff ?? null;
+  const handledHandoff = useRef<string | null>(readHandledHandoff());
+  const handoffActs = useRef({ explain, stop: () => {}, armed: false });
+  handoffActs.current = { explain, stop: () => setStop({ phase: "confirm", grants: openGrants.length, earlier: earlierGrants.length }), armed: Boolean(liveS) };
+  useEffect(() => {
+    if (!handoff || typeof handoff.nonce !== "string" || handledHandoff.current === handoff.nonce) return;
+    handledHandoff.current = handoff.nonce;
+    markHandoffHandled(handoff.nonce);
+    if (!(Date.now() - Number(handoff.at_ms) <= HANDOFF_MAX_AGE_MS)) return;
+    const act = handoffActs.current;
+    if (handoff.view === "explain") act.explain();
+    else if (handoff.view === "stop" && act.armed) { setCview("protection"); act.stop(); }
+    else setCview("investigation");
+  }, [handoff?.nonce]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   if (new URLSearchParams(location.search).get("view") === "desk" && !targetUnavailable) {
     return <div className="airlock-app"><DeskView station={station} role={role} identity={live.identity} connected={connected} pending={pending} perform={perform} now={now}
       incidents={incidents} events={scoped.events} audit={scoped.audit} runs={scoped.runs} steps={scoped.steps} acknowledgements={scoped.acknowledgements} locks={scoped.locks} /></div>;
@@ -264,7 +288,7 @@ function ControlRoom() {
     {dialog === "policy" && station && <div className="airlock-app lk-legacy"><PolicyForm station={station} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
     {dialog === "action" && station && <div className="airlock-app lk-legacy"><RequestActionForm station={station} service={role === "service"} incidentId={incident?.id || ""} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
   </>;
-  return <Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} />;
+  return <>{import.meta.env.DEV && FIXTURE_ACTIVE && <div className="lk-fixture-banner" role="status">Fixture data for design review. Not live: every action is refused. Remove ?fixture from the URL for the real console.</div>}<Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} /></>;
 }
 
 export default function AirlockApp() { return <ToastProvider><ControlRoom /></ToastProvider>; }

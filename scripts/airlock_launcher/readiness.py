@@ -21,6 +21,7 @@ INVESTIGATOR = "http://127.0.0.1:18787"
 OLLAMA = "http://127.0.0.1:11435"
 MODEL = os.environ.get("LOCKI_NEMOTRON_MODEL", "nemotron-3.5-bolt:e4b")
 KEY_FILE = os.path.expanduser(os.environ.get("LOCKI_INVESTIGATOR_KEY_FILE", "~/.locki/investigator.key"))
+ALERT_APP = os.path.expanduser("~/.locki/alert/LOCKI Alert.app")
 JETSON = os.environ.get("LOCKI_JETSON_DEVICE", "jetson-01")
 DATABASE = os.environ.get("LOCKI_SPACETIME_DATABASE", "locki-w91bw")
 FRESH_MS = 30_000
@@ -63,6 +64,19 @@ def check_backend_and_mac():
                     f"Watcher error: {usb.get('error') or apps.get('error') or 'not running'}. Retry; if it persists restart LOCKI while disarmed."))
     out.append(item("Screen lock is dry run", sec.get("lock_mode") == "dry_run", f"lock mode {sec.get('lock_mode')}",
                     "The backend is not in dry_run. Stop and relaunch with the launcher (it never enables real locks)."))
+    tk = sec.get("takeover")
+    nat = (tk or {}).get("native") or {}
+    # Required only on a Mac where the alert window is installed (the demo Mac). A Mac without it, such as a fallback that has not run
+    # install.sh, stays usable: critical events then show only in the dashboard, and this line says so instead of blocking READY.
+    if not os.path.isdir(ALERT_APP):
+        out.append(item("Native alert window", False, "not installed on this Mac: critical events show only in the dashboard",
+                        "Run scripts/airlock_launcher/install.sh (it builds the alert window), then launch again.", required=False, group="Alert"))
+    elif tk is None:
+        out.append(item("Native alert window", False, "this backend has no native alert support yet",
+                        "Restart the backend from the updated checkout while disarmed (locki_launch.sh --stop, then launch again).", group="Alert"))
+    else:
+        out.append(item("Native alert window", nat.get("connected"), f"LOCKI Alert.app polling the backend (pid {nat.get('pid')})" if nat.get("connected") else "LOCKI Alert.app is not polling the backend",
+                        "Press Retry (the launcher starts it). If it is missing, build it: native/locki-alert/build.sh, or run install.sh again.", group="Alert"))
     sess = sec.get("session") or {}
     out.append(item("Protection", True, f"ARMED · session {sess.get('session_id')}" if sec.get("armed") else "disarmed · press START PROTECTION in the dashboard",
                     required=False))

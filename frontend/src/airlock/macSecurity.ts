@@ -18,7 +18,10 @@ export function useMacSecurity(intervalMs = 1000): MacLink {
   useEffect(() => {
     let stop = false;
     let timer = 0;
+    let inflight = false;
     const load = async () => {
+      if (inflight) return;
+      inflight = true;
       try {
         const res = await fetch("/api/security", { cache: "no-store" });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -27,11 +30,17 @@ export function useMacSecurity(intervalMs = 1000): MacLink {
       } catch (e) {
         if (!stop) setLink(prev => ({ ...prev, status: "offline", error: e instanceof Error ? e.message : String(e) }));
       } finally {
-        if (!stop) timer = window.setTimeout(load, intervalMs);
+        inflight = false;
+        if (!stop) { window.clearTimeout(timer); timer = window.setTimeout(load, intervalMs); }
       }
     };
+    // Chrome throttles a hidden tab's timers (to once a minute after five minutes hidden). When this page comes back to the front, for
+    // example because the native alert window handed off to it, read the backend at once instead of waiting for a throttled timer.
+    const wake = () => { if (document.visibilityState === "visible" && !inflight) { window.clearTimeout(timer); void load(); } };
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
     void load();
-    return () => { stop = true; window.clearTimeout(timer); };
+    return () => { stop = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", wake); window.removeEventListener("focus", wake); };
   }, [intervalMs]);
   return link;
 }

@@ -6,7 +6,7 @@ import { demoApi, type DemoSnap, type Mode, type Stat, type Step } from "./demoA
 // the camera picture is the pipeline's own annotated frame, and every number is a measured sample.
 
 const MODE_TONE: Record<Mode, { text: string; ring: string; chip: string; label: string; note: string }> = {
-  NORMAL: { text: "text-ink-2", ring: "oklch(0.6 0.012 228)", chip: "chip-dim", label: "Normal", note: "Calm companion. Nobody unmatched at the desk." },
+  NORMAL: { text: "text-ink-2", ring: "var(--color-ink-3)", chip: "chip-dim", label: "Normal", note: "Calm companion. Nobody unmatched at the desk." },
   WATCHFUL: { text: "text-sim", ring: "var(--color-sim)", chip: "chip-sim", label: "Watchful", note: "Someone is near the desk. Attentive, no accusation." },
   DEFENSIVE: { text: "text-hit", ring: "var(--color-hit)", chip: "chip-hit", label: "Defensive", note: "Interaction with protected equipment was observed. Short, factual P0 speech." },
   CRITICAL: { text: "text-danger", ring: "var(--color-danger)", chip: "chip-danger", label: "Critical", note: "A real unknown USB device, or the database's correlated incident." },
