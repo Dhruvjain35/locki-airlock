@@ -63,7 +63,7 @@ USB connection as this Mac received them, otherwise "An unknown USB device was c
 |---|---|
 | Build (once, or after a change) | `bash native/locki-alert/build.sh` (installs `~/.locki/alert/LOCKI Alert.app`) |
 | Start everything | double-click LOCKI AIRLOCK.app, or `~/.locki/launcher/locki_launch.sh` (starts or reuses the alert window) |
-| Check | `~/.locki/launcher/locki_launch.sh --check` (READY needs "Native alert window" polling) |
+| Check | `~/.locki/launcher/locki_launch.sh --check` (where the alert window is installed, READY needs it polling; a Mac without it shows a warning and stays usable) |
 | Start only the alert window | `open -g -j ~/.locki/alert/LOCKI\ Alert.app` (a second copy exits on its own) |
 | Quit the alert window | `kill "$(cat ~/.locki/run/alert.pid)"` (protection is unaffected) |
 | Stop LOCKI (disarmed only) | `~/.locki/launcher/locki_launch.sh --stop` |

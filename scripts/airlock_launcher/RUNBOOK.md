@@ -45,7 +45,7 @@ A notification: **"LOCKI AIRLOCK — READY. Every required check passed in N s."
 - Nemotron investigator (M5) answering with the key, live evidence reachable, model installed
 - Nemotron model actually answers
 - Mac volume up and not muted
-- Native alert window polling the backend (it covers the main display on a critical event even when the dashboard is hidden)
+- Native alert window polling the backend (it covers the main display on a critical event even when the dashboard is hidden). Required once installed; a Mac that never ran install.sh, such as a fallback, gets a warning instead
 - Speaker. This one is a note, not a blocker: it says "LOCKI speaks on: JBL Go 3", or warns that it's on the Mac speakers.
 
 Then press **START PROTECTION** in the dashboard and approve the baseline.
