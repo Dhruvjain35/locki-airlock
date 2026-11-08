@@ -1,0 +1,10 @@
+{
+  "action_id": "fixture-action-1",
+  "expiry": 1794100030000,
+  "incident_id": "fixture-incident-1",
+  "is_fixture": true,
+  "owner_policy_hash": "0123456789abcdef0123456789abcdef",
+  "reason": "Unknown USB device while armed",
+  "schema_version": 1,
+  "session_id": "fixture-session-1"
+}

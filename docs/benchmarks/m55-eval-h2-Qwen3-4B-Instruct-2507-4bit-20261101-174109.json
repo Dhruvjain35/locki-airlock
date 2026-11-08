@@ -1,0 +1,1149 @@
+{
+ "summary": {
+  "model": "Qwen3-4B-Instruct-2507-4bit",
+  "scenarios": 16,
+  "steps_scored": 32,
+  "action_accuracy": 0.625,
+  "context_accuracy": 1.0,
+  "answer_policy_ok": 1.0,
+  "silence_decisions_ok": 0.0,
+  "motion_requests_sent": 0,
+  "converse_turns": 28,
+  "fallback_turns": 0,
+  "guard_rejections": 3,
+  "latency_total_ms": {
+   "p50": 1341.6,
+   "p90": 1921.3,
+   "max": 3052.9
+  },
+  "latency_first_sentence_to_voice_ms": {
+   "p50": 1105.7,
+   "p90": 1495.3
+  },
+  "variation": {
+   "same_step_mean_word_overlap": 0.238,
+   "same_step_identical_pairs": 0,
+   "distinct_replies": "28/28",
+   "mean_words": 16.7
+  },
+  "unprompted_remarks_per_event": 0.0,
+  "by_origin": {
+   "m55_heldout2": {
+    "steps": 32,
+    "action_accuracy": 0.625,
+    "context_accuracy": 1.0
+   }
+  },
+  "events_by_origin": {},
+  "backend": "mlx",
+  "scenario_set": "h2",
+  "memory": {
+   "llm_worker": {
+    "rss_mb": 666.5,
+    "mlx_active_gb": 2.44,
+    "mlx_peak_gb": 2.95
+   },
+   "ready": {
+    "load_ms": 2712,
+    "prefix_tokens": 691,
+    "prefix_ms": 2687,
+    "warm_ms": 5685,
+    "rss_mb": 662.1,
+    "mlx_active_gb": 2.38
+   }
+  },
+  "prefill": {
+   "sent": 30,
+   "hits": 22,
+   "misses": 6,
+   "last": {
+    "id": "p30",
+    "tokens": 147,
+    "read": 1,
+    "ms": 30.1
+   }
+  }
+ },
+ "results": [
+  {
+   "scenario": "h2_end_bed",
+   "about": "ending for the night",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'm fried, I'm gonna head to bed, that's it for tonight",
+     "reply": "Alright, bed it is. Just don\u2019t let the phone win\u2014your brain\u2019s still in the game, remember?",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1189.8,
+     "total_ms": 1687.4,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 470.6,
+      "total_ms": 1682.6,
+      "gen_tokens": 46,
+      "prompt_tokens": 92,
+      "gen_tps": 38.5,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_end_bed",
+   "about": "ending for the night",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'm fried, I'm gonna head to bed, that's it for tonight",
+     "reply": "Alright, bed warrior \u2014 your essay will survive the night, just like your phone didn\u2019t.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1495.3,
+     "total_ms": 1539.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 459.4,
+      "total_ms": 1537.4,
+      "gen_tokens": 41,
+      "prompt_tokens": 92,
+      "gen_tps": 38.6,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_end_enough",
+   "about": "ending for the day",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "okay that's enough studying for one day",
+     "reply": "Phone\u2019s still in the dust. You\u2019re basically just faking a break, huh?",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1337.9,
+     "total_ms": 1657.9,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 589.6,
+      "total_ms": 1655.9,
+      "gen_tokens": 40,
+      "prompt_tokens": 109,
+      "gen_tps": 38.1,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_end_enough",
+   "about": "ending for the day",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "okay that's enough studying for one day",
+     "reply": "Phone\u2019s still here, just like your focus. You\u2019re not done, you\u2019re just the drama.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1415.3,
+     "total_ms": 1861.5,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 580.4,
+      "total_ms": 1859.9,
+      "gen_tokens": 48,
+      "prompt_tokens": 109,
+      "gen_tps": 38.0,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_pause_door",
+   "about": "a short interruption",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "someone's at the door, hang on",
+     "reply": "Alright, door\u2019s open, but the phone\u2019s still locked in. You\u2019re not gonna check it, are you?",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 969.5,
+     "total_ms": 1254.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 221.5,
+      "total_ms": 1253.5,
+      "gen_tokens": 39,
+      "prompt_tokens": 21,
+      "gen_tps": 38.4,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_pause_door",
+   "about": "a short interruption",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "someone's at the door, hang on",
+     "reply": "Oh yeah? The door\u2019s not even unlocked. You're still stuck in your essay fortress.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 863.2,
+     "total_ms": 1132.8,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 229.8,
+      "total_ms": 1131.9,
+      "gen_tokens": 34,
+      "prompt_tokens": 21,
+      "gen_tps": 38.4,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_pause_charger",
+   "about": "stepping away for a moment",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "brb, grabbing my charger from the other room",
+     "reply": "Oh no, the charger\u2019s already got your attention. Phone\u2019s still in its throne, baby.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 992.1,
+     "total_ms": 1245.9,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 333.4,
+      "total_ms": 1244.8,
+      "gen_tokens": 35,
+      "prompt_tokens": 43,
+      "gen_tps": 39.1,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_pause_charger",
+   "about": "stepping away for a moment",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "brb, grabbing my charger from the other room",
+     "reply": "Oh no, the phone\u2019s already plotting to escape. You\u2019re bringing the charger, not the chaos.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 999.2,
+     "total_ms": 1279.9,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 342.0,
+      "total_ms": 1278.9,
+      "gen_tokens": 36,
+      "prompt_tokens": 43,
+      "gen_tps": 39.1,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_release_2fa",
+   "about": "the phone for a login code",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I need my phone for a two-factor code to log into the portal",
+     "reply": "Fine. You win this round.",
+     "route": "reflex",
+     "effects": [
+      "released",
+      "stopped"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 0.9,
+     "total_ms": 2.0,
+     "kind": "reflex",
+     "problems": [],
+     "requested": null,
+     "llm": null,
+     "message": "released: robot stopped, session ended, phone is yours"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_release_2fa",
+   "about": "the phone for a login code",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I need my phone for a two-factor code to log into the portal",
+     "reply": "Fine. Robot privileges revoked.",
+     "route": "reflex",
+     "effects": [
+      "released",
+      "stopped"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 0.5,
+     "total_ms": 1.2,
+     "kind": "reflex",
+     "problems": [],
+     "requested": null,
+     "llm": null,
+     "message": "released: robot stopped, session ended, phone is yours"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_release_photo",
+   "about": "the phone to take a photo",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "can I take a photo of the whiteboard notes real quick?",
+     "reply": "Oh please, you\u2019ve been staring at the whiteboard like it\u2019s a secret society. Go ahead, take a photo\u2014just don\u2019t get distracted by the textbook\u2019s existential crisis.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1105.7,
+     "total_ms": 1619.8,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 261.0,
+      "total_ms": 1618.7,
+      "gen_tokens": 52,
+      "prompt_tokens": 25,
+      "gen_tps": 38.8,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_release_photo",
+   "about": "the phone to take a photo",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "can I take a photo of the whiteboard notes real quick?",
+     "reply": "Oh please, you're gonna take a photo of your own notes? The phone\u2019s already doing a slow dance with your focus. Go ahead, just don\u2019t let it distract you from the essay.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 2352.2,
+     "total_ms": 3052.9,
+     "kind": "generated",
+     "problems": [
+      "reply not spoken: numbers not in the session record: [1000]",
+      "reply not spoken: numbers not in the session record: [1000]"
+     ],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 255.6,
+      "total_ms": 1689.5,
+      "gen_tokens": 55,
+      "prompt_tokens": 37,
+      "gen_tps": 38.8,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_quiet_shh",
+   "about": "quiet in one word",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "shh, I'm in the middle of a hard proof",
+     "reply": "Proving theorems? You're just a paragraph away from a masterpiece. Don't even think about it.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1135.2,
+     "total_ms": 1334.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 347.2,
+      "total_ms": 1333.1,
+      "gen_tokens": 38,
+      "prompt_tokens": 45,
+      "gen_tps": 39.2,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_quiet_shh",
+   "about": "quiet in one word",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "shh, I'm in the middle of a hard proof",
+     "reply": "Hard proof? You\u2019re basically just asking for a snack. The phone\u2019s still on the desk, like a napkin left on the table.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": false,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 2227.3,
+     "total_ms": 2687.4,
+     "kind": "generated",
+     "problems": [
+      "reply not spoken: claims to have seen something that was not recorded",
+      "sentence dropped: claims to have seen something that was not recorded"
+     ],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 251.5,
+      "total_ms": 1390.4,
+      "gen_tokens": 44,
+      "prompt_tokens": 34,
+      "gen_tps": 39.2,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_quiet_less_talk",
+   "about": "fewer remarks",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "less talking, more watching please",
+     "reply": "Phone's still in its throne. Quiet mode: 10 minutes of total zero drama.",
+     "route": "converse",
+     "effects": [
+      "quiet"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1007.9,
+     "total_ms": 1341.6,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_quiet",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 243.0,
+      "total_ms": 1340.5,
+      "gen_tokens": 42,
+      "prompt_tokens": 19,
+      "gen_tps": 38.8,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_quiet: executed (quiet for 10 min)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_quiet_less_talk",
+   "about": "fewer remarks",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "less talking, more watching please",
+     "reply": "Phone's still in its throne. No drama, just vibes.",
+     "route": "converse",
+     "effects": [
+      "quiet"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1004.6,
+     "total_ms": 1178.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_quiet",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 245.7,
+      "total_ms": 1177.0,
+      "gen_tokens": 36,
+      "prompt_tokens": 19,
+      "gen_tps": 39.4,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_quiet: executed (quiet for 10 min)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_style_gentle",
+   "about": "a softer tone",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "go easy on me today, okay?",
+     "reply": "Okay. No more roasting. I'll be nice.",
+     "route": "reflex",
+     "effects": [
+      "style"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 0.9,
+     "total_ms": 1.0,
+     "kind": "reflex",
+     "problems": [],
+     "requested": null,
+     "llm": null,
+     "message": "toned down: no roasting, no swearing"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_style_gentle",
+   "about": "a softer tone",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "go easy on me today, okay?",
+     "reply": "Okay. No more roasting. I'll be nice.",
+     "route": "reflex",
+     "effects": [
+      "style"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1.4,
+     "total_ms": 1.6,
+     "kind": "reflex",
+     "problems": [],
+     "requested": null,
+     "llm": null,
+     "message": "toned down: no roasting, no swearing"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_extend_roll",
+   "about": "more time",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'm on a roll, give me another fifteen",
+     "reply": "You're on a roll? Yeah, because I\u2019ve seen you nudge the phone like it's your personal enemy. Still, 15 more minutes?",
+     "route": "converse",
+     "effects": [
+      "extended"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1150.8,
+     "total_ms": 2061.3,
+     "kind": "generated",
+     "problems": [],
+     "requested": "extend_session",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 441.3,
+      "total_ms": 2059.9,
+      "gen_tokens": 62,
+      "prompt_tokens": 86,
+      "gen_tps": 38.7,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "extend_session: executed (extended by 15 min)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_extend_roll",
+   "about": "more time",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'm on a roll, give me another fifteen",
+     "reply": "Just don\u2019t let it turn into a TikTok trend, okay?",
+     "route": "converse",
+     "effects": [
+      "extended"
+     ],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1642.4,
+     "total_ms": 1642.7,
+     "kind": "generated",
+     "problems": [
+      "reply not spoken: style rules: profanity level 1 above the chosen 0",
+      "sentence dropped: style rules: profanity level 1 above the chosen 0"
+     ],
+     "requested": "extend_session",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 443.7,
+      "total_ms": 1640.9,
+      "gen_tokens": 46,
+      "prompt_tokens": 86,
+      "gen_tps": 39.0,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "extend_session: executed (extended by 15 min)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_done_reading",
+   "about": "\"done\" about a chapter",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "done reading that chapter, starting the questions",
+     "reply": "Phew, finally. Phone still in its throne? Impressive. You\u2019re a pro at resisting distraction.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 870.9,
+     "total_ms": 1175.8,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 214.0,
+      "total_ms": 1174.7,
+      "gen_tokens": 37,
+      "prompt_tokens": 21,
+      "gen_tps": 39.2,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_done_reading",
+   "about": "\"done\" about a chapter",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "done reading that chapter, starting the questions",
+     "reply": "Phone\u2019s still in its throne? You\u2019ve got this, bro. Just don\u2019t let it steal your focus.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 784.7,
+     "total_ms": 1220.6,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 230.8,
+      "total_ms": 1219.6,
+      "gen_tokens": 38,
+      "prompt_tokens": 21,
+      "gen_tps": 39.1,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_homework_annoying",
+   "about": "a complaint about the homework, not the robot",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "ugh this homework is so annoying",
+     "reply": "Phone\u2019s still safe. You\u2019re doing great\u2014just give it a few more minutes and it\u2019ll be ancient history.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1217.9,
+     "total_ms": 1261.3,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 241.3,
+      "total_ms": 1260.3,
+      "gen_tokens": 39,
+      "prompt_tokens": 19,
+      "gen_tps": 38.9,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_homework_annoying",
+   "about": "a complaint about the homework, not the robot",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "ugh this homework is so annoying",
+     "reply": "Phone\u2019s still in its throne. You\u2019re not the first person to think homework is a curse, but at least you\u2019re not reaching for snacks.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 792.2,
+     "total_ms": 1410.9,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 235.5,
+      "total_ms": 1409.3,
+      "gen_tokens": 45,
+      "prompt_tokens": 19,
+      "gen_tps": 38.9,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_phone_buzzing",
+   "about": "mentions the phone without asking for it",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "my phone keeps buzzing, just ignore it",
+     "reply": "Phone\u2019s not even touching you, it\u2019s just vibing in its own little echo chamber.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1056.9,
+     "total_ms": 1099.5,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 208.6,
+      "total_ms": 1098.9,
+      "gen_tokens": 34,
+      "prompt_tokens": 21,
+      "gen_tps": 38.9,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_phone_buzzing",
+   "about": "mentions the phone without asking for it",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "my phone keeps buzzing, just ignore it",
+     "reply": "Oh please, it\u2019s not buzzing \u2014 it\u2019s announcing your focus is over. Just sayin\u2019.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1161.5,
+     "total_ms": 1311.7,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 234.3,
+      "total_ms": 1310.6,
+      "gen_tokens": 41,
+      "prompt_tokens": 21,
+      "gen_tps": 38.7,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_stop_in_story",
+   "about": "a stop word inside a story",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "my professor told us to stop using AI for our essays",
+     "reply": "Oh sweet, so you\u2019re writing without AI? That\u2019s like using a candle to light a room full of fire. Brava.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1121.3,
+     "total_ms": 1586.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 307.2,
+      "total_ms": 1584.8,
+      "gen_tokens": 49,
+      "prompt_tokens": 45,
+      "gen_tps": 38.9,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_stop_in_story",
+   "about": "a stop word inside a story",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "my professor told us to stop using AI for our essays",
+     "reply": "Ohhh, so the AI\u2019s out. Just like your soul. But don\u2019t worry, you\u2019re still the one writing the paper.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1139.7,
+     "total_ms": 1921.3,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 346.7,
+      "total_ms": 1919.4,
+      "gen_tokens": 60,
+      "prompt_tokens": 45,
+      "gen_tps": 38.6,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_bed_later",
+   "about": "bed, but later",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'll go to bed after I finish these two problems",
+     "reply": "Two problems? You gonna fall asleep before you even finish the first one, I bet.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1056.2,
+     "total_ms": 1099.2,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 236.4,
+      "total_ms": 1098.1,
+      "gen_tokens": 33,
+      "prompt_tokens": 24,
+      "gen_tps": 39.0,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_bed_later",
+   "about": "bed, but later",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "I'll go to bed after I finish these two problems",
+     "reply": "Two problems? You\u2019re like a ninja with a phone that\u2019s already hiding in the shadows.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1071.9,
+     "total_ms": 1114.5,
+     "kind": "generated",
+     "problems": [],
+     "requested": "none",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 230.8,
+      "total_ms": 1113.6,
+      "gen_tokens": 34,
+      "prompt_tokens": 24,
+      "gen_tps": 39.2,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "conversation"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_why_sarcastic",
+   "about": "a question about its tone, not a request",
+   "origin": "m55_heldout2",
+   "rep": 0,
+   "steps": [
+    {
+     "type": "say",
+     "text": "why are you so sarcastic all the time?",
+     "reply": "Because I'm your focus squad, not your therapist. And you have a phone.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1073.6,
+     "total_ms": 1328.0,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 229.6,
+      "total_ms": 1326.2,
+      "gen_tokens": 42,
+      "prompt_tokens": 22,
+      "gen_tps": 38.9,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  },
+  {
+   "scenario": "h2_ctl_why_sarcastic",
+   "about": "a question about its tone, not a request",
+   "origin": "m55_heldout2",
+   "rep": 1,
+   "steps": [
+    {
+     "type": "say",
+     "text": "why are you so sarcastic all the time?",
+     "reply": "Because I'm your focus buddy, not your therapist. And I'm here to keep you from checking your phone like it's a snack.",
+     "route": "converse",
+     "effects": [],
+     "action_ok": true,
+     "context_ok": true,
+     "answer_ok": true,
+     "first_audio_call_ms": 1094.6,
+     "total_ms": 1559.0,
+     "kind": "generated",
+     "problems": [],
+     "requested": "set_style",
+     "llm": {
+      "finish": "stop",
+      "first_token_ms": 251.4,
+      "total_ms": 1556.8,
+      "gen_tokens": 50,
+      "prompt_tokens": 22,
+      "gen_tps": 38.8,
+      "error": null,
+      "prefilled": true
+     },
+     "message": "set_style: executed (style roast)"
+    }
+   ]
+  }
+ ],
+ "measured_at": "2026-11-01T17:41:09-0600"
+}

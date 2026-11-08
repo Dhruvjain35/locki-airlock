@@ -1,0 +1,17 @@
+{
+  "args_json": null,
+  "detail": null,
+  "duration_ms": 3.2,
+  "evidence_id": "fixture-usb-1",
+  "incident_id": "fixture-incident-1",
+  "input_type": null,
+  "is_fixture": true,
+  "model_id": "fixture-model",
+  "run_id": "fixture-run-1",
+  "schema_version": 1,
+  "status": "succeeded",
+  "step": 1,
+  "tool_name": "inspect_usb_event",
+  "trace_id": "fixture-trace-1",
+  "trace_source": "locki_log"
+}

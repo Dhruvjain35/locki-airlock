@@ -1,0 +1,20 @@
+# Who reviews what. Later lines win. Add Areeb's and Mustafa's GitHub handles when they join the repository.
+*                                   @Dhruvjain35
+
+# SpacetimeDB module, dashboard, CI and the TypeScript bridges: Sid
+/spacetime/                         @s-k-28
+/frontend/src/airlock/              @s-k-28
+/frontend/src/airlock-bindings/     @s-k-28
+/.github/workflows/                 @s-k-28
+/scripts/*.ts                       @s-k-28
+/scripts/*.mjs                      @s-k-28
+/scripts/tests/                     @s-k-28
+/backend/app/intelligence/nemotron_transport.py  @s-k-28
+
+# Jetson camera: Areeb (add the handle). Sid wrote the adapter and reviews it until then.
+/edge/jetson/                       @s-k-28
+
+# Shared contracts: both sides review
+/docs/airlock/CONTRACTS.md          @Dhruvjain35 @s-k-28
+/spacetime/CONTRACT.md              @s-k-28 @Dhruvjain35
+/docs/INTEGRATION_DECISIONS.md      @Dhruvjain35 @s-k-28

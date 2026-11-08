@@ -1,0 +1,14 @@
+{
+  "confidence": null,
+  "device_id": "fixture-jetson",
+  "event_id": "fixture-jetson-2",
+  "is_fixture": true,
+  "kind": "camera_unavailable",
+  "metadata": {
+    "detail": "no data from the camera for 3 s"
+  },
+  "observed_at": 1794099999000,
+  "schema_version": 1,
+  "seq": 52,
+  "source": "jetson_health"
+}

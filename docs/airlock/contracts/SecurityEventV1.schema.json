@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "SecurityKind": {
+      "enum": [
+        "usb_device_added",
+        "usb_device_removed",
+        "app_launched",
+        "monitor_health",
+        "lock_status",
+        "protected_tool_decision",
+        "person_in_zone",
+        "hand_near_keyboard",
+        "zone_clear",
+        "camera_unavailable",
+        "camera_offline",
+        "jetson_health",
+        "person_in_view",
+        "person_approaching",
+        "person_left_zone",
+        "owner_face_match",
+        "unrecognized_face",
+        "face_uncertain",
+        "no_face_visible",
+        "keyboard_interaction",
+        "laptop_interaction",
+        "hand_near_usb_zone",
+        "usb_zone_interaction",
+        "protected_device_interaction",
+        "camera_obstructed",
+        "camera_restored"
+      ],
+      "title": "SecurityKind",
+      "type": "string"
+    },
+    "SecuritySource": {
+      "enum": [
+        "mac_usb",
+        "mac_app",
+        "mac_agent",
+        "mac_gate",
+        "mac_vision",
+        "jetson_vision",
+        "jetson_health"
+      ],
+      "title": "SecuritySource",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One observation, Mac or Jetson to SpacetimeDB. It says what was observed, never what it means.",
+  "properties": {
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "For detectors such as vision. None for facts the OS reports.",
+      "title": "Confidence"
+    },
+    "device_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Device Id",
+      "type": "string"
+    },
+    "event_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "is_fixture": {
+      "default": false,
+      "description": "Sample data for development. Never treat it as a real observation.",
+      "title": "Is Fixture",
+      "type": "boolean"
+    },
+    "kind": {
+      "$ref": "#/$defs/SecurityKind"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "observed_at": {
+      "description": "Milliseconds since the Unix epoch",
+      "minimum": 0,
+      "title": "Observed At",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "seq": {
+      "description": "Monotonic per device_id, across restarts",
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "source": {
+      "$ref": "#/$defs/SecuritySource"
+    }
+  },
+  "required": [
+    "event_id",
+    "device_id",
+    "source",
+    "kind",
+    "observed_at",
+    "seq"
+  ],
+  "title": "SecurityEventV1",
+  "type": "object"
+}

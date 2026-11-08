@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "description": "SpacetimeDB to the Mac: lock the screen, once. Carries no command of any kind; the Mac still checks the owner's opt-in.",
+  "properties": {
+    "action_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Action Id",
+      "type": "string"
+    },
+    "expiry": {
+      "description": "Milliseconds since the Unix epoch",
+      "minimum": 0,
+      "title": "Expiry",
+      "type": "integer"
+    },
+    "incident_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incident Id"
+    },
+    "is_fixture": {
+      "default": false,
+      "title": "Is Fixture",
+      "type": "boolean"
+    },
+    "owner_policy_hash": {
+      "maxLength": 128,
+      "minLength": 8,
+      "title": "Owner Policy Hash",
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 240,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "session_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Session Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "session_id",
+    "action_id",
+    "expiry",
+    "reason",
+    "owner_policy_hash"
+  ],
+  "title": "LockRequestV1",
+  "type": "object"
+}

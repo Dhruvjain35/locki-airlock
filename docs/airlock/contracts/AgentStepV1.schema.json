@@ -1,0 +1,183 @@
+{
+  "$defs": {
+    "AgentStepStatus": {
+      "enum": [
+        "requested",
+        "denied",
+        "succeeded",
+        "failed"
+      ],
+      "title": "AgentStepStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One step of a real agent run, Nemotron and Relay to SpacetimeDB and the dashboard.",
+  "properties": {
+    "args_json": {
+      "anyOf": [
+        {
+          "maxLength": 600,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The arguments, shortened: long text never goes in",
+      "title": "Args Json"
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "maxLength": 240,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "evidence_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Id"
+    },
+    "incident_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incident Id"
+    },
+    "input_type": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Names of the arguments, e.g. event_id",
+      "title": "Input Type"
+    },
+    "is_fixture": {
+      "default": false,
+      "title": "Is Fixture",
+      "type": "boolean"
+    },
+    "model_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The model that asked for this step, exactly as the runtime reports it.",
+      "title": "Model Id"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/AgentStepStatus"
+    },
+    "step": {
+      "minimum": 0,
+      "title": "Step",
+      "type": "integer"
+    },
+    "tool_name": {
+      "maxLength": 80,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "trace_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Correlates with the Relay trace when there is one.",
+      "title": "Trace Id"
+    },
+    "trace_source": {
+      "default": "locki_log",
+      "description": "Whose record this is. Our own log is never labelled as a Relay span.",
+      "enum": [
+        "nemo_relay",
+        "locki_log"
+      ],
+      "title": "Trace Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "step",
+    "tool_name",
+    "status"
+  ],
+  "title": "AgentStepV1",
+  "type": "object"
+}

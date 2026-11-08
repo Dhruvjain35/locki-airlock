@@ -1,0 +1,29 @@
+{
+  "confidence": null,
+  "device_id": "fixture-mac",
+  "event_id": "fixture-app-1",
+  "is_fixture": true,
+  "kind": "app_launched",
+  "metadata": {
+    "armed": true,
+    "bundle_id": "com.example.remote",
+    "detection": "nsworkspace_notification",
+    "executable_path": "/Applications/Example.app/Contents/MacOS/Example",
+    "launched_at": 1794100000950,
+    "name": "Example Remote Tool",
+    "pid": 4242,
+    "session_id": "fixture-session-1",
+    "signature": {
+      "authority": "Developer ID Application: Example",
+      "identifier": "com.example.remote",
+      "status": "signed",
+      "team_id": "EXAMPLE123"
+    },
+    "watchlist_category": "remote_access",
+    "watchlist_match": true
+  },
+  "observed_at": 1794100001000,
+  "schema_version": 1,
+  "seq": 13,
+  "source": "mac_app"
+}

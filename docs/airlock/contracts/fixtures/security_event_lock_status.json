@@ -1,0 +1,20 @@
+{
+  "confidence": null,
+  "device_id": "fixture-mac",
+  "event_id": "fixture-lock-1",
+  "is_fixture": true,
+  "kind": "lock_status",
+  "metadata": {
+    "action_id": "fixture-action-1",
+    "detail": "dry run",
+    "dry_run": true,
+    "incident_id": "fixture-incident-1",
+    "mechanism": "none",
+    "session_id": "fixture-session-1",
+    "status": "LOCK_DRY_RUN"
+  },
+  "observed_at": 1794100001500,
+  "schema_version": 1,
+  "seq": 14,
+  "source": "mac_agent"
+}

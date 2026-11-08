@@ -1,0 +1,18 @@
+{
+  "action_required": "review",
+  "digital_event_id": null,
+  "evidence_ids": [
+    "fixture-usb-1",
+    "fixture-jetson-1"
+  ],
+  "incident_id": "fixture-incident-1",
+  "is_fixture": true,
+  "physical_event_id": null,
+  "rule_id": null,
+  "schema_version": 1,
+  "session_id": "fixture-session-1",
+  "severity": "high",
+  "state": "SUSPECTED_INTRUSION",
+  "summary": null,
+  "updated_at": 1794100000200
+}

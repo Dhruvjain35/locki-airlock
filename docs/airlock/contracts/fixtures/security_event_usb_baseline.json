@@ -1,0 +1,29 @@
+{
+  "confidence": null,
+  "device_id": "fixture-mac",
+  "event_id": "fixture-usb-2",
+  "is_fixture": true,
+  "kind": "usb_device_added",
+  "metadata": {
+    "allowlist_status": "baseline",
+    "armed": true,
+    "category": "storage",
+    "detection": "iokit_notification",
+    "device_class": 0,
+    "fingerprint": "6f1d2c3b4a5968778695a4b3c2d1e0f0",
+    "has_serial": true,
+    "interface_classes": [
+      8
+    ],
+    "location_id": "0x00130000",
+    "product_id": "0x5581",
+    "product_name": "Example USB Stick",
+    "session_id": "fixture-session-1",
+    "vendor_id": "0x0781",
+    "vendor_name": "Example Vendor"
+  },
+  "observed_at": 1794100000500,
+  "schema_version": 1,
+  "seq": 12,
+  "source": "mac_usb"
+}

@@ -1,0 +1,20 @@
+{
+  "confidence": 0.82,
+  "device_id": "fixture-jetson",
+  "event_id": "fixture-jetson-1",
+  "is_fixture": true,
+  "kind": "person_in_zone",
+  "metadata": {
+    "armed": true,
+    "camera": "logitech_usb",
+    "detector": "example-person-detector",
+    "dwell_ms": 600,
+    "inference": "fixture",
+    "persons_in_view": 1,
+    "zone": "desk"
+  },
+  "observed_at": 1794099998000,
+  "schema_version": 1,
+  "seq": 51,
+  "source": "jetson_vision"
+}

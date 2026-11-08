@@ -1,0 +1,182 @@
+{
+  "$defs": {
+    "IncidentState": {
+      "enum": [
+        "DISARMED",
+        "ARMED",
+        "OBSERVING",
+        "SUSPECTED_INTRUSION",
+        "LOCK_REQUESTED",
+        "SCREEN_LOCKED",
+        "REVIEWING",
+        "RESOLVED",
+        "DEGRADED"
+      ],
+      "title": "IncidentState",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "SpacetimeDB to voice, Nemotron and the consoles. SpacetimeDB decides these; nothing on the Mac does.",
+  "properties": {
+    "action_required": {
+      "anyOf": [
+        {
+          "enum": [
+            "none",
+            "acknowledge",
+            "review",
+            "lock_requested",
+            "owner_return"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action Required"
+    },
+    "digital_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The digital event the correlation rule used, if any",
+      "title": "Digital Event Id"
+    },
+    "evidence_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9._:-]+$",
+        "type": "string"
+      },
+      "maxItems": 200,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "incident_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "is_fixture": {
+      "default": false,
+      "title": "Is Fixture",
+      "type": "boolean"
+    },
+    "physical_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The physical (camera) event the correlation rule used, if any",
+      "title": "Physical Event Id"
+    },
+    "rule_id": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rule Id"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Id"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "state": {
+      "$ref": "#/$defs/IncidentState"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "maxLength": 240,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "description": "Milliseconds since the Unix epoch",
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "required": [
+    "incident_id",
+    "severity",
+    "state"
+  ],
+  "title": "IncidentUpdateV1",
+  "type": "object"
+}

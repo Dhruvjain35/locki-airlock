@@ -1,0 +1,517 @@
+{
+ "minutes": 20.0,
+ "turns": 29,
+ "model_turns_to_audio_ms": {
+  "n": 24,
+  "p50": 2041.0,
+  "p90": 2660.5,
+  "max": 3140.8
+ },
+ "parser_turns_to_audio_ms": {
+  "n": 5,
+  "p50": 213.1,
+  "p90": 217.0,
+  "max": 298.9
+ },
+ "unanswered_turns": 0,
+ "llm": {
+  "calls": 32,
+  "failures": 0,
+  "cancelled": 0,
+  "p50_ms": 1506.2,
+  "prefill": {
+   "sent": 29,
+   "hits": 24,
+   "misses": 0,
+   "last": {
+    "id": "p29",
+    "tokens": 470,
+    "read": 363,
+    "ms": 1272.5
+   }
+  }
+ },
+ "stt": {
+  "engine": "parakeet+whisper",
+  "decisions": {
+   "agree": 29
+  },
+  "parts": {
+   "whisper": "ready",
+   "parakeet": "ready"
+  }
+ },
+ "llm_yields_to_voice": false,
+ "decisions_recent_window": {
+  "spoke": 2,
+  "silent": 10
+ },
+ "memory": [
+  {
+   "t_min": 0.0,
+   "process_tree_rss_mb": 822.9,
+   "llm": {
+    "rss_mb": 494.7,
+    "mlx_active_gb": 2.42,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 1.0,
+   "process_tree_rss_mb": 553.8,
+   "llm": {
+    "rss_mb": 58.8,
+    "mlx_active_gb": 2.44,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 2.0,
+   "process_tree_rss_mb": 521.3,
+   "llm": {
+    "rss_mb": 64.9,
+    "mlx_active_gb": 2.44,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 3.0,
+   "process_tree_rss_mb": 311.8,
+   "llm": {
+    "rss_mb": 58.2,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 4.0,
+   "process_tree_rss_mb": 525.8,
+   "llm": {
+    "rss_mb": 61.0,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 5.1,
+   "process_tree_rss_mb": 508.1,
+   "llm": {
+    "rss_mb": 51.6,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 6.1,
+   "process_tree_rss_mb": 167.9,
+   "llm": {
+    "rss_mb": 20.9,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 7.1,
+   "process_tree_rss_mb": 400.1,
+   "llm": {
+    "rss_mb": 24.5,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 8.2,
+   "process_tree_rss_mb": 168.7,
+   "llm": {
+    "rss_mb": 20.4,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 9.2,
+   "process_tree_rss_mb": 238.6,
+   "llm": {
+    "rss_mb": 45.7,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 10.2,
+   "process_tree_rss_mb": 387.2,
+   "llm": {
+    "rss_mb": 20.7,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 11.2,
+   "process_tree_rss_mb": 357.9,
+   "llm": {
+    "rss_mb": 22.2,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 12.2,
+   "process_tree_rss_mb": 583.2,
+   "llm": {
+    "rss_mb": 50.8,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 13.2,
+   "process_tree_rss_mb": 493.9,
+   "llm": {
+    "rss_mb": 47.1,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 14.2,
+   "process_tree_rss_mb": 395.0,
+   "llm": {
+    "rss_mb": 33.6,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 15.2,
+   "process_tree_rss_mb": 169.7,
+   "llm": {
+    "rss_mb": 19.9,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 16.3,
+   "process_tree_rss_mb": 535.0,
+   "llm": {
+    "rss_mb": 50.0,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 17.3,
+   "process_tree_rss_mb": 465.3,
+   "llm": {
+    "rss_mb": 47.3,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 18.3,
+   "process_tree_rss_mb": 528.8,
+   "llm": {
+    "rss_mb": 49.6,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  },
+  {
+   "t_min": 19.3,
+   "process_tree_rss_mb": 328.3,
+   "llm": {
+    "rss_mb": 19.9,
+    "mlx_active_gb": 2.48,
+    "mlx_peak_gb": 2.95
+   },
+   "loop_lag_ms": 111.3
+  }
+ ],
+ "memory_growth_mb": -494.6,
+ "errors": [],
+ "transcript": [
+  {
+   "said": "do you actually see me right now",
+   "heard": "Do you actually see me right now?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1946.2,
+   "reply": "Dude, I\u2019m glued to your desk like a sticky note. You\u2019re right there, in full view. Pfft, I\u2019m not even blinking.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "I need to grab some water, hold on a sec",
+   "heard": "I need to grab some water. Hold on a sec.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1995.7,
+   "reply": "Water first, brain later. You\u2019ve got this, no rush.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "I need to grab some water, hold on a sec",
+   "heard": "I need to grab some water. Hold on a sec.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2337.6,
+   "reply": "Water first, brain later. You\u2019re not even out of the gym yet.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "can you give me ten more minutes, I'm finally getting it",
+   "heard": "Can you give me 10 more minutes? I'm finally getting it.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2086.3,
+   "reply": "10 more minutes? You're already ahead of the curve, human.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "you can talk again",
+   "heard": "You can talk again.",
+   "route": "reflex",
+   "ok": true,
+   "to_audio_ms": 217.0,
+   "reply": "I'm back.",
+   "source": "Local Kokoro voice (pre-rendered)"
+  },
+  {
+   "said": "do you actually see me right now",
+   "heard": "Do you actually see me right now?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1402.7,
+   "reply": "Absolutely, I\u2019m locked in. And your hand just reached for the phone again. Classic.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "be honest, how am I doing so far",
+   "heard": "Be honest, how am I doing so far?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2396.8,
+   "reply": "Still grinding, just like a bad Netflix show \u2014 slow, full of awkward moments, but you're still in it.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "can you give me ten more minutes, I'm finally getting it",
+   "heard": "Can you give me 10 more minutes? I'm finally getting it.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1645.7,
+   "reply": "Ten more minutes of your bad Netflix show? Already in the edit suite, bro.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "what's the point of this anyway",
+   "heard": "What's the point of this anyway?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2230.9,
+   "reply": "The point? You're still here, still in the edit suite, and somehow still in control of your own drama.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "honestly this is kind of annoying",
+   "heard": "Honestly this is kind of annoying.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1880.3,
+   "reply": "Alright, bro, you\u2019re officially in the edit suite of your own misery now.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "why do you keep doing that",
+   "heard": "Why do you keep doing that?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2731.5,
+   "reply": "Because the phone\u2019s a distraction and you\u2019re the only one who\u2019s seen it, bro.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "tell me something to keep me going",
+   "heard": "Tell me something to keep me going.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2338.2,
+   "reply": "You're still here, still typing, still in the edit suite \u2014 and still winning.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "honestly this is kind of annoying",
+   "heard": "Honestly this is kind of annoying.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2111.7,
+   "reply": "Alright, let\u2019s call it a day \u2014 you\u2019re officially the hero of your own distraction saga.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "honestly this is kind of annoying",
+   "heard": "Honestly this is kind of annoying.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1857.4,
+   "reply": "Okay.",
+   "source": "Local Kokoro voice (pre-rendered)"
+  },
+  {
+   "said": "honestly this is kind of annoying",
+   "heard": "Honestly this is kind of annoying.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2152.2,
+   "reply": "Oh please, you're the one who keeps reaching for that phone like it\u2019s a secret weapon.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "I just finished the second chapter",
+   "heard": "I just finished the second chapter.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2660.5,
+   "reply": "Second chapter down? Go on, we\u2019ve got this.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "okay I'm back",
+   "heard": "Okay I'm back.",
+   "route": "reflex",
+   "ok": true,
+   "to_audio_ms": 205.9,
+   "reply": "Oh, you're back. Good.",
+   "source": "Cached Fish Audio"
+  },
+  {
+   "said": "be honest, how am I doing so far",
+   "heard": "Be honest, how am I doing so far?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1700.8,
+   "reply": "Still reaching for the phone like it\u2019s your soulmate? We\u2019re not even halfway through the chapter, and you\u2019re already whispering secrets to it.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "I have a chemistry exam on Friday so I really need to get through these notes.",
+   "heard": "I have a chemistry exam on Friday so I really need to get through these notes.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 3015.8,
+   "reply": "Okay, soulmate of the phone, you\u2019re not even halfway and you\u2019re already whispering to it like it knows your exam grade.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "be honest, how am I doing so far",
+   "heard": "Be honest, how am I doing so far?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1894.5,
+   "reply": "Still not halfway, and you\u2019re already texting the phone for tips on your exam?",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "can you be quiet for a bit",
+   "heard": "Can you be quiet for a bit?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1649.0,
+   "reply": "Alright, quiet mode activated. No more phone whispers, no more drama. Just you and your chapter.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "be honest, how am I doing so far",
+   "heard": "Be honest, how am I doing so far?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 3140.8,
+   "reply": "Still 40 minutes in, and you're already considering a phone call to your future self?",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "why do you keep doing that",
+   "heard": "Why do you keep doing that?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1867.4,
+   "reply": "Because you\u2019re still reaching for the phone like it\u2019s your emotional support chihuahua.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "do you actually see me right now",
+   "heard": "Do you actually see me right now?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1222.6,
+   "reply": "Yep, I\u2019m locked in. And you\u2019re still 39 minutes from your chapter\u2019s exit.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "how much time is left",
+   "heard": "How much time was left?",
+   "route": "reflex",
+   "ok": true,
+   "to_audio_ms": 298.9,
+   "reply": "38 minutes left.",
+   "source": "Local Kokoro voice (pre-rendered)"
+  },
+  {
+   "said": "can you be quiet for a bit",
+   "heard": "Can you be quiet for a bit?",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 2318.8,
+   "reply": "Mute mode activated. Phone\u2019s still got your attention, but you\u2019re on your own now.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "I just finished the second chapter",
+   "heard": "I just finished the second chapter.",
+   "route": "converse",
+   "ok": true,
+   "to_audio_ms": 1824.4,
+   "reply": "Second chapter? You just outpaced the robot. Next one, you\u2019re on your own.",
+   "source": "Local Kokoro voice (rendered now)"
+  },
+  {
+   "said": "you can talk again",
+   "heard": "You can talk again.",
+   "route": "reflex",
+   "ok": true,
+   "to_audio_ms": 184.5,
+   "reply": "I'm back.",
+   "source": "Local Kokoro voice (pre-rendered)"
+  },
+  {
+   "said": "okay I'm back",
+   "heard": "Okay I'm back.",
+   "route": "reflex",
+   "ok": false,
+   "to_audio_ms": 213.1,
+   "reply": "We're not paused.",
+   "source": "Local Kokoro voice (pre-rendered)"
+  }
+ ],
+ "measured_at": "2026-11-01T18:44:52-0600"
+}

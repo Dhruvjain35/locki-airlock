@@ -1,0 +1,349 @@
+{
+ "machine": {
+  "low_power_mode": "0",
+  "gpu_busy_before_pct": "99",
+  "swap": "total = 10240.00M  used = 8945.81M  free = 1294.19M  (encrypted)",
+  "chip": "Apple M4",
+  "model": "Mac16,12",
+  "memory_gb": 16.0,
+  "cpu_cores": "10",
+  "macos": "26.4",
+  "python": "3.12.13"
+ },
+ "measured_at": "2026-11-01T17:48:18-0600",
+ "lines": [
+  "Calculus tomorrow? Then the phone can wait. Forty minutes, go.",
+  "That's twice in five minutes. Hands off.",
+  "Fine, it's yours. Come back when the important thing is done.",
+  "Going quiet for ten minutes. I'm still watching the phone though.",
+  "You said almost done ten minutes ago. Prove it.",
+  "Because your hand keeps drifting toward the phone, and you told me you have a test tomorrow.",
+  "Okay. Thirty minutes on the stats exam. Phone's mine.",
+  "Paused. Go get your snack, I'll be right here.",
+  "Nope, not moving. My wheels are locked for safety.",
+  "You've been at it for twenty-two minutes and touched the phone once. Not bad."
+ ],
+ "engines": {
+  "kokoro-int8 af_bella": {
+   "line_ms": {
+    "n": 10,
+    "p50": 2215.4,
+    "p90": 2592.2,
+    "min": 1689.2,
+    "max": 3057.3
+   },
+   "rtf": {
+    "n": 10,
+    "p50": 0.7,
+    "p90": 0.7,
+    "min": 0.6,
+    "max": 0.7
+   },
+   "intelligibility_wer": 0.0222,
+   "rows": [
+    {
+     "text": "Calculus tomorrow? Then the phone can wait. Forty minutes, go.",
+     "ms": 2351.3,
+     "audio_s": 3.71,
+     "rtf": 0.633,
+     "heard": "Calculus tomorrow. Then the phone can wait. 40 minutes go.",
+     "wer": 0.0
+    },
+    {
+     "text": "That's twice in five minutes. Hands off.",
+     "ms": 1689.2,
+     "audio_s": 2.41,
+     "rtf": 0.701,
+     "heard": "That's twice in five minutes. Hands off.",
+     "wer": 0.0
+    },
+    {
+     "text": "Fine, it's yours. Come back when the important thing is done.",
+     "ms": 2215.4,
+     "audio_s": 3.52,
+     "rtf": 0.629,
+     "heard": "Fine, it's yours. Come back when the important thing is done.",
+     "wer": 0.0
+    },
+    {
+     "text": "Going quiet for ten minutes. I'm still watching the phone though.",
+     "ms": 2206.6,
+     "audio_s": 3.43,
+     "rtf": 0.642,
+     "heard": "Going quiet for 10 minutes. I'm still watching the phone though.",
+     "wer": 0.0
+    },
+    {
+     "text": "You said almost done ten minutes ago. Prove it.",
+     "ms": 1804.5,
+     "audio_s": 2.67,
+     "rtf": 0.677,
+     "heard": "You said almost done 10 minutes ago. Prove it.",
+     "wer": 0.0
+    },
+    {
+     "text": "Because your hand keeps drifting toward the phone, and you told me you have a test tomorrow.",
+     "ms": 3057.3,
+     "audio_s": 4.67,
+     "rtf": 0.654,
+     "heard": "Because your hand keeps drifting toward the phone, and you told me you have a test tomorrow.",
+     "wer": 0.0
+    },
+    {
+     "text": "Okay. Thirty minutes on the stats exam. Phone's mine.",
+     "ms": 2310.4,
+     "audio_s": 3.48,
+     "rtf": 0.664,
+     "heard": "Okay, 30 minutes on the stats exam. Phones mine.",
+     "wer": 0.1111
+    },
+    {
+     "text": "Paused. Go get your snack, I'll be right here.",
+     "ms": 1703.4,
+     "audio_s": 2.47,
+     "rtf": 0.688,
+     "heard": "Pause. Go get your snack. I'll be right here.",
+     "wer": 0.1111
+    },
+    {
+     "text": "Nope, not moving. My wheels are locked for safety.",
+     "ms": 2236.4,
+     "audio_s": 3.26,
+     "rtf": 0.685,
+     "heard": "Nope, not moving. My wheels are locked for safety.",
+     "wer": 0.0
+    },
+    {
+     "text": "You've been at it for twenty-two minutes and touched the phone once. Not bad.",
+     "ms": 2592.2,
+     "audio_s": 3.93,
+     "rtf": 0.66,
+     "heard": "You've been at it for 22 minutes and touched the phone once. Not bad.",
+     "wer": 0.0
+    }
+   ]
+  },
+  "magpie Aria": {
+   "line_ms": {
+    "n": 10,
+    "p50": 12033.9,
+    "p90": 15823.4,
+    "min": 9109.1,
+    "max": 15975.3
+   },
+   "rtf": {
+    "n": 10,
+    "p50": 2.8,
+    "p90": 3.0,
+    "min": 2.8,
+    "max": 3.0
+   },
+   "intelligibility_wer": 0.0222,
+   "rows": [
+    {
+     "text": "Calculus tomorrow? Then the phone can wait. Forty minutes, go.",
+     "ms": 15975.3,
+     "audio_s": 5.57,
+     "rtf": 2.867,
+     "heard": "Calculus tomorrow. Then the phone can wait. 40 minutes go.",
+     "wer": 0.0
+    },
+    {
+     "text": "That's twice in five minutes. Hands off.",
+     "ms": 9109.1,
+     "audio_s": 3.25,
+     "rtf": 2.802,
+     "heard": "That's twice in five minutes. Hands off.",
+     "wer": 0.0
+    },
+    {
+     "text": "Fine, it's yours. Come back when the important thing is done.",
+     "ms": 11858.8,
+     "audio_s": 3.99,
+     "rtf": 2.969,
+     "heard": "Fine, it's yours. Come back when the important thing is done.",
+     "wer": 0.0
+    },
+    {
+     "text": "Going quiet for ten minutes. I'm still watching the phone though.",
+     "ms": 12033.9,
+     "audio_s": 4.27,
+     "rtf": 2.817,
+     "heard": "Going quiet for 10 minutes. I'm still watching the phone though.",
+     "wer": 0.0
+    },
+    {
+     "text": "You said almost done ten minutes ago. Prove it.",
+     "ms": 10353.1,
+     "audio_s": 3.62,
+     "rtf": 2.858,
+     "heard": "You said almost done 10 minutes ago. Prove it.",
+     "wer": 0.0
+    },
+    {
+     "text": "Because your hand keeps drifting toward the phone, and you told me you have a test tomorrow.",
+     "ms": 15823.4,
+     "audio_s": 5.57,
+     "rtf": 2.839,
+     "heard": "Because your hand keeps drifting toward the phone and you told me you have a test tomorrow.",
+     "wer": 0.0
+    },
+    {
+     "text": "Okay. Thirty minutes on the stats exam. Phone's mine.",
+     "ms": 12441.3,
+     "audio_s": 4.46,
+     "rtf": 2.791,
+     "heard": "Okay. 30 minutes on the stats exam. Phones mine.",
+     "wer": 0.1111
+    },
+    {
+     "text": "Paused. Go get your snack, I'll be right here.",
+     "ms": 10903.8,
+     "audio_s": 3.9,
+     "rtf": 2.795,
+     "heard": "Pause. Go get your snack. I'll be right here.",
+     "wer": 0.1111
+    },
+    {
+     "text": "Nope, not moving. My wheels are locked for safety.",
+     "ms": 12061.0,
+     "audio_s": 4.27,
+     "rtf": 2.823,
+     "heard": "Nope, not moving. My wheels are locked for safety.",
+     "wer": 0.0
+    },
+    {
+     "text": "You've been at it for twenty-two minutes and touched the phone once. Not bad.",
+     "ms": 15780.3,
+     "audio_s": 5.29,
+     "rtf": 2.981,
+     "heard": "You've been at it for 22 minutes and touched the phone once. Not bad.",
+     "wer": 0.0
+    }
+   ]
+  },
+  "magpie Jason": {
+   "line_ms": {
+    "n": 10,
+    "p50": 10796.0,
+    "p90": 13504.9,
+    "min": 7636.3,
+    "max": 15377.3
+   },
+   "rtf": {
+    "n": 10,
+    "p50": 2.8,
+    "p90": 2.9,
+    "min": 2.8,
+    "max": 2.9
+   },
+   "intelligibility_wer": 0.0182,
+   "rows": [
+    {
+     "text": "Calculus tomorrow? Then the phone can wait. Forty minutes, go.",
+     "ms": 15377.3,
+     "audio_s": 5.29,
+     "rtf": 2.905,
+     "heard": "Calculus tomorrow? Then the phone can wait. 40 minutes. Go.",
+     "wer": 0.0
+    },
+    {
+     "text": "That's twice in five minutes. Hands off.",
+     "ms": 7636.3,
+     "audio_s": 2.6,
+     "rtf": 2.936,
+     "heard": "That's twice in five minutes. Hands off.",
+     "wer": 0.0
+    },
+    {
+     "text": "Fine, it's yours. Come back when the important thing is done.",
+     "ms": 12023.5,
+     "audio_s": 4.27,
+     "rtf": 2.814,
+     "heard": "Fine. It's yours. Come back when the important thing is done.",
+     "wer": 0.0
+    },
+    {
+     "text": "Going quiet for ten minutes. I'm still watching the phone though.",
+     "ms": 10462.7,
+     "audio_s": 3.72,
+     "rtf": 2.816,
+     "heard": "Going quiet for 10 minutes. I'm still watching the phone though.",
+     "wer": 0.0
+    },
+    {
+     "text": "You said almost done ten minutes ago. Prove it.",
+     "ms": 8664.6,
+     "audio_s": 3.07,
+     "rtf": 2.827,
+     "heard": "You said almost done 10 minutes ago. Prove it.",
+     "wer": 0.0
+    },
+    {
+     "text": "Because your hand keeps drifting toward the phone, and you told me you have a test tomorrow.",
+     "ms": 13365.6,
+     "audio_s": 4.64,
+     "rtf": 2.878,
+     "heard": "Because your hand keeps drifting toward the phone and you told me you have a test tomorrow.",
+     "wer": 0.0
+    },
+    {
+     "text": "Okay. Thirty minutes on the stats exam. Phone's mine.",
+     "ms": 10796.0,
+     "audio_s": 3.81,
+     "rtf": 2.835,
+     "heard": "Okay, 30 minutes on the stats exam, phone's mine.",
+     "wer": 0.0
+    },
+    {
+     "text": "Paused. Go get your snack, I'll be right here.",
+     "ms": 9753.5,
+     "audio_s": 3.44,
+     "rtf": 2.838,
+     "heard": "Pause. Go get your snack. I'll be right here.",
+     "wer": 0.1111
+    },
+    {
+     "text": "Nope, not moving. My wheels are locked for safety.",
+     "ms": 10846.0,
+     "audio_s": 3.81,
+     "rtf": 2.848,
+     "heard": "Nope, not moving. My wheels are locked for safety.",
+     "wer": 0.0
+    },
+    {
+     "text": "You've been at it for twenty-two minutes and touched the phone once. Not bad.",
+     "ms": 13504.9,
+     "audio_s": 4.83,
+     "rtf": 2.796,
+     "heard": "You've been at it for 22 minutes and touch the phone once. Not bad.",
+     "wer": 0.0714
+    }
+   ]
+  }
+ },
+ "load": true,
+ "magpie": {
+  "gguf": "magpie_tts_multilingual_357m.v2607.f16.gguf",
+  "codec": "nemo_nano_codec_22khz_1.89kbps_21.5fps.decoder.f16.gguf",
+  "start_ms": 3966,
+  "voices": [
+   "Aria",
+   "Jason",
+   "John",
+   "Leo",
+   "Sofia"
+  ],
+  "footprint_mb": 791.0
+ },
+ "llm_under_tts": {
+  "gens": 175,
+  "gen_tps": {
+   "n": 175,
+   "p50": 22.1,
+   "p90": 27.5,
+   "min": 18.9,
+   "max": 33.2
+  }
+ }
+}
