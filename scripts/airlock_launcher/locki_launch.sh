@@ -83,6 +83,7 @@ while :; do
   result=$(readiness --json 2>/dev/null)
   state=$(printf '%s' "$result" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["state"])' 2>/dev/null || echo "NOT READY")
   [ "$state" = "READY" ] && break
+  log "waiting ($(elapsed)s): $(printf '%s' "$result" | /usr/bin/python3 -c 'import json,sys; print(", ".join(i["name"]+" ("+i["detail"]+")" for i in json.load(sys.stdin)["items"] if i["required"] and not i["ok"]))' 2>/dev/null)"
   wait_more=$(printf '%s' "$result" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("worth_waiting", True))' 2>/dev/null || echo True)
   [ "$wait_more" = "False" ] && break
   awk "BEGIN{exit !($(elapsed) >= 30)}" && break
