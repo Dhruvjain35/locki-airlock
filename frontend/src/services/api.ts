@@ -60,6 +60,7 @@ export const api = {
   detachZone: () => post("/vision/zone/detach"),
   voiceStart: () => post("/voice/start"),
   voiceStop: () => post("/voice/stop"),
+  securityNotifications: () => request<any>("GET", "/security/notifications"),
   voiceDevices: () => request<{ available: boolean; inputs: any[]; outputs: any[]; reason?: string }>("GET", "/voice/devices"),
   testMic: (seconds = 2) => post<{ ok: boolean; message?: string; rms_db?: number; peak_db?: number; speech_detected?: boolean }>("/voice/test-mic", { seconds }),
   ttsTest: () => post<{ ok: boolean; engine: string }>("/tts/test", {}),
