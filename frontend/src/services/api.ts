@@ -61,6 +61,10 @@ export const api = {
   voiceStart: () => post("/voice/start"),
   voiceStop: () => post("/voice/stop"),
   securityNotifications: () => request<any>("GET", "/security/notifications"),
+  /** Starts this Mac's USB/app monitoring if needed and publishes a fresh baseline capture now (local-only route). */
+  /** The runtime snapshot; voice.output carries the macOS default output, volume and mute warning. */
+  runtimeState: () => request<any>("GET", "/state"),
+  securityMonitorStart: () => request<any>("POST", "/security/monitor/start", {}),
   recordedStatus: () => request<any>("GET", "/voice/recorded"),
   investigation: (id: string) => request<any>("GET", `/security/investigation/${encodeURIComponent(id)}`),
   stopSpeaking: () => request<{ ok: boolean; message: string }>("POST", "/voice/stop-speaking", {}),
