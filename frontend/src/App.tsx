@@ -159,15 +159,26 @@ function LegacyApp() {
   );
 }
 
-/** Sid's AIRLOCK dashboard by default. The Mac backend's view (?product=legacy) also hosts the live demo (#demo), so a
- *  link to #demo from anywhere opens it. */
+/** The LOCKI AIRLOCK command center by default. #face-setup (or the older #demo link) opens the Mac's face-enrollment and labelled
+ *  rehearsal workflow on its own page, without the old focus console around it. ?product=legacy keeps the old focus console reachable. */
+function readRoute(): "airlock" | "setup" | "legacy" {
+  if (new URLSearchParams(window.location.search).get("product") === "legacy") return "legacy";
+  return location.hash === "#face-setup" || location.hash === "#demo" ? "setup" : "airlock";
+}
+
+function SetupPage() {
+  return <div className="min-h-dvh" style={{ background: "#070d11" }}>
+    <div className="mx-auto max-w-[1500px] px-5 pt-4 text-[12px] text-ink-3">LOCKI AIRLOCK · Face setup and labelled rehearsal. Live mode uses this Mac's real camera; rehearsal fixtures are labelled and never spoken.</div>
+    <AirlockDemo onExit={() => { history.replaceState(null, "", location.pathname + location.search); window.dispatchEvent(new HashChangeEvent("hashchange")); }} />
+  </div>;
+}
+
 export default function App() {
-  const read = () => new URLSearchParams(window.location.search).get("product") === "legacy" || location.hash === "#demo";
-  const [mac, setMac] = useState(read);
+  const [route, setRoute] = useState(readRoute);
   useEffect(() => {
-    const on = () => setMac(read());
+    const on = () => setRoute(readRoute());
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
-  return mac ? <LegacyApp /> : <AirlockApp />;
+  return route === "legacy" ? <LegacyApp /> : route === "setup" ? <SetupPage /> : <AirlockApp />;
 }
