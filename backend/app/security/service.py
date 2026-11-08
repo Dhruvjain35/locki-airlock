@@ -54,6 +54,9 @@ WARNING_REPEAT_S = 15.0  # the same kind of warning, spoken again this soon, onl
 INCIDENT_VOICE_MAX_AGE_MS = 120_000
 ARM_READBACK_S = 6.0  # after a delegated ARM call, how long LOCKI waits for the armed session row before saying it cannot confirm
 REMOTE_CAMERA_MAX_AGE_MS = 30_000  # a remote camera row the server received longer ago than this (a replay after reconnecting) is never a new warning
+# A remote camera's visitor back within this of its "cleared" (on the server's clock) is the same visitor: no second warning. An arrival after
+# the desk has been empty this long is a new visitor, warned once.
+REMOTE_CLEAR_COOLDOWN_MS = 10_000
 LOCAL_LOCK_TTL_MS = 30_000
 MAX_EVIDENCE = 200
 # The desk camera. These only choose which true sentence LOCKI says; SpacetimeDB's module decides incidents.
@@ -121,6 +124,7 @@ class SecurityService:
         self._server_actions: set[str] = set()
         self._voiced_incidents: set[str] = set()
         self._remote_camera_seen: dict[str, None] = {}  # insertion-ordered, bounded
+        self._remote_cleared_at: dict[str, int] = {}  # remote camera -> the server's received_at_ms of its last "cleared"
         self.remote_camera: dict | None = None  # the last remote camera row and what was done with it
         self.arm_grants = None  # ArmGrants, once connected to SpacetimeDB
         self.voice_arm: dict | None = None  # the last spoken ARM attempt: grant, reducer result, readback, timing
@@ -1002,8 +1006,22 @@ class SecurityService:
                               "camera_to_server_ms": (server_received_ms - event.observed_at) if server_received_ms else None,  # across two clocks
                               "server_to_m4_ms": (received_ms - server_received_ms) if server_received_ms else None,
                               "acted_on": current and not stale, "why_not": None if current and not stale else ("stale" if stale else "not the armed session")}
-        if current and not stale:
-            self.on_camera_event(event)
+        if not current or stale:
+            return
+        if event.kind == SecurityKind.PERSON_IN_ZONE:
+            cleared = self._remote_cleared_at.pop(event.device_id, None)
+            if cleared is not None:
+                self.remote_camera["after_clear_ms"] = server_received_ms - cleared
+                if server_received_ms - cleared >= REMOTE_CLEAR_COOLDOWN_MS and not self.modes.state.at_desk:
+                    self._presence_quiet = False  # the desk was empty long enough: this is a new visitor, warned once
+        self.on_camera_event(event)
+        if event.kind == SecurityKind.PERSON_LEFT_ZONE:
+            self._remote_cleared_at[event.device_id] = server_received_ms
+            if not self._camera_reasons and self.modes.state.person_present:
+                # This Mac's own camera is off and the remote camera reports only the region it watches, so its "cleared" also means nobody
+                # it can see is left: the mode settles back and LOCKI stops reporting someone present. _presence_quiet is left alone here;
+                # the next arrival decides, by the cooldown above, whether it is the same visitor.
+                self.modes.on_camera(event.model_copy(update={"kind": SecurityKind.ZONE_CLEAR}))
 
     def apply_incident_update(self, update: IncidentUpdateV1) -> None:
         """SpacetimeDB's incident is the real one. LOCKI warns at once for one it has not already warned about: for example the camera seeing someone as a device
