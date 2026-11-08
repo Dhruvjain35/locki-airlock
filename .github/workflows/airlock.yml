@@ -44,17 +44,22 @@ jobs:
       - name: Install pinned Python environment
         run: |
           python -m pip install uv
-          uv sync --project backend --frozen
+          uv sync --project backend --frozen --group dev --extra vision
       - name: Adapter and protected callback tests without OS actions
         run: |
-          node frontend/node_modules/tsx/dist/cli.mjs --test scripts/airlock_mac_bridge.test.ts scripts/airlock_nemotron_tools.test.ts scripts/tests/airlock_voice_bridge.test.ts scripts/tests/airlock_lock_adapter.test.ts scripts/airlock_sandbox.test.ts scripts/airlock_publisher.test.ts scripts/airlock_publish_stream.test.ts
-      - name: Read-only Mac parsing and voice policy tests
+          node frontend/node_modules/tsx/dist/cli.mjs --test scripts/airlock_mac_bridge.test.ts scripts/airlock_nemotron_tools.test.ts scripts/tests/airlock_voice_bridge.test.ts scripts/tests/airlock_lock_adapter.test.ts scripts/airlock_sandbox.test.ts scripts/airlock_publisher.test.ts scripts/airlock_publish_stream.test.ts scripts/airlock_owner_consent.test.ts scripts/airlock_investigator_report.test.ts
+          node --test scripts/airlock_owner_consent_http.test.mjs scripts/airlock_investigator_verify.test.mjs
+      - name: Backend software, parsing and voice policy tests
         env:
           PYTHONPATH: backend
         run: |
-          backend/.venv/bin/python -m pytest -q backend/tests/test_airlock_*.py
+          backend/.venv/bin/python -m pytest -q backend/tests
           backend/.venv/bin/python -m unittest discover -s scripts -p 'airlock_nemotron_test.py'
           backend/.venv/bin/python -m unittest discover -s edge/jetson/tests
+      - name: Investigator authorization and evidence tests without model inference
+        env:
+          PYTHONPATH: services/nemotron-investigator/src
+        run: backend/.venv/bin/python -m pytest -q -c services/nemotron-investigator/pyproject.toml services/nemotron-investigator/tests
 
 # Physical camera, USB insertion, local audio, model inference and actual screen
 # locking are separate opt-in acceptance trials; CI does not fabricate them.
