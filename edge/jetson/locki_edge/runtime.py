@@ -91,12 +91,9 @@ class EdgeRuntime(object):
         if not os.path.isdir(cfg.state_dir):
             os.makedirs(cfg.state_dir, mode=0o700)
         self.seq = SequenceStore(os.path.join(cfg.state_dir, "seq"))
-        # The reducer rejects seq <= the device's last_seq. If the state dir is ever wiped, a counter that
-        # restarts at 1 would be rejected forever. Floor it at unix seconds: events are rate-limited far
-        # below 1/s, so a seconds floor is always above any seq this device sent before (if the clock is sane).
-        if time.time() > 1.7e9:
-            with self.seq.lock:
-                self.seq.value = max(self.seq.value, int(time.time()))
+        # The reducer rejects seq <= the device's last_seq AND a seq far above it ("Sequence jump too large",
+        # answered live 2026-11-08 07:08:13Z for seq=unix seconds vs last_seq=0). So the counter is synced to
+        # the server's own last_seq for this device at startup (see _sync_seq), never seeded from the clock.
         self.exit_code = 0
         self.audit_path = os.path.join(cfg.state_dir, "events.jsonl")
         self.provider = provider or build_provider(cfg)
@@ -112,6 +109,7 @@ class EdgeRuntime(object):
         self.local_only = {}
         if cfg.publish:
             client = client or StdbClient(cfg.server, cfg.database, cfg.token)
+            self._sync_seq(client)
             self.publisher = SpacetimePublisher(client, cfg.contract)
             self.outbox = DurableOutbox(os.path.join(cfg.state_dir, "outbox.sqlite3"), self.publisher,
                                         cfg.contract, max_pending=cfg.max_pending, max_age_s=cfg.max_event_age_s,
@@ -174,6 +172,25 @@ class EdgeRuntime(object):
         if self.alarm is not None and kind in ALARM_KINDS:
             self.alarm.play()
         return event
+
+    def _sync_seq(self, client):
+        """Continue from my_devices.last_seq (server truth) so the next event is last_seq + 1. A failed read
+        keeps the local counter and is logged; the reducer's receipt will say if it is wrong."""
+        try:
+            status, rows, err = client.sql_rows("SELECT * FROM my_devices WHERE id = '%s'" % self.cfg.device_id)
+            mine = [r for r in rows or [] if r.get("workstation_id") in (None, self.cfg.workstation_id)]
+            if status != 200 or not mine:
+                log("warn", "seq_sync_skipped", http=status, error=(err or "device row not visible")[:120],
+                    local_seq=self.seq.value)
+                return
+            server_last = int(mine[0].get("last_seq") or 0)
+        except Exception as e:  # noqa: BLE001 - never block startup on this read
+            log("warn", "seq_sync_skipped", error="%s: %s" % (type(e).__name__, e), local_seq=self.seq.value)
+            return
+        with self.seq.lock:
+            local = self.seq.value
+            self.seq.value = server_last
+        log("info", "seq_synced", server_last_seq=server_last, local_was=local)
 
     def _local_only(self, kind, confidence, observed_at_ms, md, simulated, reason):
         """Observed, kept in the local audit, NOT sent: the module would reject it (disarmed / kind)."""

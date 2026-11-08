@@ -663,20 +663,32 @@ class TestConfigAuth(unittest.TestCase):
 
 
 class TestSeqFloor(unittest.TestCase):
-    def test_wiped_state_dir_still_produces_seq_above_previous_runs(self):
+    def test_wiped_state_dir_resumes_from_server_last_seq_not_the_clock(self):
+        """The reducer rejects seq <= last_seq and a large jump above it (live 07:08Z, clock-seeded seq)."""
         d = tempfile.mkdtemp()
+        tok = os.path.join(d, "tok")
+        with open(tok, "w") as f:
+            f.write("t")
+        os.chmod(tok, 0o600)
+        state = os.path.join(d, "state")
+
+        class Sql(object):
+            last = 7
+
+            def sql_rows(self, q):
+                if "my_devices" in q:
+                    return 200, [{"id": "jetson-01", "workstation_id": "ws-1", "last_seq": Sql.last}], ""
+                return 200, [], ""
         try:
-            cfg = EdgeConfig({"AIRLOCK_EDGE_RUNTIME": "jetson", "AIRLOCK_PUBLISH": "off",
-                              "AIRLOCK_STATE_DIR": d}, platform_name="jetson")
-            rt = EdgeRuntime(cfg, capture=CaptureSource(0, "jetson", opener=FakeCamera().opener),
-                             provider=FixtureProvider({}))
-            first = rt.seq.next()
-            self.assertGreaterEqual(first, int(time.time()) - 5)
-            shutil.rmtree(d)                       # operator wipes the state dir
-            time.sleep(1.1)                        # any real restart takes > 1 s (systemd RestartSec=3)
-            rt2 = EdgeRuntime(cfg, capture=CaptureSource(0, "jetson", opener=FakeCamera().opener),
-                              provider=FixtureProvider({}))
-            self.assertGreater(rt2.seq.next(), first)   # strictly above: the reducer rejects seq <= last_seq
+            cfg = EdgeConfig({"AIRLOCK_EDGE_RUNTIME": "jetson", "AIRLOCK_DEVICE_ID": "jetson-01",
+                              "AIRLOCK_WORKSTATION_ID": "ws-1", "AIRLOCK_EDGE_AUTH_FILE": tok,
+                              "AIRLOCK_STATE_DIR": state}, platform_name="jetson")
+            mk = lambda: EdgeRuntime(cfg, capture=CaptureSource(0, "jetson", opener=FakeCamera().opener),
+                                     provider=FixtureProvider({}), client=Sql())
+            self.assertEqual(mk().seq.next(), 8)
+            Sql.last = 8                           # the server accepted seq 8
+            shutil.rmtree(state)                   # operator wipes the state dir
+            self.assertEqual(mk().seq.next(), 9)   # strictly above last_seq, and no clock-sized jump
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

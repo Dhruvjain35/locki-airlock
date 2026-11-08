@@ -139,5 +139,43 @@ class RuntimeSessionTest(unittest.TestCase):
         self.assertEqual(rt.health_results.get("camera", {}).get("result"), "accepted")
 
 
+class SeqSyncTest(unittest.TestCase):
+    """Live 2026-11-08 07:08Z: seq seeded from the clock was rejected ("Sequence jump too large")."""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        token_path = os.path.join(self.d, "device_token")
+        with open(token_path, "w") as f:
+            f.write("device-token")
+        os.chmod(token_path, 0o600)
+        self.cfg = EdgeConfig({"AIRLOCK_EDGE_RUNTIME": "jetson", "AIRLOCK_DEVICE_ID": "jetson-01",
+                               "AIRLOCK_WORKSTATION_ID": "ws-1", "AIRLOCK_EDGE_AUTH_FILE": token_path,
+                               "AIRLOCK_STATE_DIR": os.path.join(self.d, "state")}, platform_name="jetson")
+        os.makedirs(self.cfg.state_dir)
+        with open(os.path.join(self.cfg.state_dir, "seq"), "w") as f:
+            f.write("1794121672")                           # the clock-seeded value the server rejected
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def runtime(self, client):
+        return EdgeRuntime(self.cfg, capture=CaptureSource(0, "jetson", opener=FakeCamera().opener),
+                           provider=FixtureProvider(lambda i: []), client=client)
+
+    def test_continues_from_server_last_seq(self):
+        class Sql(FakeSql):
+            def sql_rows(self, q):
+                if "my_devices" in q:
+                    return 200, [{"id": "jetson-01", "workstation_id": "ws-1", "last_seq": 4}], ""
+                return FakeSql.sql_rows(self, q)
+        rt = self.runtime(Sql())
+        self.assertEqual(rt.seq.next(), 5)
+
+    def test_unreadable_device_row_keeps_local_counter(self):
+        rt = self.runtime(FakeSql(fail=True))
+        self.assertEqual(rt.seq.value, 1794121672)
+        self.assertNotIn(int(time.time()), (rt.seq.value,))  # and never re-seeds from the clock
+
+
 if __name__ == "__main__":
     unittest.main()
