@@ -145,8 +145,98 @@ def pad_tail(data, sample_rate: int, seconds: float):
     return np.concatenate([data, silence])
 
 
-def _device_tail(sd, device, measured: dict) -> float:
-    key = str(device if device not in ("", None) else "default")
+# ------------------------------------------------------------------ following the Mac's current default output
+# PortAudio lists devices once, when it initialises. A speaker connected later (a Bluetooth speaker after the backend started) is invisible
+# to it, and "default" keeps meaning the old device, so every line would play on the laptop. Before each clip that follows the system
+# default, a CoreAudio lookup (about 15 us once warm) reads the current default output; when it changed, PortAudio is re-initialised
+# (under 1 ms) between clips. Re-initialising closes every stream, so the microphone's input stream is closed and reopened around it.
+
+
+def default_output_device_id() -> int | None:
+    """CoreAudio's current default output device id (kAudioHardwarePropertyDefaultOutputDevice); None off macOS or on any error."""
+    if platform.system() != "Darwin":
+        return None
+    global _COREAUDIO
+    try:
+        import ctypes
+        import ctypes.util
+        import struct
+
+        if _COREAUDIO is None:
+            class _Address(ctypes.Structure):
+                _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
+
+            fourcc = lambda code: struct.unpack(">I", code.encode())[0]  # noqa: E731
+            lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreAudio"))
+            _COREAUDIO = (lib, _Address(fourcc("dOut"), fourcc("glob"), 0))
+        lib, address = _COREAUDIO
+        device, size = ctypes.c_uint32(0), ctypes.c_uint32(4)
+        status = lib.AudioObjectGetPropertyData(ctypes.c_uint32(1), ctypes.byref(address), 0, None, ctypes.byref(size), ctypes.byref(device))  # 1 = system object
+        return int(device.value) if status == 0 and device.value else None
+    except Exception:
+        return None
+
+
+_COREAUDIO = None
+
+
+class PortAudioHost:
+    """The process's one PortAudio: which default output it was initialised with, and the input streams to reopen around a re-init."""
+
+    def __init__(self, lookup: Callable[[], int | None] = default_output_device_id):
+        self.lookup = lookup
+        self.default_id: int | None = None  # unknown until the first clip: that clip re-initialises once to be sure
+        self.reinits = 0
+        self.last_reinit_ms: float | None = None
+        self._captures: list = []
+        self._lock = threading.Lock()
+
+    def register_capture(self, capture) -> None:
+        with self._lock:
+            if capture not in self._captures:
+                self._captures.append(capture)
+
+    def unregister_capture(self, capture) -> None:
+        with self._lock:
+            if capture in self._captures:
+                self._captures.remove(capture)
+
+    def follow_default(self, sd) -> bool:
+        """Call between clips, only when playing to the default output. True when PortAudio was re-initialised for a new default."""
+        current = self.lookup()
+        if current is None or current == self.default_id:
+            return False
+        return self.reinitialise(sd, current)
+
+    def reinitialise(self, sd, current: int | None = None) -> bool:
+        t0 = time.perf_counter()
+        with self._lock:
+            captures = [c for c in self._captures if getattr(c, "_stream", None) is not None]
+            for c in captures:
+                c.suspend()
+            try:
+                with contextlib.suppress(Exception):
+                    sd.stop()
+                sd._terminate()
+                sd._initialize()
+            finally:
+                for c in captures:
+                    try:
+                        c.resume()
+                    except Exception as exc:  # the mic's device may be gone too: say so instead of failing playback
+                        log.warning("microphone could not reopen after an output device change: %s", exc)
+            self.default_id = current if current is not None else self.lookup()
+            self.reinits += 1
+            self.last_reinit_ms = round((time.perf_counter() - t0) * 1000, 2)
+        log.info("audio: default output changed; PortAudio re-initialised in %.2f ms (%d input stream(s) reopened)", self.last_reinit_ms, len(captures))
+        return True
+
+
+PORTAUDIO = PortAudioHost()
+
+
+def _device_tail(sd, device, measured: dict, key: str | None = None) -> float:
+    key = key or str(device if device not in ("", None) else "default")
     default = None
     try:
         default = float(sd.query_devices(device if device not in ("", None) else None, kind=None if device not in ("", None) else "output")["default_high_output_latency"])
@@ -163,25 +253,37 @@ class AudioOut:
     last_start_mono: float | None = None
     last_latency_ms: float | None = None
 
-    def __init__(self) -> None:
+    def __init__(self, host: PortAudioHost | None = None) -> None:
         self._measured: dict[str, float] = {}  # device -> the latency its open stream reported last time
+        self.host = host or PORTAUDIO
+        self.host.lookup()  # the first CoreAudio call loads the HAL (~70 ms): pay it at startup, not on the first warning
 
     async def play(self, pcm, sample_rate: int, device: str | int | None = None, volume: float = 1.0) -> None:
         import numpy as np
         import sounddevice as sd
 
+        follows_default = device in ("", None)
+        if follows_default:
+            self.host.follow_default(sd)
+        key = f"default:{self.host.default_id}" if follows_default else str(device)  # each real device keeps its own measured latency
         data = pcm
         if abs(volume - 1.0) > 1e-3:
             data = np.clip(pcm.astype(np.float32) * volume, -32768, 32767).astype(np.int16)
-        data = pad_tail(data, sample_rate, _device_tail(sd, device, self._measured))
+        data = pad_tail(data, sample_rate, _device_tail(sd, device, self._measured, key))
         try:
-            sd.play(data, sample_rate, device=device if device not in ("", None) else None)
+            sd.play(data, sample_rate, device=None if follows_default else device)
         except Exception as exc:
-            raise AudioDeviceError(f"output device {device or 'default'} unavailable: {exc}") from exc
+            if follows_default:
+                raise AudioDeviceError(f"output device default unavailable: {exc}") from exc
+            try:  # a named device connected after PortAudio started is unknown to it: look again once
+                self.host.reinitialise(sd)
+                sd.play(data, sample_rate, device=device)
+            except Exception as again:
+                raise AudioDeviceError(f"output device {device} unavailable: {again}") from again
         self.last_start_mono = time.monotonic()
         try:
             latency = float(sd.get_stream().latency)
-            self._measured[str(device if device not in ("", None) else "default")] = latency
+            self._measured[key] = latency
             self.last_latency_ms = round(latency * 1000, 1)
         except Exception:
             self.last_latency_ms = None
@@ -458,6 +560,8 @@ class CachedSystemTTS(SystemTTS):
             if sd is not None:
                 data, sr = item
                 self.hits += 1
+                if not self.output_device:
+                    PORTAUDIO.follow_default(sd)
                 data = pad_tail(data, sr, _device_tail(sd, self.output_device or None, {}))
                 t0 = time.perf_counter()
                 sd.play(data, sr, device=self.output_device or None)

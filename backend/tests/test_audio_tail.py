@@ -11,6 +11,10 @@ import pytest
 
 from app.voice.tts import AudioOut, tail_seconds
 
+from app.voice.tts import PortAudioHost
+
+STEADY = PortAudioHost(lookup=lambda: None)  # these tests are about the tail, not about a default output change
+
 SR = 24000
 
 
@@ -44,7 +48,7 @@ def clip():
 
 async def test_the_first_clip_on_a_bluetooth_speaker_keeps_its_last_syllable(monkeypatch, clip):
     played = fake_sd(monkeypatch)
-    out = AudioOut()
+    out = AudioOut(host=STEADY)
     await out.play(clip, SR)
     data = played[0][0]
     assert np.array_equal(data[: len(clip)], clip)  # the speech itself is untouched
@@ -53,7 +57,7 @@ async def test_the_first_clip_on_a_bluetooth_speaker_keeps_its_last_syllable(mon
 
 async def test_later_clips_use_the_latency_the_stream_really_had(monkeypatch, clip):
     played = fake_sd(monkeypatch, default_high=0.05, stream_latency=0.6)
-    out = AudioOut()
+    out = AudioOut(host=STEADY)
     await out.play(clip, SR)
     await out.play(clip, SR)
     assert trailing_silence_s(played[1][0]) >= 0.6
@@ -61,13 +65,13 @@ async def test_later_clips_use_the_latency_the_stream_really_had(monkeypatch, cl
 
 async def test_the_built_in_speaker_gets_a_short_tail(monkeypatch, clip):
     played = fake_sd(monkeypatch, default_high=0.0245, stream_latency=0.02)
-    await AudioOut().play(clip, SR)
+    await AudioOut(host=STEADY).play(clip, SR)
     assert 0.15 <= trailing_silence_s(played[0][0]) <= 0.3
 
 
 async def test_a_volume_change_still_keeps_the_tail(monkeypatch, clip):
     played = fake_sd(monkeypatch)
-    await AudioOut().play(clip, SR, volume=0.5)
+    await AudioOut(host=STEADY).play(clip, SR, volume=0.5)
     assert trailing_silence_s(played[0][0]) >= 0.466
 
 
@@ -78,6 +82,6 @@ def test_tail_seconds_never_falls_below_the_floor():
 async def test_a_stereo_clip_is_padded_on_every_channel(monkeypatch, clip):
     played = fake_sd(monkeypatch)
     stereo = np.stack([clip, clip], axis=1)
-    await AudioOut().play(stereo, SR)
+    await AudioOut(host=STEADY).play(stereo, SR)
     data = played[0][0]
     assert data.ndim == 2 and data.shape[1] == 2 and trailing_silence_s(data[:, 0]) >= 0.466

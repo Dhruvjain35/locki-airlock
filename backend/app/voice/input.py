@@ -240,6 +240,28 @@ class AudioCapture:
         self.started_at: float | None = None
 
     def start(self) -> None:
+        from .tts import PORTAUDIO
+
+        self._open()
+        self.started_at = time.monotonic()
+        PORTAUDIO.register_capture(self)  # so an output device change can reopen this stream around PortAudio's re-init
+
+    def suspend(self) -> None:
+        """Close the stream for a PortAudio re-init (the queue and counters stay)."""
+        if self._stream is not None:
+            try:
+                self._stream.stop()
+                self._stream.close()
+            finally:
+                self._stream = None
+                self._suspended = True
+
+    def resume(self) -> None:
+        if getattr(self, "_suspended", False):
+            self._suspended = False
+            self._open()
+
+    def _open(self) -> None:
         import sounddevice as sd
 
         def callback(indata, frames, t, status):
@@ -255,9 +277,12 @@ class AudioCapture:
             samplerate=SAMPLE_RATE, blocksize=BLOCK, channels=1, dtype="float32", device=self.device, callback=callback
         )
         self._stream.start()
-        self.started_at = time.monotonic()
 
     def stop(self) -> None:
+        from .tts import PORTAUDIO
+
+        PORTAUDIO.unregister_capture(self)
+        self._suspended = False
         if self._stream is not None:
             try:
                 self._stream.stop()
