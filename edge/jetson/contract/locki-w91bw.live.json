@@ -1,0 +1,28 @@
+{
+  "_what": "Rules the DEPLOYED locki-w91bw module enforces for a device enrolled with role \"jetson\", learned from live reducer answers on 2026-11-08 (evidence: docs/airlock/edge/evidence/). Use with AIRLOCK_CONTRACT_FILE.",
+  "_live_answers": {
+    "motion_in_zone": "Event kind not permitted for publisher role (00:27:32Z)",
+    "person_left_zone": "Event kind not permitted for publisher role (00:39:57Z)",
+    "person_in_zone with numbers/arrays or 10 string keys": "Metadata must contain only bounded redacted string fields (00:37:22Z, 00:39:50Z)",
+    "report_health component edge": "Component not permitted for device role",
+    "report_health status starting/streaming": "Invalid health status (online/degraded/offline used instead)",
+    "person_in_zone with 5 short slug keys (zone_id, provider, runtime, capture_source, observation)": "Metadata must contain only bounded redacted string fields (00:42:24Z)",
+    "camera_unavailable": "Event kind not permitted for publisher role (07:13:25Z, mac-dev-cam-01): kept local; report_health camera offline still reaches the DB",
+    "person_in_zone with seq = unix seconds on a device with last_seq 0": "Sequence jump too large (07:08:13Z, jetson-01): seq continues from my_devices.last_seq",
+    "person_in_zone, metadata {}, live armed session, seq 1": "accepted, HTTP 200 (07:13:22Z jetson-01, 07:14:18Z mac-dev-cam-01)"
+  },
+  "kinds": [
+    "person_in_zone",
+    "owner_face_match",
+    "unrecognized_face",
+    "face_uncertain",
+    "keyboard_interaction",
+    "usb_zone_interaction"
+  ],
+  "wire_metadata_keys": [],
+  "max_metadata_value_chars": 32,
+  "health_components": [
+    "camera"
+  ],
+  "_wire_metadata_note": "Empty until Sid shares the module's metadata key allowlist; the local audit keeps full metadata."
+}
