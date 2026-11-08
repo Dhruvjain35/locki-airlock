@@ -139,6 +139,22 @@ class PusherTest(unittest.TestCase):
             self.assertIsNone(p.on_receipt(receipt("accepted", kind=kind, event_id="e-%s" % kind)))
         self.assertEqual(p.queue.qsize(), 0)
 
+    def test_a_receipt_this_process_never_noted_is_never_pushed(self):
+        # an outbox replay after a restart (or an id evicted from the bounded map) has no zone, visit, time or
+        # re-assert flag, so it must not push, and it must not use up the next real visit's push either
+        p = self.make()
+        self.assertIsNone(p.on_receipt(receipt("accepted", event_id="replayed-after-restart")))
+        self.assertEqual(p.queue.qsize(), 0)
+        self.assertEqual(p.counts["unknown"], 1)
+        self.assertEqual(self.accept(p, "e-live"), "queued")
+
+    def test_a_quiet_re_assert_is_never_pushed(self):
+        p = self.make()
+        p.note_event("e-reassert", "desk_01", T0_MS, quiet=True)
+        self.assertIsNone(p.on_receipt(receipt("accepted", event_id="e-reassert")))
+        self.assertEqual(p.queue.qsize(), 0)
+        self.assertEqual(self.accept(p, "e-enter"), "queued")
+
     def test_only_accepted_pushes_and_a_retry_keeps_where_and_when(self):
         p = self.make()
         for i, status in enumerate(("rejected", "duplicate", "retryable", "ambiguous")):

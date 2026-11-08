@@ -10,7 +10,7 @@ read incidents, so nothing here ever names a severity or claims an incident.
   logged, printed or shown. It is described only as "ntfy …<last4>".
 - Pushed only after SpacetimeDB answered "accepted" for that very event, so the event id in the text is a real
   accepted event. Face kinds never push.
-- A visit starts with a person_in_zone and ends at the runtime's LOCAL zone-clear signal (person_left_zone from the
+- A visit starts with a person_in_zone and ends at the runtime's LOCAL zone-clear signal (person_cleared from the
   normalizer, whether or not the module accepts that kind). Camera loss does not end a visit.
 - Sent on one background worker with bounded retries. The outbox worker only enqueues, so publishing never waits.
 - "accepted" in the push audit means ntfy's own receipt (the message id it assigned) and nothing more: it does not
@@ -146,7 +146,7 @@ class PresencePusher(object):
         self.lock = threading.Lock()
         self.events = OrderedDict()   # event_id -> (zone_id, visit, observed_at_ms, simulated)
         self.queue = queue.Queue(maxsize=max_queue)
-        self.counts = {"accepted": 0, "failed": 0, "suppressed": 0, "dropped": 0}
+        self.counts = {"accepted": 0, "failed": 0, "suppressed": 0, "dropped": 0, "unknown": 0}
         self.last = None
         self._stop = threading.Event()
         self._worker = None
@@ -181,7 +181,12 @@ class PresencePusher(object):
             info = self.events.pop(receipt.event_id, None)
             if receipt.status != "accepted":
                 return None
-            zone_id, visit, observed_ms, simulated, quiet = info if info else (None, None, None, False, False)
+            if info is None:
+                # Not an event this process enqueued (an outbox replay after a restart, or one evicted from the
+                # bounded map): its zone, visit, time and re-assert flag are unknown, so it is never pushed.
+                self.counts["unknown"] += 1
+                return None
+            zone_id, visit, observed_ms, simulated, quiet = info
             if quiet:
                 return None   # a re-assert of a visit: never a push of its own
             reason = self.limiter.decide((self.workstation_id, zone_id or ""), visit)
@@ -190,8 +195,6 @@ class PresencePusher(object):
         if reason:
             self._record("suppressed", receipt.event_id, zone_id, reason=reason)
             return "suppressed"
-        if observed_ms is None:
-            observed_ms = int(self.wall() * 1000)
         title, message = presence_text(self.workstation_id, zone_id, observed_ms, receipt.event_id, self.device_id,
                                        simulated)
         payload = {"topic": self.topic, "title": title, "message": message, "priority": self.priority,
