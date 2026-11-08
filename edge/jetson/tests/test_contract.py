@@ -135,5 +135,19 @@ class TestEventShape(unittest.TestCase):
             C.health_args("ws-areeb", "jetson-01", "camera", "Not A Slug", "")
 
 
+class TestLiveContract(unittest.TestCase):
+    # The module's allowlist for role "jetson" (spacetime/src/index.ts:434).
+    MODULE_JETSON_KINDS = frozenset(("person_in_zone", "person_cleared", "camera_offline", "camera_online", "heartbeat"))
+
+    def test_lists_only_the_kind_accepted_live(self):
+        live = C.Contract.from_file(os.path.join(ROOT, "contract", "locki-w91bw.live.json"))
+        self.assertEqual(live.kinds, frozenset(("person_in_zone",)))
+        self.assertTrue(live.kinds <= self.MODULE_JETSON_KINDS)
+        for kind in ("owner_face_match", "unrecognized_face", "face_uncertain", "keyboard_interaction",
+                     "usb_zone_interaction"):
+            with self.assertRaises(C.ContractError):     # face and interaction kinds stay in the local audit
+                ev(live, kind=kind, confidence=0.9)
+
+
 if __name__ == "__main__":
     unittest.main()
