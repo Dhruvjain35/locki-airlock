@@ -134,8 +134,10 @@ async def test_robot_does_not_obey_its_own_voice(rt):
     await asyncio.sleep(0.05)
     r = await rt.handle_utterance("emergency stop i'm not moving", source="voice", during_playback=True)
     assert not r.ok and "echo" in r.message and rt.sm.state != State.EMERGENCY_STOP
+    r = await rt.handle_utterance("time left", source="voice", during_playback=True)
+    assert not r.ok and "talking" in r.message  # a fragment said over LOCKI is not taken as a question
     r = await rt.handle_utterance("how much time is left", source="voice", during_playback=True)
-    assert not r.ok and "talking" in r.message
+    assert r.ok  # a real question said over LOCKI is answered (barge-in); LOCKI's own echo above never is
     rt.speaker.say("That's empty air, genius.", priority=3)
     await asyncio.sleep(0.05)
     await rt.start_session("essay", duration_min=25, speak=False)

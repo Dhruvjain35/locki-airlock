@@ -15,6 +15,7 @@ from enum import StrEnum
 
 
 class IntentName(StrEnum):
+    QUIET_MODE = "quiet_mode"
     EMERGENCY_STOP = "emergency_stop"
     STOP_MOTION = "stop_motion"
     RELEASE = "release"
@@ -148,7 +149,7 @@ def words_to_numbers(text: str) -> str:
 
 
 _WAKE = re.compile(
-    r"^(?:(?:hey|yo|ok|okay|alright|hi)\s+)?(?:locked in|lock in|lockedin|lockin|lock it in|locked and|lockton|locki|locky|loki)\b\s*"
+    r"^(?:(?:hey|yo|ok|okay|alright|hi)\s+)?(?:locki|lockie|locky|loki|lokey|lokie|locked in|lock in|lockedin|lockin|lock it in|locked and|lockton)\b\s*"
 )
 
 
@@ -279,6 +280,7 @@ RULES: list[_Rule] = [
     _r(IntentName.SERIOUS, r"\b(be serious|serious mode|get serious|no (more )?jokes|stop joking|enough jokes|just the facts)\b"),
     _r(IntentName.SET_PROFANITY, r"\b(no (swearing|cursing|cussing|profanity)|stop (swearing|cursing|cussing)|do not (swear|curse|cuss)|keep it (clean|pg)|clean (language|mode)|family friendly)\b|\byou can (swear|curse|cuss)\b|\b(swear|curse|cuss) (a little|a bit|all you want|as much as you want)\b|\b(mild|light|full|strong|unlimited) (swearing|profanity|cursing|language)\b|\bno filter\b"),
     _r(IntentName.RESET_TONE, r"\b(you can (joke|roast me) again|roast me again|jokes are back|back to normal|normal mode|be funny again|joke again)\b"),
+    _r(IntentName.QUIET_MODE, r"\b(do not|dont) (talk|speak|say anything)( to me)? unless\b|\bonly (talk|speak)( up)? (if|when)\b.{0,30}\b(important|urgent|serious|matters)\b|\bquiet mode\b|\bstay quiet unless\b", 0.95, "quiet_mode"),
     _r(IntentName.UNMUTE, r"\b(unmute|you can talk( again)?|talk again|speak again|you can speak)\b"),
     _r(IntentName.MUTE, r"\b(stop talking|shut up|be quiet|quiet mode|mute( yourself)?|silence|hush|shush|shh+|zip it|pipe down|stop yapping|stop speaking)\b|^quiet( please)?$"),
     _r(IntentName.RELEASE, r"\b(give (me )?(back )?my phone( back)?|give (it|me it) back|phone back|release( the| my)? phone|release|i need my phone|let me (have|use|get) my phone|hand (me )?(over )?my phone|unlock my phone|i want my phone|(can|could|may) i (have|get) (my |the )?phone( back)?|give (it|that) (here|back)|phone please|i need (it|that) back)\b"),
@@ -290,9 +292,10 @@ RULES: list[_Rule] = [
        r"|\b(has|have) (any|some)(one|body) (touched|used|been at|been near|been to) my (laptop|computer|keyboard|mac|desk|workstation)\b", 0.9, "security_desk"),
     _r(IntentName.ARM_WORKSTATION, r"\barm\b.{0,20}\b(workstation|desk|mac|computer|laptop|station|security|system)\b|\b(watch|guard|protect|secure) my (desk|workstation|mac|computer|laptop|setup|stuff)\b"
        r"|\b(watch|guard) (the|my) (desk|workstation|place|stuff|things)\b"
+       r"|\bi am (going to|gonna|about to) be (gone|away|out)\b|\bi am (heading|stepping|going) out\b"
        r"|\bkeep an eye on (my (desk|workstation|mac|computer|laptop|setup|stuff|things)|everything|things|it all|the (desk|place|workstation))\b"
        r"|\b(make sure|do not let) (nobody|no one|anybody|anyone|no body) (touches|touch|messes with|mess with|uses|use|goes near|go near) (my|the) (desk|workstation|stuff|things|computer|laptop|mac|setup)\b", 0.95, "arm_workstation"),
-    _r(IntentName.SECURITY_WHAT_HAPPENED, r"\bwhat (just )?happened\b|\bwhat did you (see|detect|find)\b|\bwhy did you (warn|alert|lock)\b|\bwhat (was|is) (that|the) (alert|warning|alarm)\b|\b(explain|tell me about) (the|that) (alert|incident|warning)\b|\bwas (anything|anyone) (here|plugged in)\b", 0.9, "security_what_happened"),
+    _r(IntentName.SECURITY_WHAT_HAPPENED, r"\bwhat (just )?happened\b|\bwhat was that\b|\bwhat did you (see|detect|find)\b|\bwhy did you (warn|alert|lock)\b|\bwhat (was|is) (that|the) (alert|warning|alarm)\b|\b(explain|tell me about) (the|that) (alert|incident|warning)\b|\bwas (anything|anyone) (here|plugged in)\b", 0.9, "security_what_happened"),
     _r(IntentName.ABANDON_MISSION, r"\b(abandon|cancel|drop|end|quit|stop|forget)\b.{0,12}\b(mission|quest)\b", 0.95, "abandon_mission"),
     _r(IntentName.START_MISSION, r"\b(start|begin|new|create|launch)\b.{0,15}\b(mission|quest)\b|\bcode quest\b|\bmy (mission|objective) is\b|\bi am (building|implementing|debugging|coding|shipping)\b"
        r"|\b(help me|i need to|i have to|i want to|i am going to|let us) (build|implement|debug|code|ship|finish|fix)\b.{0,40}\b(code|tests?|function|module|feature|bugs?|repo|project|api|app|script|program|class|endpoint)\b"

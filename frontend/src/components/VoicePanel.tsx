@@ -24,7 +24,7 @@ function transcript(events: LockedInEvent[]): Line[] {
       out[out.length - 1].meta = `${out[out.length - 1].meta ?? ""} · ${String(p.intent).replace(/_/g, " ")} ${e.confidence?.toFixed(2) ?? ""}`;
     else if (e.event_type === "voice.response_generated") out.push({ id: e.event_id, who: "bot", text: p.text, meta: `${p.category}${p.audible === false ? " · muted" : ""}` });
     else if (e.event_type === "coach.intervention_generated") out.push({ id: e.event_id, who: "bot", text: p.text, meta: `intervention · ${p.category}${p.audible === false ? " · muted" : ""}`, hit: true });
-    else if (e.event_type === "voice.command_rejected" && p.reason && p.reason !== "not addressed to LOCKED IN") out.push({ id: e.event_id, who: "note", text: `not acted on: ${p.reason}` });
+    else if (e.event_type === "voice.command_rejected" && p.reason && p.reason !== "not addressed to LOCKI") out.push({ id: e.event_id, who: "note", text: `not acted on: ${p.reason}` });
   }
   return out.slice(-40);
 }

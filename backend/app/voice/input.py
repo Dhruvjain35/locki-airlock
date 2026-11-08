@@ -35,14 +35,23 @@ def rms_db(block: np.ndarray) -> float:
     return 20 * math.log10(max(rms, 1e-6))
 
 
+def end_silence_ms(cfg: "VADConfig", speech_blocks: int) -> int:
+    """How much silence closes the turn: short turns end quickly, long ones tolerate a natural mid-thought pause."""
+    return cfg.long_end_ms if speech_blocks * BLOCK_S * 1000 >= cfg.long_after_ms else cfg.end_ms
+
+
 @dataclass
 class VADConfig:
     start_over_floor_db: float = 12.0
     min_speech_db: float = -46.0
     start_blocks: int = 3  # ~90 ms above threshold opens an utterance
-    end_ms: int = 650  # silence that closes it
+    end_ms: int = 650  # silence that closes a short turn ("yes", "what happened?")
+    # People pause longer in the middle of a long thought: after this much speech the closing silence grows to long_end_ms. A turn that
+    # still sounds unfinished ("...and", "um") is held a little longer again by the voice service (CONTINUATION_GRACE_S).
+    long_after_ms: int = 2000
+    long_end_ms: int = 950
     preroll_ms: int = 300
-    max_utterance_s: float = 8.0
+    max_utterance_s: float = 20.0  # was 8 s, which cut long questions in two
     min_utterance_ms: int = 240  # of loud audio, excluding pre-roll and trailing silence
     # Noise floor = this percentile of block levels over the last floor_window_s. Speech
     # has gaps between syllables, so a low percentile tracks the room, not the talker,
@@ -99,7 +108,7 @@ class EnergyVAD:
         self._silence_blocks = 0 if loud else self._silence_blocks + 1
         self._loud_blocks += 1 if loud else 0
         duration = len(self._buf) * BLOCK_S
-        if self._silence_blocks * BLOCK_S * 1000 >= cfg.end_ms or duration >= cfg.max_utterance_s:
+        if self._silence_blocks * BLOCK_S * 1000 >= end_silence_ms(cfg, self._loud_blocks) or duration >= cfg.max_utterance_s:
             audio = np.concatenate(self._buf) if self._buf else np.zeros(0, dtype=np.float32)
             speech_s = self._loud_blocks * BLOCK_S
             self.reset()
@@ -203,7 +212,7 @@ class SileroVAD:
         self._silence_blocks = 0 if speech else self._silence_blocks + 1
         self._speech_blocks += 1 if speech else 0
         duration = len(self._buf) * BLOCK_S
-        if self._silence_blocks * BLOCK_S * 1000 >= cfg.end_ms or duration >= cfg.max_utterance_s:
+        if self._silence_blocks * BLOCK_S * 1000 >= end_silence_ms(cfg, self._speech_blocks) or duration >= cfg.max_utterance_s:
             audio = np.concatenate(self._buf) if self._buf else np.zeros(0, dtype=np.float32)
             speech_ms = self._speech_blocks * BLOCK_S * 1000
             self.in_speech = False

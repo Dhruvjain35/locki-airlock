@@ -279,6 +279,7 @@ class LockedInRuntime:
         self._render_ahead_task: asyncio.Task | None = None
         self._kokoro_task: asyncio.Task | None = None
         self._follow_up_until = 0.0
+        self.silenced: deque = deque(maxlen=50)  # lines LOCKI chose not to say, and why (no microphone content)
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -661,6 +662,11 @@ class LockedInRuntime:
             self._sync_local_voice()
         text = r.text
         prio = r.priority if priority is None else priority
+        silent = self._stay_silent(category, prio, replying=_TURN.get() is not None, force=force)
+        if silent is not None:
+            self.silenced.append({"at": time.time(), "category": category, "priority": prio, "reason": silent})
+            self.bus.publish(EventType.VOICE_SILENCED, EventSource.VOICE, {"category": category, "priority": f"P{prio}", "reason": silent})
+            return text
         delay = self._beat_rng.uniform(0.25, 0.7) if beat else 0.0  # react like a person, not a buzzer
         turn = _TURN.get()
         if trace is None and turn is not None:
@@ -678,6 +684,19 @@ class LockedInRuntime:
             self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, payload)
         self._follow_up_until = time.monotonic() + 8.0
         return text
+
+    def _stay_silent(self, category: str, priority: int, *, replying: bool, force: bool) -> str | None:
+        """The one place that decides whether LOCKI speaks a line it was not asked for. None = speak; otherwise the reason (recorded,
+        never with anything the microphone heard). A direct answer to the owner, a forced line and a P0 warning are always spoken:
+        security alerts follow the owner's alert policy, not quiet mode."""
+        if replying or force or priority == 0:
+            return None
+        if self.context.quiet():
+            return "quiet mode: the owner asked LOCKI to speak only when something important happens"
+        v = self.voice
+        if v is not None and v.running and (v.vad.in_speech or v._ptt_active):
+            return "the owner is talking"
+        return None
 
     def _result(self, ok: bool, message: str, reply: str | None = None, **data) -> CommandResult:
         return CommandResult(ok, message, self.sm.state.value, reply, data)
@@ -1099,10 +1118,13 @@ class LockedInRuntime:
             return "transcribing"
         if v._ptt_active or v.vad.in_speech:
             return "hearing"
-        cur = getattr(self.companion.llm, "_current", None)
-        if cur is not None and not cur[1]:  # the model is writing a reply someone is waiting for
+        if self._composing_reply():
             return "thinking"
         return "ready"
+
+    def _composing_reply(self) -> bool:
+        cur = getattr(self.companion.llm, "_current", None)
+        return cur is not None and not cur[1]  # the model is writing a reply someone is waiting for
 
     def audio_output_status(self) -> dict:
         wanted = self.rs.voice.output_device
@@ -1996,6 +2018,7 @@ class LockedInRuntime:
             return self._result(False, f"voice unavailable: {exc}")
         if self.voice is None:
             self.voice = VoiceService(settings=self.settings, emit=self._voice_emit, speaker=self.speaker, on_transcribing=self._stt_busy)
+            self.voice.thinking = self._composing_reply
         try:
             await asyncio.to_thread(self.voice.start, self.rs.voice.input_device, self.rs.voice.listen_mode)
         except Exception as exc:
@@ -2042,6 +2065,8 @@ class LockedInRuntime:
                     )
                 )
             )
+        elif kind == "barge_in":
+            loop.call_soon_threadsafe(self._barge_in, data)
         elif kind == "speech_started":
             loop.call_soon_threadsafe(lambda: self.bus.publish(EventType.VOICE_SPEECH_STARTED, EventSource.VOICE, data))
         elif kind == "speech_ended":
@@ -2052,6 +2077,20 @@ class LockedInRuntime:
             loop.call_soon_threadsafe(lambda: self.bus.publish(EventType.VOICE_COMMAND_REJECTED, EventSource.VOICE, data))
         elif kind == "recovered":
             loop.call_soon_threadsafe(lambda: self.bus.publish(EventType.VOICE_LISTENING, EventSource.VOICE, {"mode": self.rs.voice.listen_mode, **data}))
+
+    BARGE_IN_MIN_CONFIDENCE = 0.55
+
+    def _real_interruption(self, intent, text: str, stt_confidence: float) -> bool:
+        """Said over LOCKI: is it someone talking to LOCKI? Addressed to it, or a clear phrase of three words or more."""
+        return stt_confidence >= self.BARGE_IN_MIN_CONFIDENCE and (bool(getattr(intent, "addressed", False)) or len((text or "").split()) >= 3)
+
+    def _barge_in(self, data: dict) -> None:
+        """The owner started talking over LOCKI: stop the line now (interrupt() never drops a P0 warning). Their words are then
+        transcribed and answered as a normal turn."""
+        if not self.speaker.speaking:
+            return
+        self.speaker.interrupt("barge-in")
+        self.bus.publish(EventType.VOICE_BARGE_IN, EventSource.VOICE, data)
 
     async def handle_utterance(
         self,
@@ -2125,7 +2164,7 @@ class LockedInRuntime:
             if echo >= (0.6 if during_playback else 0.8) and not is_bare_command(text):
                 rest = self.classifier.classify(residual, stt_confidence, exclude=exclude) if residual else None
                 allowed = rest is not None and rest.name != IntentName.UNKNOWN and (
-                    not during_playback or rest.name in BARGE_IN_INTENTS or rest.stop_word
+                    not during_playback or rest.name in BARGE_IN_INTENTS or rest.stop_word or self._real_interruption(rest, residual, stt_confidence)
                 )
                 if not allowed:
                     self.bus.publish(
@@ -2139,16 +2178,21 @@ class LockedInRuntime:
                     turn["intent"] = intent.to_payload()
                     turn["echo_removed"] = round(echo, 2)
         if during_playback:
-            # Heard while the robot was talking (the user talking over it): only barge-in commands count.
+            # Heard while LOCKI was talking. Stop and pause words always count. A real question counts too ("wait, did they plug
+            # anything in?"): LOCKI stops talking and answers it. Short fragments that are not addressed to LOCKI do not.
             from .voice.intents import BARGE_IN_INTENTS
 
             if intent.name not in BARGE_IN_INTENTS and not intent.stop_word:
-                self.bus.publish(
-                    EventType.VOICE_COMMAND_REJECTED,
-                    EventSource.VOICE,
-                    {"text": text, "reason": "said while the robot was talking: only stop, mute, release, pause, 'be serious' and 'stop roasting me' are taken"},
-                )
-                return self._result(False, "ignored: robot was talking")
+                if not self._real_interruption(intent, text, stt_confidence):
+                    self.bus.publish(
+                        EventType.VOICE_COMMAND_REJECTED,
+                        EventSource.VOICE,
+                        {"text": text, "reason": "said while LOCKI was talking, too short or unclear to be a question for it"},
+                    )
+                    return self._result(False, "ignored: LOCKI was talking")
+                self.speaker.interrupt("barge-in")
+                if turn is not None:
+                    turn["barge_in"] = True
         self.last_utterance = {"text": text, "source": source, "confidence": round(stt_confidence, 3), "at": time.time(), "intent": intent.name.value}
         if source == "voice" and stt_ms is not None:
             self.perf.add("stt_ms", stt_ms)
@@ -2225,7 +2269,7 @@ class LockedInRuntime:
         if source == "voice" and voice_cfg.listen_mode == "wake_word":
             in_follow_up = time.monotonic() < self._follow_up_until
             if not intent.addressed and not in_follow_up and not intent.safety_critical:
-                return "wake_word", "not addressed to LOCKED IN"
+                return "wake_word", "not addressed to LOCKI"
         if intent.name == IntentName.UNKNOWN:
             return "unknown", "unrecognised"
         floor = 0.2 if intent.name == IntentName.STOP_MOTION else voice_cfg.min_command_confidence
@@ -2326,6 +2370,9 @@ class LockedInRuntime:
         if n == IntentName.RESET_TONE:
             self.update_settings({"coach": {"tone": "normal"}}, publish=True)
             return self._result(True, "normal tone", self._say("tone_reset"))
+        if n == IntentName.QUIET_MODE:
+            self.context.set_quiet(None, "owner asked: speak only when something important happens")
+            return self._result(True, "quiet mode on: only answers and important security alerts are spoken", self._say("quiet_mode_on"))
         if n == IntentName.MUTE:
             self.set_muted(True)
             self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, {"category": "mute", "text": "Going quiet.", "audible": False})
@@ -3069,6 +3116,9 @@ class LockedInRuntime:
                 "cloud": self.fish.describe(),
                 "cache_job": self.cache_job_state,
                 "state": self.voice_state(),
+                "conversation_state": self.voice.conversation_state() if self.voice is not None else "IDLE",
+                "quiet_mode": self.context.quiet(),
+                "silenced": list(self.silenced)[-8:],
                 "turns": [self._turn_view(t) for t in list(self.voice_turns)[-6:]][::-1],
                 "output": self.audio_output_status(),
             },

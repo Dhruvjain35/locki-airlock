@@ -75,7 +75,7 @@ async def test_wake_word_mode_is_scored_as_configured(rt):
     rt.voice_trials.start_block("A", "quiet room")
     rt.voice_trials.set_prompt("time_left", "How much time is left?")
     rec = (await say(rt, "how much time is left")).data["trial"]
-    assert rec["outcome"] == "rejected" and rec["rejected_reason"] == "not addressed to LOCKED IN"
+    assert rec["outcome"] == "rejected" and rec["rejected_reason"] == "not addressed to LOCKI"
 
 
 async def test_trials_are_written_as_text_lines(rt, settings):
