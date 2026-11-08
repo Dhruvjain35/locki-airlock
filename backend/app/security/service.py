@@ -88,6 +88,7 @@ class SecurityService:
         settings = rt.settings
         self.enabled = settings.security_enabled
         self.dir = settings.data_dir / "security"
+        self.dispatch = None  # security.dispatch.Dispatcher, once SpacetimeDB is connected: who is told about each incident, and the receipts
         self.identity: DeviceIdentity | None = None
         self.transport = transport or LocalOnlyTransport()
         self.publisher: SecurityEventPublisher | None = None
@@ -218,8 +219,11 @@ class SecurityService:
             self.spacetime_error = "the database's reducers no longer match this adapter: " + "; ".join(problems)[:200]
             log.warning("SpacetimeDB: %s", self.spacetime_error)
         from .arm_delegation import ArmGrants
+        from .dispatch import Dispatcher
 
         self.arm_grants = ArmGrants(config.workstation_id, config.device_id)
+        if self.dispatch is None:
+            self.dispatch = Dispatcher(config.workstation_id, self.rt.settings.data_dir / "notify" / "phone.json")
         self.subscriber = SpacetimeSubscriber(config, on_incident=self.apply_incident_update, on_lock_request=self.handle_lock_request, on_session=self.apply_remote_session,
                                               on_camera_event=self.apply_remote_camera_event, on_arm_grant=self.arm_grants.apply)
         self.subscriber.start()
@@ -319,6 +323,8 @@ class SecurityService:
             self._usb_lock.release()
         if self.subscriber is not None:
             await self.subscriber.stop()
+        if self.dispatch is not None:
+            self.dispatch.close()
         if self.publisher is not None:
             await asyncio.to_thread(self.publisher.close)
 
@@ -1031,6 +1037,11 @@ class SecurityService:
             return
         self._last_incident_update = update
         self.rt.bus.publish(EventType.SECURITY_INCIDENT, EventSource.SECURITY, {**update.model_dump(mode="json"), "source": "fixture" if update.is_fixture else "spacetimedb", "authoritative": not update.is_fixture})
+        if self.dispatch is not None:
+            try:  # who hears about it; sending happens on the dispatcher's own thread and never delays the warning below
+                self.dispatch.observe(update, active_session_id=None if self.session is None else self.session.session_id)
+            except Exception:
+                log.exception("security dispatch")
         if update.is_fixture or self.session is None or (update.session_id and update.session_id != self.session.session_id):
             return
         self.modes.on_incident(update.incident_id, correlated=bool(update.physical_event_id and update.digital_event_id),

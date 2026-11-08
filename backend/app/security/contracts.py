@@ -296,6 +296,8 @@ class IncidentUpdateV1(_Contract):
     summary: str | None = Field(None, max_length=240)
     rule_id: str | None = Field(None, max_length=80)
     is_fixture: bool = False
+    created_at: EpochMs | None = Field(None, description="When SpacetimeDB opened the incident")
+    acknowledged_by: str | None = Field(None, max_length=80, description="The identity that acknowledged it in SpacetimeDB (the owner or an authorized reviewer)")
 
 
 class LockRequestV1(_Contract):

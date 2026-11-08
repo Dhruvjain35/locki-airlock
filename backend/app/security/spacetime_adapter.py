@@ -280,7 +280,7 @@ def incident_from_row(row: dict) -> IncidentUpdateV1:
         incident_id=row["id"], session_id=row.get("session_id") or None, severity=str(row.get("severity", "")).lower(), state=INCIDENT_STATES.get(state.lower(), state.upper()),
         evidence_ids=_ids(row.get("event_ids_json")), action_required="review" if row.get("action_required") else "none", updated_at=row.get("updated_at_ms") or None,
         digital_event_id=row.get("digital_event_id") or None, physical_event_id=row.get("physical_event_id") or None, summary=(row.get("summary") or "")[:240] or None, rule_id=(row.get("rule_id") or "")[:80] or None,
-        is_fixture=bool(row.get("simulated")),
+        is_fixture=bool(row.get("simulated")), created_at=row.get("created_at_ms") or None, acknowledged_by=str(row.get("acknowledged_by") or "")[:80] or None,
     )
 
 

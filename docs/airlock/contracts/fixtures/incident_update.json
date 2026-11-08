@@ -1,5 +1,7 @@
 {
+  "acknowledged_by": null,
   "action_required": "review",
+  "created_at": null,
   "digital_event_id": null,
   "evidence_ids": [
     "fixture-usb-1",

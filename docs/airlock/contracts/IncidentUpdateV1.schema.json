@@ -30,6 +30,20 @@
   "additionalProperties": false,
   "description": "SpacetimeDB to voice, Nemotron and the consoles. SpacetimeDB decides these; nothing on the Mac does.",
   "properties": {
+    "acknowledged_by": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The identity that acknowledged it in SpacetimeDB (the owner or an authorized reviewer)",
+      "title": "Acknowledged By"
+    },
     "action_required": {
       "anyOf": [
         {
@@ -48,6 +62,21 @@
       ],
       "default": null,
       "title": "Action Required"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "description": "Milliseconds since the Unix epoch",
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When SpacetimeDB opened the incident",
+      "title": "Created At"
     },
     "digital_event_id": {
       "anyOf": [

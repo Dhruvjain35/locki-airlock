@@ -61,6 +61,15 @@ async def lock_preflight(request: Request):
     return rt_of(request).security.lock.preflight()
 
 
+@router.get("/notifications")
+async def notifications(request: Request):
+    """Who was told about which incident (ids are SpacetimeDB's my_incidents.id), over which channel, and exactly what each receipt says."""
+    dispatch = rt_of(request).security.dispatch
+    if dispatch is None:
+        return {"policy": None, "phone": None, "incidents": [], "detail": "not connected to SpacetimeDB, so no incidents to dispatch"}
+    return dispatch.snapshot()
+
+
 @router.post("/monitor/start")
 async def monitor_start(request: Request):
     _own_dashboard(request)
