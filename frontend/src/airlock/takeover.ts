@@ -61,3 +61,37 @@ const HANDOFF_KEY = "airlock.takeover.handoff.v1";
 export function readHandledHandoff(): string | null { try { return sessionStorage.getItem(HANDOFF_KEY); } catch { return null; } }
 export function markHandoffHandled(nonce: string) { try { sessionStorage.setItem(HANDOFF_KEY, nonce); } catch { /* the in-memory ref still holds it */ } }
 export const HANDOFF_MAX_AGE_MS = 60_000;
+
+/** How long the native alert window has to show a live takeover the backend decided, before this page presents its own view. */
+export const NATIVE_SHOW_GRACE_MS = 3_000;
+
+/** The dashboard's own full-viewport critical view is only a fallback, labelled degraded: it renders when the native alert window can't
+ *  carry the event, and this says why. null means the native window is carrying it, so the page shows its in-line card instead.
+ *  Whether anything is critical is not decided here. */
+export function browserFallback(t: Takeover | null, now: number, link?: MacLink["status"]): string | null {
+  if (link === "connecting") return null;  // the first read of this Mac hasn't come back yet: don't flash the fallback on every page load
+  if (!t) return "Native alert window unverified: this Mac's backend isn't answering · browser view only";
+  if (!t.supported) return "This backend has no native alert window · browser view only";
+  if (!t.native?.connected) return "Native alert window not running · browser view only";
+  const r = t.record;
+  if (r?.live && !r.shown_at_ms && !r.acknowledged_at_ms && now - Number(r.detected_at_ms) > NATIVE_SHOW_GRACE_MS) return "Native alert window hasn't shown this event · browser view only";
+  return null;
+}
+
+/** Whether the native alert window already showed the critical event the browser view would present, so that view never replays it
+ *  later (for example after the alert window quits). An incident matches by its id or by the Mac's USB event behind it; this Mac's own
+ *  CRITICAL matches when the shown record was detected within a few seconds of the stage change. Unknown never counts as shown. */
+export const PRESENTED_MATCH_MS = 15_000;
+export function presentedNatively(t: Takeover | null, c: { reason: string; incident?: Record<string, any> } | null, sessionId: string | undefined, modeSince?: unknown): boolean {
+  const r = t?.record;
+  if (!r?.shown_at_ms || !c || !sessionId || t?.sessionId !== sessionId) return false;
+  if (c.reason === "incident") {
+    const bare = (v: unknown) => String(v ?? "").replace(/^incident:/, "");
+    const inc = c.incident ?? {};
+    return (r.incident_id != null && bare(r.incident_id) !== "" && bare(r.incident_id) === bare(inc.id)) || (inc.digitalEventId != null && r.id === `usb:${inc.digitalEventId}`);
+  }
+  const s = Number(modeSince);
+  const sinceMs = s > 0 && s < 1e11 ? s * 1000 : s;
+  const d = Number(r.detected_at_ms);
+  return Number.isFinite(d) && Number.isFinite(sinceMs) && sinceMs > 0 && Math.abs(d - sinceMs) <= PRESENTED_MATCH_MS;
+}
