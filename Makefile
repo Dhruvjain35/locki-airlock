@@ -2,7 +2,7 @@
 PORT ?= 8077
 SPACETIME ?= $(shell command -v spacetime 2>/dev/null || echo "$(HOME)/.local/bin/spacetime")
 
-.PHONY: help setup preflight quest-check agent-bench airlock airlock-watch airlock-check airlock-investigate airlock-gate airlock-contracts models verify-models backend frontend dev demo test lint bench clean-data soak build offline-check hardware airlock-build airlock-verify airlock-cloud airlock-mac
+.PHONY: help setup preflight quest-check agent-bench airlock airlock-watch airlock-check airlock-investigate airlock-gate airlock-contracts models verify-models backend frontend dev demo test lint bench clean-data soak build offline-check hardware airlock-build airlock-verify airlock-cloud airlock-mac desk
 
 help:
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
@@ -21,6 +21,17 @@ airlock-cloud: ## Run the dashboard against the team's existing locki-w91bw clou
 
 airlock-build: ## Publish the local AIRLOCK module without deleting data and build the dashboard
 	AIRLOCK_SPACETIME_BIN="$(SPACETIME)" bash scripts/airlock_dev.sh build
+
+# Security desk for a second Mac (e.g. Areeb's): the dashboard as static files that talk only to SpacetimeDB, never to an M4 backend.
+# It serves on 127.0.0.1 with no proxy, so nothing on this Mac is exposed; the desk's identity is created in its own browser.
+DESK_PORT ?= 5180
+DESK_URI ?= https://maincloud.spacetimedb.com
+DESK_DB ?= locki-w91bw
+desk: ## Security desk: static dashboard build against SpacetimeDB only (no M4 backend), served on 127.0.0.1:$(DESK_PORT)
+	cd frontend && VITE_SPACETIMEDB_URI=$(DESK_URI) VITE_SPACETIMEDB_DATABASE=$(DESK_DB) npx vite build --outDir dist-desk --emptyOutDir --logLevel warn
+	@! grep -rEl 'eyJ[A-Za-z0-9_-]{10,}\.eyJ|BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9_-]{20,}' frontend/dist-desk || { echo "a token-shaped string is in the desk bundle: not serving it"; exit 1; }
+	@echo; echo "Security desk -> http://127.0.0.1:$(DESK_PORT)/?client=desk&view=desk   (Ctrl-C stops it)"; echo
+	python3 -m http.server $(DESK_PORT) --bind 127.0.0.1 --directory frontend/dist-desk
 
 airlock-verify: ## Exercise the deployed AIRLOCK module using separate authenticated clients
 	AIRLOCK_SPACETIME_BIN="$(SPACETIME)" bash scripts/airlock_dev.sh verify

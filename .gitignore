@@ -9,6 +9,7 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+frontend/dist-desk/
 
 # Secrets
 .env

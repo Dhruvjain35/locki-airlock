@@ -117,6 +117,12 @@ Then follow "Each demo" in [docs/airlock/DEMO.md](docs/airlock/DEMO.md):
 5. Come back. The mode becomes OWNER_RETURNED, and the workstation stays armed.
 6. Disarm on the dashboard.
 
+**Security desk on a second Mac (Areeb's).** On that Mac, after cloning: `npm ci --prefix frontend && make desk`, then open
+http://127.0.0.1:5180/?client=desk&view=desk. It is the dashboard as static files that talk only to SpacetimeDB, never to the M4's backend, and it
+listens on 127.0.0.1 only. The desk creates its own identity. The owner enrolls it with **Enroll identity → Grant human reviewer access**, with
+approval unchecked. It can view this workstation's incidents, evidence and investigation, and acknowledge them. Never make the M4's Vite server
+listen beyond 127.0.0.1: its `/api` proxy reaches the backend's routes.
+
 **Arming and disarming.** Only the owner arms and disarms. Use Sid's dashboard, or the `spacetime call ... arm_session` line that
 `scripts/airlock.py owner-commands` prints. A spoken "secure my workstation" asks for that confirmation, and a spoken "disarm" never disarms.
 
