@@ -114,15 +114,27 @@ class Companion:
         s = self.rt.settings
         if s.llm_provider != "local" or not self.rt.enable_llm:
             return
-        if s.local_llm_backend == "ollama":
+        if s.local_llm_backend == "ollama" and self._ollama_serves(s):
             from .ollama_llm import OllamaLLM
 
-            self.llm = OllamaLLM(s.ollama_model)
+            self.llm = OllamaLLM(s.ollama_model, base=s.ollama_url)
         else:
             from .local_llm import LocalLLM
 
             self.llm = LocalLLM(s.local_llm_model, s.models_dir)
         self.dialogue = DialogueEngine(self.llm, timeout_s=s.local_llm_timeout_s)
+
+    @staticmethod
+    def _ollama_serves(s) -> bool:
+        """Ollama was chosen: use it only if it answers at ollama_url with ollama_model pulled (the M5 tunnel may be down). Otherwise the
+        conversation runs on this Mac's own model and says so in the log; security warnings never depended on either. A model name the adapter
+        refuses (cloud-hosted, untagged) is never swapped for another: it stays on Ollama and shows as refused."""
+        from .ollama_llm import _refusal, serves
+
+        if _refusal(s.ollama_model) or serves(s.ollama_url, s.ollama_model):
+            return True
+        log.warning("Ollama at %s does not serve %s; the conversation uses the local model %s", s.ollama_url, s.ollama_model, s.local_llm_model)
+        return False
 
     def close(self) -> None:
         if self._prepare_task is not None:

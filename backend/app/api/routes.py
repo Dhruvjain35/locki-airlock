@@ -390,6 +390,9 @@ async def voice_devices():
         import sounddevice as sd
     except Exception as exc:
         return {"available": False, "reason": str(exc), "inputs": [], "outputs": []}
+    from ..voice.tts import PORTAUDIO
+
+    refreshed = PORTAUDIO.refresh_if_idle(sd)  # a speaker connected since startup shows up here, never by cutting off a clip
     devices = await asyncio.to_thread(sd.query_devices)
     default_in, default_out = sd.default.device
     inputs, outputs = [], []
@@ -399,7 +402,7 @@ async def voice_devices():
             inputs.append({**item, "channels": d["max_input_channels"], "default": i == default_in})
         if d["max_output_channels"] > 0:
             outputs.append({**item, "channels": d["max_output_channels"], "default": i == default_out})
-    return {"available": True, "inputs": inputs, "outputs": outputs}
+    return {"available": True, "inputs": inputs, "outputs": outputs, "refreshed": refreshed, "playing": PORTAUDIO.busy()}
 
 
 @router.post("/voice/test-mic")

@@ -630,6 +630,53 @@ async def test_old_or_other_session_or_disarmed_camera_rows_are_never_spoken(rt)
     assert rt.security.mode.value == "NORMAL" and not any(w["reason"] == "person_at_desk" for w in rt.security.warnings)
 
 
+def presence_warnings(rt) -> int:
+    return sum(w["reason"] == "person_at_desk" for w in rt.security.warnings)
+
+
+async def test_a_jetson_clear_with_this_macs_camera_off_leaves_nobody_present(rt):
+    h, sub = await camera_subscribed(rt)
+    now = int(time.time() * 1000)
+    await sub._message(device_event_message([jetson_row(event_id="in", received_at_ms=now - 3_000)]))
+    await wait_for(lambda: presence_warnings(rt) == 1, timeout=4.0)
+    await sub._message(device_event_message([jetson_row("person_cleared", event_id="out", received_at_ms=now - 1_000)]))
+    s = rt.security.visual_state()
+    assert not s["at_desk"] and not s["person_present"] and rt.security.mode.value == "NORMAL"
+
+
+async def test_a_visitor_back_within_the_cooldown_is_not_warned_again_and_a_new_one_after_it_is(rt):
+    from app.security.service import REMOTE_CLEAR_COOLDOWN_MS
+
+    h, sub = await camera_subscribed(rt)
+    now = int(time.time() * 1000)
+
+    def row(kind, eid, ago_ms):
+        return jetson_row(kind, event_id=eid, observed_at_ms=now - ago_ms, received_at_ms=now - ago_ms)
+
+    await sub._message(device_event_message([row("person_in_zone", "v1-in", 20_000)]))
+    await wait_for(lambda: presence_warnings(rt) == 1, timeout=4.0)
+    await sub._message(device_event_message([row("person_cleared", "v1-out", 18_000)]))
+    rt.security._last_warned["presence"] = -1e9  # as if WARNING_REPEAT_S had passed: only the cooldown decides below
+    await sub._message(device_event_message([row("person_in_zone", "v1-back", 13_000)]))  # back 5 s after leaving: the same visitor
+    await asyncio.sleep(0.2)
+    assert presence_warnings(rt) == 1 and rt.security.remote_camera["after_clear_ms"] == 5_000 < REMOTE_CLEAR_COOLDOWN_MS
+    await sub._message(device_event_message([row("person_cleared", "v1-gone", 12_000)]))
+    rt.security._last_warned["presence"] = -1e9
+    await sub._message(device_event_message([row("person_in_zone", "v2-in", 1_000)]))  # 11 s after the desk emptied: a new visitor
+    await wait_for(lambda: presence_warnings(rt) == 2, timeout=4.0)
+    assert rt.security.remote_camera["after_clear_ms"] == 11_000 and rt.security.mode.value == "WATCHFUL"
+
+
+async def test_with_this_macs_camera_watching_a_jetson_clear_only_ends_the_desk_visit(rt):
+    h, sub = await camera_subscribed(rt)
+    rt.security._camera_reasons.add("armed")  # as if this Mac's own camera were watching the room: it may still see someone
+    now = int(time.time() * 1000)
+    await sub._message(device_event_message([jetson_row(event_id="in", received_at_ms=now - 3_000)]))
+    await sub._message(device_event_message([jetson_row("person_cleared", event_id="out", received_at_ms=now - 1_000)]))
+    s = rt.security.visual_state()
+    assert not s["at_desk"] and s["person_present"]
+
+
 async def test_a_bug_in_the_camera_handler_is_not_counted_as_a_bad_row():
     def broken(*_):
         raise RuntimeError("handler bug")

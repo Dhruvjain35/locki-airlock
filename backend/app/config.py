@@ -135,6 +135,9 @@ class Settings(BaseSettings):
     # "mlx": local_llm_model under backend/models. "ollama": ollama_model, already pulled, on this Mac only.
     local_llm_backend: Literal["mlx", "ollama"] = "mlx"
     ollama_model: str = "nemotron-3.5-bolt:e4b"
+    # Where that Ollama answers, loopback only: this Mac's own (11434), or the SSH tunnel to the team's M5 (http://127.0.0.1:11435).
+    # If it does not serve ollama_model when the conversation starts, the conversation runs on local_llm_model instead.
+    ollama_url: str = "http://127.0.0.1:11434"
     # Also record missions with NVIDIA NeMo Relay (missions/relay.py). Needs the optional package.
     relay_enabled: bool = False
 
