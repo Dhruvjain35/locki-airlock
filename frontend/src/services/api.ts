@@ -62,6 +62,7 @@ export const api = {
   voiceStop: () => post("/voice/stop"),
   securityNotifications: () => request<any>("GET", "/security/notifications"),
   recordedStatus: () => request<any>("GET", "/voice/recorded"),
+  investigation: (id: string) => request<any>("GET", `/security/investigation/${encodeURIComponent(id)}`),
   stopSpeaking: () => request<{ ok: boolean; message: string }>("POST", "/voice/stop-speaking", {}),
   sendRecorded: async (file: File): Promise<any> => {
     const res = await fetch(`/api/voice/recorded?name=${encodeURIComponent(file.name)}`, { method: "POST", headers: { "content-type": "audio/wav" }, body: file });

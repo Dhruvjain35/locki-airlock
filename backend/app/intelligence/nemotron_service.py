@@ -99,6 +99,40 @@ class NemotronService:
                 await client.aclose()
 
 
+    async def record(self, investigation_id: str) -> dict:
+        """One of this requester's investigations, trimmed for display (read-only)."""
+        if not INVESTIGATION_ID.match(investigation_id or ""):
+            raise InvestigatorUnavailable("that is not an investigation id")
+        client = self._client or httpx.AsyncClient(timeout=8.0)
+        try:
+            r = await client.get(f"{self.url}/investigations/{investigation_id}", headers=self._headers())
+            if r.status_code != 200:
+                raise InvestigatorUnavailable(_refusal(r))
+            return trim_record(r.json())
+        except httpx.HTTPError as exc:
+            raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
+        finally:
+            if self._client is None:
+                await client.aclose()
+
+INVESTIGATION_ID = re.compile(r"^inv_[A-Za-z0-9_-]{1,80}$")
+
+
+def trim_record(record: dict) -> dict:
+    """The part of a full investigation record the owner console shows: badge, headline, status, the grounded facts with their evidence
+    ids, which tools ran and on what data, and the total latency. Never the model conversation or the untrusted text list."""
+    result = record.get("result") or {}
+    return {
+        "investigation_id": record.get("investigation_id"), "incident_id": record.get("incident_id"), "status": record.get("status"),
+        "evidence_mode": result.get("evidence_mode") or record.get("evidence_mode"), "evidence_badge": result.get("evidence_badge") or record.get("evidence_badge"),
+        "headline": result.get("headline"),
+        "observed_facts": [{"fact": str(f.get("fact", ""))[:300], "evidence_ids": [str(i) for i in (f.get("evidence_ids") or [])][:12]}
+                           for f in (result.get("observed_facts") or [])[:12] if isinstance(f, dict)],
+        "tools": [{"tool": t.get("tool"), "status": t.get("status"), "live_data": t.get("live_data")} for t in (result.get("tool_execution_trace") or [])[:24] if isinstance(t, dict)],
+        "total_latency_ms": result.get("total_latency_ms"),
+    }
+
+
 def _refusal(r: httpx.Response) -> str:
     reasons = {401: "the investigator key was refused", 403: "the investigator key lacks permission", 404: "the investigation was not found",
                409: "live evidence isn't enabled on the investigator", 413: "the request was too large", 422: "the investigator can't take this incident live",

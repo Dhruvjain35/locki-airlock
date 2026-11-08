@@ -5,6 +5,22 @@ import { Badge, Button, Panel } from "./ui";
 
 type Turn = { nemotron?: { investigation_id?: string; status?: string; evidence_badge?: string; total_ms?: number } | null; file: string; ok: boolean; transcript?: string | null; reply?: string | null; intent?: string | null; error?: string; message?: string; stt_ms?: number; handled_ms?: number; audio?: { seconds: number } };
 
+/** Mustafa's investigation record for one turn, read-only through this Mac's backend (the key never reaches the browser): headline first,
+ *  then the grounded facts with their evidence ids, the tools that ran and on what data, and the total time. */
+function InvestigationRecord({ id }: { id: string }) {
+  const [rec, setRec] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { let stop = false; api.investigation(id).then(r => { if (!stop) setRec(r); }).catch(e => { if (!stop) setError(e instanceof Error ? e.message : String(e)); }); return () => { stop = true; }; }, [id]);
+  if (error) return <p className="al-small al-text-amber">Investigation record unavailable: {error}</p>;
+  if (!rec) return <p className="al-small al-muted">Loading the investigation record…</p>;
+  return <div className="al-investigation-record">
+    {rec.headline && <p className="al-small"><strong>{rec.headline}</strong></p>}
+    {(rec.observed_facts ?? []).map((f: any, n: number) => <p key={n} className="al-small">• {f.fact} {(f.evidence_ids ?? []).map((e: string) => <code key={e}>{e}</code>)}</p>)}
+    {(rec.tools ?? []).length > 0 && <p className="al-small al-muted">Tools: {(rec.tools as any[]).map(t => `${t.tool} ${t.status}${t.live_data ? " (live)" : t.live_data === false ? " (not live)" : ""}`).join(" · ")}</p>}
+    {rec.total_latency_ms != null && <p className="al-small al-muted">Investigation time {Math.round(rec.total_latency_ms)} ms · {rec.status}</p>}
+  </div>;
+}
+
 /** Recorded Voice Input: the owner's own spoken commands, recorded somewhere quiet as WAV files, sent in any order. Each one is
  *  transcribed by LOCKI's own speech-to-text and answered fresh by the same conversation, security rules and voice as the microphone.
  *  Labelled PRERECORDED INPUT so judges know the room's microphone is not being used. */
@@ -51,6 +67,7 @@ export function RecordedVoicePanel() {
       <div className="al-inline al-spread"><Badge tone={t.ok ? "cyan" : "amber"}>{t.file}</Badge><span className="al-small">{t.stt_ms != null ? `heard in ${Math.round(t.stt_ms)} ms` : ""}{t.handled_ms != null ? ` · answered in ${Math.round(t.handled_ms)} ms` : ""}</span></div>
       {t.transcript != null && <p className="al-small">Recognized: <strong>“{t.transcript}”</strong>{t.intent ? ` · ${t.intent}` : ""}</p>}
       {t.nemotron?.investigation_id && <p className="al-small"><Badge tone={t.nemotron.evidence_badge === "LIVE" ? "cyan" : "amber"}>Nemotron {t.nemotron.evidence_badge ?? "?"}</Badge> {t.nemotron.status} · {t.nemotron.investigation_id}{t.nemotron.total_ms != null ? ` · ${Math.round(t.nemotron.total_ms)} ms` : ""}</p>}
+      {t.nemotron?.investigation_id && <InvestigationRecord id={t.nemotron.investigation_id} />}
       {t.reply && <p className="al-small">LOCKI: {t.reply}</p>}
       {t.error && <p className="al-small al-text-amber">{t.error}</p>}
       {!t.error && !t.ok && t.message && <p className="al-small al-muted">{t.message}</p>}

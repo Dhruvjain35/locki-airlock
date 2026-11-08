@@ -147,3 +147,50 @@ async def test_stop_speaking_stops_an_answer_but_a_p0_warning_still_plays():
     await asyncio.sleep(0.8)
     assert "Security alert. Step away." in eng.finished and "a long ordinary answer" not in eng.finished
     await sp.close()
+
+
+FULL_RECORD = {"investigation_id": "inv_1", "incident_id": REAL, "status": "completed_with_warnings", "evidence_mode": "live",
+               "result": {"evidence_mode": "live", "evidence_badge": "LIVE", "headline": "Official severity high. Nemotron's evidence review: medium risk.",
+                          "observed_facts": [{"fact": "An unknown USB device was connected.", "evidence_ids": ["evt:1"], "basis": "observed"}],
+                          "tool_execution_trace": [{"step": 1, "tool": "get_incident", "status": "ok", "live_data": True, "arguments": {"incident_id": REAL}, "result_summary": "x"}],
+                          "total_latency_ms": 9120, "conversation": ["the raw model messages"], "untrusted_text_values": ["EvilUSB"], "summary": "..."}}
+
+
+async def test_the_display_record_is_trimmed_and_holds_no_conversation(tmp_path):
+    def handler(request):
+        assert request.headers["authorization"] == "Bearer test-key" and request.url.path == "/investigations/inv_1"
+        return httpx.Response(200, json=FULL_RECORD)
+
+    rec = await service(tmp_path, handler).record("inv_1")
+    assert rec["evidence_badge"] == "LIVE" and rec["headline"].startswith("Official severity high") and rec["status"] == "completed_with_warnings"
+    assert rec["observed_facts"] == [{"fact": "An unknown USB device was connected.", "evidence_ids": ["evt:1"]}]
+    assert rec["tools"] == [{"tool": "get_incident", "status": "ok", "live_data": True}] and rec["total_latency_ms"] == 9120
+    import json as _json
+
+    dumped = _json.dumps(rec)
+    assert "raw model messages" not in dumped and "untrusted_text_values" not in dumped and "arguments" not in dumped
+
+
+async def test_only_investigation_ids_are_fetched(tmp_path):
+    with pytest.raises(InvestigatorUnavailable, match="not an investigation id"):
+        await service(tmp_path, api()).record("../health")
+
+
+def test_the_display_route_is_local_and_needs_the_investigator(settings, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from app.runtime import LockedInRuntime
+
+    from .test_voice_trials import RecordingTTS
+
+    runtime = LockedInRuntime(settings, persist_settings=False, tts_engine=RecordingTTS(), enable_vision=False, enable_voice=False)
+    runtime.nemotron_service = NemotronService(key_file=str(tmp_path / "missing.key"))
+    with TestClient(create_app(settings, runtime)) as c:
+        assert c.get("/api/security/investigation/inv_1", headers={"origin": "http://evil.example"}).status_code == 403
+        assert c.get("/api/security/investigation/inv_1").status_code == 503
+        kf = tmp_path / "k.key"
+        kf.write_text("test-key")
+        runtime.nemotron_service = NemotronService(url="http://127.0.0.1:18787", key_file=str(kf), client=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=FULL_RECORD))))
+        body = c.get("/api/security/investigation/inv_1").json()
+        assert body["evidence_badge"] == "LIVE" and body["observed_facts"][0]["evidence_ids"] == ["evt:1"]

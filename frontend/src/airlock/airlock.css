@@ -310,3 +310,5 @@
 .al-stop-speaking:active { transform: translateY(1px); }
 .al-recordings { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .al-recorded-turn { border-top: 1px solid rgba(127, 127, 127, 0.2); padding-top: 8px; margin-top: 8px; }
+.al-investigation-record { border-left: 3px solid currentColor; padding-left: 10px; margin: 6px 0; }
+.al-investigation-record code { margin-left: 4px; font-size: 11px; }

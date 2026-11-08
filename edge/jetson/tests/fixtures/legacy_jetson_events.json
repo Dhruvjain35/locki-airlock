@@ -1,0 +1,129 @@
+[
+  {
+    "schema_version": 1,
+    "event_id": "05f05f97-2713-4261-b50b-d4aafc1b8ffd",
+    "source": "jetson",
+    "kind": "camera_online",
+    "observed_at": 1794100000000,
+    "seq": 1,
+    "confidence": null,
+    "metadata": {
+      "device_label": "jetson-desk-1",
+      "detector": "detectnet",
+      "width": 640,
+      "height": 480
+    }
+  },
+  {
+    "schema_version": 1,
+    "event_id": "d1135ea8-981e-43e8-ad92-5228b7409cbe",
+    "source": "jetson",
+    "kind": "heartbeat",
+    "observed_at": 1794100003000,
+    "seq": 2,
+    "confidence": null,
+    "metadata": {
+      "device_label": "jetson-desk-1",
+      "detector": "detectnet",
+      "camera_ok": true,
+      "zone_occupied": false,
+      "fps": 21.4,
+      "inference_ms_p50": 38.2,
+      "cpu_pct": 31.0,
+      "mem_pct": 62.5,
+      "gpu_pct": 48.0,
+      "temp_c_max": 44.5,
+      "ntp_synced": true,
+      "queue_depth": 0,
+      "uptime_s": 12.0
+    }
+  },
+  {
+    "schema_version": 1,
+    "event_id": "bb47c5fd-4f52-46b8-a1d4-5ce7ccf6bf3e",
+    "source": "jetson",
+    "kind": "person_in_zone",
+    "observed_at": 1794100010120,
+    "seq": 3,
+    "confidence": 0.8731,
+    "metadata": {
+      "device_label": "jetson-desk-1",
+      "detector": "detectnet",
+      "label": "person",
+      "zone_overlap": 0.82,
+      "bbox": [
+        0.41,
+        0.2,
+        0.77,
+        1.0
+      ],
+      "frames_confirmed": 3,
+      "zone": [
+        0.25,
+        0.35,
+        0.75,
+        1.0
+      ],
+      "capture_to_event_ms": 41.3
+    }
+  },
+  {
+    "schema_version": 1,
+    "event_id": "d0876624-3ea9-4559-8b65-c84c4f58b984",
+    "source": "jetson",
+    "kind": "zone_clear",
+    "observed_at": 1794100018520,
+    "seq": 4,
+    "confidence": null,
+    "metadata": {
+      "device_label": "jetson-desk-1",
+      "detector": "detectnet",
+      "occupied_s": 6.4,
+      "capture_to_event_ms": 36.0
+    }
+  },
+  {
+    "schema_version": 1,
+    "event_id": "4e289fdf-e666-4652-8652-83e832c22507",
+    "source": "jetson",
+    "kind": "camera_offline",
+    "observed_at": 1794100030000,
+    "seq": 5,
+    "confidence": null,
+    "metadata": {
+      "device_label": "jetson-desk-1",
+      "detector": "detectnet",
+      "reason": "read_failed",
+      "zone_was_occupied": false
+    }
+  },
+  {
+    "schema_version": 1,
+    "event_id": "a7fdcdf5-3a13-4d53-a379-9902e7f83080",
+    "source": "mac_fallback_camera",
+    "kind": "person_in_zone",
+    "observed_at": 1794100040000,
+    "seq": 6,
+    "confidence": null,
+    "metadata": {
+      "device_label": "mac-fallback",
+      "detector": "motion",
+      "label": "motion",
+      "zone_overlap": 1.0,
+      "bbox": [
+        0.5,
+        0.4,
+        0.7,
+        0.9
+      ],
+      "frames_confirmed": 3,
+      "zone": [
+        0.25,
+        0.35,
+        0.75,
+        1.0
+      ],
+      "capture_to_event_ms": 12.0
+    }
+  }
+]
