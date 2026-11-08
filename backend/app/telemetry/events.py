@@ -120,6 +120,7 @@ class EventType(StrEnum):
     VOICE_COMMAND_RECOGNIZED = "voice.command_recognized"
     VOICE_COMMAND_REJECTED = "voice.command_rejected"
     VOICE_BARGE_IN = "voice.barge_in"  # the owner started talking over LOCKI: the line was stopped (never a P0 warning)
+    VOICE_RECORDED_TURN = "voice.recorded_turn"  # a recorded command was transcribed and handled (timings and outcome, no words)
     VOICE_SILENCED = "voice.silenced"  # LOCKI chose not to say a line, with the reason (never what the microphone heard)
     VOICE_RESPONSE_GENERATED = "voice.response_generated"
     VOICE_TTS_STARTED = "voice.tts_started"

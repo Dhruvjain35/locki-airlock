@@ -12,7 +12,7 @@ What each number means (all from the backend's real clocks):
   audible_reply_ms         reply_to_audio_ms + the output device's measured latency (Bluetooth buffering included)
   security_to_audio_ms     the observation that triggered a warning -> its first audio (cross-clock for a Jetson row)
   barge_in_to_stop_ms      barge-in detected -> the interrupted line reports finished
-Counts: turns, barge-ins, interrupted lines, echo rejections, fragments ignored while LOCKI talked, unfinished turns joined, lines kept
+Counts: live-microphone turns and recorded turns (kept apart), barge-ins, interrupted lines, echo rejections, fragments ignored while LOCKI talked, unfinished turns joined, lines kept
 silent (by reason), security mode changes.
 """
 
@@ -58,6 +58,9 @@ class Trial:
         keep = {"t": round(at - self.t0, 3), "event": kind}
         if kind == "voice.speech_started":
             self.counts["speech_onsets"] += 1
+        elif kind == "voice.transcribed" and p.get("source") == "recorded":
+            self.counts["recorded_turns"] += 1  # a recorded WAV, never counted as a live-microphone turn
+            keep["source"] = "recorded"
         elif kind == "voice.transcribed" and p.get("source") == "voice":
             self.counts["turns"] += 1
             if p.get("latency_ms") is not None:

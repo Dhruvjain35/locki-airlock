@@ -99,6 +99,7 @@ class VoiceService:
         self._barged_this_line = False
         self.barge_ins = 0
         self.last_barge_in_at: float | None = None
+        self.input_held = False  # a recorded command is being handled: the live microphone is ignored meanwhile
 
     # ------------------------------------------------------------------ control
     def start(self, device=None, mode: str = "push_to_talk") -> None:
@@ -154,6 +155,16 @@ class VoiceService:
     def level(self) -> dict:
         return {"rms_db": round(self.meter.get(), 1), "speaking": self.vad.in_speech or self._ptt_active}
 
+    def hold_input(self, held: bool) -> None:
+        """Ignore (or listen again to) the live microphone, so a recorded command and the room never mix into one turn."""
+        if held == self.input_held:
+            return
+        self.input_held = held
+        self.vad.reset()
+        self._held = None
+        self._ptt_active = False
+        self._ptt_buf = []
+
     def conversation_state(self) -> str:
         """What the audio and the models are really doing right now."""
         if not self.running:
@@ -174,6 +185,7 @@ class VoiceService:
     def snapshot(self) -> dict:
         return {
             "conversation_state": self.conversation_state(),
+            "input_held_for_recorded": self.input_held,
             "turns": {"held_unfinished": self.held_turns, "joined": self.joined_turns, "barge_ins": self.barge_ins},
             "running": self.running,
             "mode": self.mode,
@@ -210,6 +222,8 @@ class VoiceService:
             db = rms_db(block)
             self.meter.set(db)
             self._check_silent_input(block)
+            if self.input_held:
+                continue
             if self.mode == "push_to_talk":
                 if self._ptt_active:
                     self._ptt_buf.append(block)

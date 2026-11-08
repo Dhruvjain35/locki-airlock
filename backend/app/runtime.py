@@ -280,6 +280,9 @@ class LockedInRuntime:
         self._kokoro_task: asyncio.Task | None = None
         self._follow_up_until = 0.0
         self.silenced: deque = deque(maxlen=50)  # lines LOCKI chose not to say, and why (no microphone content)
+        self.recorded_turns: deque = deque(maxlen=30)  # recorded commands: transcript, timings and result, labelled source=recorded
+        self._recorded_busy = False
+        self._recorded_tr = None
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -2084,6 +2087,84 @@ class LockedInRuntime:
         """Said over LOCKI: is it someone talking to LOCKI? Addressed to it, or a clear phrase of three words or more."""
         return stt_confidence >= self.BARGE_IN_MIN_CONFIDENCE and (bool(getattr(intent, "addressed", False)) or len((text or "").split()) >= 3)
 
+    # ================================================================ recorded voice input
+    RECORDED_MIC_RELEASE_S = 30.0
+
+    def recorded_transcriber(self):
+        """The live microphone's speech-to-text when it exists, otherwise the same engine started for recorded commands (loads once)."""
+        if self.voice is not None and self.voice.transcriber is not None:
+            return self.voice.transcriber
+        if self._recorded_tr is None:
+            from .voice.transcription import make_transcriber
+
+            self._recorded_tr = make_transcriber(self.settings)
+        return self._recorded_tr
+
+    def recorded_status(self) -> dict:
+        tr = self.recorded_transcriber()
+        v = self.voice
+        return {"stt": tr.describe() if tr is not None else {"state": "unavailable"}, "busy": self._recorded_busy,
+                "live_mic": {"running": bool(v and v.running), "mode": self.rs.voice.listen_mode, "held_for_recorded": bool(v and v.input_held)},
+                "turns": list(self.recorded_turns)[-10:][::-1]}
+
+    async def handle_recorded(self, data: bytes, name: str) -> dict:
+        """A recorded command: the same speech-to-text, the same conversation and security rules, a fresh spoken reply. Labelled
+        source=recorded everywhere. Arming still needs the owner's one-use grant; nothing here disarms, locks or approves."""
+        from .voice.recorded import decode_wav
+        from .voice.transcription import is_hallucination
+
+        t0 = time.monotonic()
+        audio, info = decode_wav(data)  # RecordedAudioError: the route answers 400 with the reason
+        record = {"input_mode": "recorded", "source": "recorded", "file": (name or "recording.wav")[:120], "audio": info, "at": time.time(), "ok": False}
+        tr = self.recorded_transcriber()
+        if tr is None or tr.state != "ready":
+            record["error"] = f"speech-to-text is {getattr(tr, 'state', 'unavailable')}" + (f": {tr.error}" if getattr(tr, "error", None) else "; try again in a few seconds")
+            self.recorded_turns.append(record)
+            return record
+        if self._recorded_busy:
+            record["error"] = "another recorded command is still being handled"
+            return record
+        self._recorded_busy = True
+        held = self.voice is not None and self.voice.running
+        if held:
+            self.voice.hold_input(True)
+        try:
+            result = await asyncio.to_thread(tr.transcribe, audio)
+            record["stt_ms"] = round((time.monotonic() - t0) * 1000, 1)
+            text = ((result or {}).get("text") or "").strip()
+            if result is None:
+                record["error"] = "speech-to-text failed or timed out"
+            elif not text or is_hallucination(text):
+                record["error"] = "no speech recognised in the recording"
+                record["transcript"] = text or None
+            else:
+                record["transcript"] = text
+                record["confidence"] = round(float(result.get("confidence", 0.0)), 3)
+                r = await self.handle_utterance(text, source="recorded", stt_confidence=record["confidence"], stt_ms=record["stt_ms"], heard_mono=time.monotonic())
+                record.update(ok=r.ok, message=r.message, reply=r.reply or (self.last_reply or {}).get("text"), intent=(self.last_utterance or {}).get("intent"),
+                              handled_ms=round((time.monotonic() - t0) * 1000, 1))
+        finally:
+            self._recorded_busy = False
+            if held:
+                asyncio.ensure_future(self._release_mic_after_reply())
+        self.recorded_turns.append(record)
+        self.bus.publish(EventType.VOICE_RECORDED_TURN, EventSource.OPERATOR, {k: v for k, v in record.items() if k not in ("transcript", "reply")})
+        return record
+
+    async def _release_mic_after_reply(self) -> None:
+        """Listen to the room again only once LOCKI has finished answering, so its reply is never heard as a new turn."""
+        deadline = time.monotonic() + self.RECORDED_MIC_RELEASE_S
+        while time.monotonic() < deadline and (self.speaker.speaking or self._recorded_busy or len(getattr(self.speaker, "_items", ()))):
+            await asyncio.sleep(0.1)
+        await asyncio.sleep(0.5)
+        if self.voice is not None and not self._recorded_busy:
+            self.voice.hold_input(False)
+
+    def stop_speaking(self) -> dict:
+        """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
+        self.speaker.interrupt("owner pressed stop speaking")
+        return {"ok": True, "message": "stopped; security warnings (P0) still play"}
+
     def _barge_in(self, data: dict) -> None:
         """The owner started talking over LOCKI: stop the line now (interrupt() never drops a P0 warning). Their words are then
         transcribed and answered as a normal turn."""
@@ -3117,6 +3198,7 @@ class LockedInRuntime:
                 "cache_job": self.cache_job_state,
                 "state": self.voice_state(),
                 "conversation_state": self.voice.conversation_state() if self.voice is not None else "IDLE",
+                "recorded": {"busy": self._recorded_busy, "last": (list(self.recorded_turns) or [None])[-1]},
                 "quiet_mode": self.context.quiet(),
                 "silenced": list(self.silenced)[-8:],
                 "turns": [self._turn_view(t) for t in list(self.voice_turns)[-6:]][::-1],

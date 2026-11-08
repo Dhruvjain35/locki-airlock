@@ -371,6 +371,38 @@ async def voice_stop(request: Request):
     return (await rt_of(request).stop_voice()).to_dict()
 
 
+@router.get("/voice/recorded")
+async def recorded_status(request: Request):
+    """Recorded voice input: speech-to-text readiness (starting it loads the engine once), the live microphone's state, recent turns."""
+    return rt_of(request).recorded_status()
+
+
+@router.post("/voice/recorded")
+async def recorded_command(request: Request, name: str = "recording.wav"):
+    """A WAV of the owner's own speech, as the raw request body: transcribed and answered like the microphone, labelled recorded."""
+    _own_dashboard(request)
+    from ..voice.recorded import MAX_BYTES, RecordedAudioError
+
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BYTES:
+        raise HTTPException(413, f"recorded commands are limited to {MAX_BYTES // (1024 * 1024)} MB")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > MAX_BYTES:
+            raise HTTPException(413, f"recorded commands are limited to {MAX_BYTES // (1024 * 1024)} MB")
+    try:
+        return await rt_of(request).handle_recorded(bytes(body), name)
+    except RecordedAudioError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/voice/stop-speaking")
+async def stop_speaking(request: Request):
+    _own_dashboard(request)
+    return rt_of(request).stop_speaking()
+
+
 @router.post("/voice/ptt")
 async def voice_ptt(body: Ptt, request: Request):
     rt = rt_of(request)
