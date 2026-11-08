@@ -45,7 +45,7 @@ selected resolution, owner of that edit, and a test proving both requirements su
 Do not accept an entire side wholesale or regenerate bindings from an unresolved schema.
 Preserve local work until the final contract is agreed.
 
-The [ARM contract](ARM_DELEGATION.md) is additive and locally tested. Direct ARM and
+The [ARM contract](ARM_DELEGATION.md) is additive, deployed, and tested on an isolated cloud workstation. Direct ARM and
 DISARM remain owner-only. It must be integrated into Dhruv's voice path explicitly;
 do not replace his implementation with Sid's generic speech handler. Spacetime
 schema/reducer source is the source of truth; regenerate bindings after resolving it.
@@ -60,7 +60,9 @@ No detector was added and no volunteer result is fabricated. Current person-in-r
 evidence does not identify computer interaction or hostile intent. Production
 deployability remains unproven.
 
-New ARM code: isolated local deployment only. Maincloud still exposes its original
-owner-only `arm_session`/`disarm_session`; no production grant table/reducer deployment,
-M4 camera enrollment, permission widening, reset, screen lock or branch merge was
-performed as part of this change.
+ARM delegation is deployed to maincloud, with original owner-only direct
+`arm_session`/`disarm_session` preserved. Independent cloud grant/consume/denial
+tests passed; see [ARM_DELEGATION.md](ARM_DELEGATION.md). The real M4 owner consent
+and voice/CV flow are not yet verified. The actual Jetson `jetson-01` is now enrolled
+and enabled alongside the existing Mac and Areeb camera; the ARM deployment preserved
+all three. No database reset, screen lock, or blind branch merge was performed.

@@ -1,0 +1,97 @@
+{
+  "passed": true,
+  "checked_at": "2026-11-08T06:39:40.595Z",
+  "database": "locki-w91bw",
+  "uri": "https://maincloud.spacetimedb.com",
+  "workstation": "arm-proof-1794119976003",
+  "tests": [
+    "Exact owner-reviewed grant and target identity binding; wrong caller and owner consumption denied",
+    "One-use ARM commits fixed session; zero lock requests; synthetic input on isolated test workstation",
+    "Replay and non-owner disarm denied",
+    "Expired grant denied by reducer without relying on view expiration",
+    "Policy change revokes pending grant",
+    "Changed active application rejects reviewed grant",
+    "Revoked Mac cannot consume pending grant",
+    "Actual issuing WebSocket disconnect revokes grant",
+    "Other owner tab disconnect leaves issuing connection grant usable",
+    "transient HTTP connection grant revoked",
+    "Zero lock requests throughout isolated test; final workstation disarmed"
+  ],
+  "remaining_active_session": "",
+  "lock_request_count": 0,
+  "real_camera_test": false,
+  "real_model_test": false,
+  "real_audio_test": false,
+  "cloud_mutations": true,
+  "fixture_provenance": "Synthetic baseline and application identifiers exercise non-simulated ARM protocol on a unique test workstation; not actual sensor or voice evidence.",
+  "live_readback": {
+    "environment": {
+      "module_hash": "0x169d2dbe86daff56008eb83c638ef8c32c8c346296d8a24a157acc7aab62aa29",
+      "declarations": [],
+      "stored_keys": []
+    },
+    "preserved_enrollments": true,
+    "preserved_memberships": true,
+    "arm_reducers_deployed": true,
+    "investigator_reducers_preserved": true,
+    "workstation": [
+      {
+        "id": "dhruv-m4-air",
+        "name": "Dhruv M4 Air",
+        "owner": [
+          "0xc200bf80129f645f49c762279a175c3c3e84cf56af437c06191a237ac3eac422"
+        ],
+        "created_at_ms": 1794088763427,
+        "active_session_id": "",
+        "auto_lock_enabled": false,
+        "policy_version": 1,
+        "owner_policy_hash": "cf19741201b8d7289770461b4210d3ab84256d22ffe84d017f065c6377138bc9",
+        "lock_cooldown_ms": 30000,
+        "last_lock_requested_at_ms": 0,
+        "return_grace_until_ms": 1794094180388
+      }
+    ],
+    "devices": [
+      {
+        "id": "mac-707bf6209e27",
+        "workstation_id": "dhruv-m4-air",
+        "identity": [
+          "0xc200b00c80d0775987509eee7514c0a711520552effa3e549b7f6c9940fcadab"
+        ],
+        "role": "mac",
+        "label": "Mac security agent",
+        "enabled": true,
+        "last_seq": 21,
+        "last_event_at_ms": 1794093979851
+      },
+      {
+        "id": "mac-dev-cam-01",
+        "workstation_id": "dhruv-m4-air",
+        "identity": [
+          "0xc200fe52abd5ae6bf337f8bd5ff7995e468aa01382f819a48bd7ccc8e956ff74"
+        ],
+        "role": "jetson",
+        "label": "Areeb Mac dev camera",
+        "enabled": true,
+        "last_seq": 0,
+        "last_event_at_ms": 0
+      },
+      {
+        "id": "jetson-01",
+        "workstation_id": "dhruv-m4-air",
+        "identity": [
+          "0xc2001edc895aea869c7842e331a64646cef95f65911985e4e55389bfc5190c62"
+        ],
+        "role": "jetson",
+        "label": "Jetson Orin Nano Super + Logitech Brio 101",
+        "enabled": true,
+        "last_seq": 0,
+        "last_event_at_ms": 0
+      }
+    ]
+  },
+  "actual_m4_voice_verified": false,
+  "owner_authorization_flow_verified_on_m4": false,
+  "datastore_tests_passed": 149,
+  "policy_tests_passed": 28
+}

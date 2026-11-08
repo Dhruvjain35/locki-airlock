@@ -1,3 +1,3 @@
 import { defineConfig, type Plugin } from 'vitest/config';
 import { spacetimedbModuleTestPlugin } from 'spacetimedb/server/test-utils/vitest';
-export default defineConfig({ plugins: [spacetimedbModuleTestPlugin() as unknown as Plugin], test: { environment: 'node', include: ['tests/module.test.ts', 'tests/arm-delegation.test.ts'], fileParallelism: false } });
+export default defineConfig({ plugins: [spacetimedbModuleTestPlugin() as unknown as Plugin], test: { environment: 'node', include: ['tests/module.test.ts', 'tests/arm-delegation.test.ts', 'tests/investigator-evidence.test.ts'], fileParallelism: false } });

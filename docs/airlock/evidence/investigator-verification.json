@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "uri": "https://maincloud.spacetimedb.com",
+  "database": "locki-w91bw",
+  "checks": [
+    "Exact approved event and frozen baseline readback; timestamps preserved",
+    "Reusable read-only verifier passed authenticated identity, scoped evidence and all nine private-table denials",
+    "Existing broad views, outsider and unrelated workstation reads empty",
+    "Raw private-table SQL denied for independent nonadmin investigator credential",
+    "ARM/DISARM/lock mutation denial and second-workstation assignment denial",
+    "Deterministic high preserved against model medium; new unapproved correlation event hidden",
+    "Regrant replaces event and baseline scope",
+    "Revocation removes future incident/event/baseline reads"
+  ],
+  "stations_disarmed": [
+    "investigator-proof-1794119403323-a",
+    "investigator-proof-1794119403323-b"
+  ],
+  "independent_investigator_identity": "c20087a0a98c011bb20bb3db2af547363707239cd52cf2b5127366e18a5e616c",
+  "real_model_inference": false,
+  "real_hardware": false,
+  "fixture_provenance": "Explicit synthetic contract inputs exercise non-simulated protocol on isolated named test stations; not real sensor evidence",
+  "target_mustafa_identity_tested": false,
+  "current_module_hash": "0x169d2dbe86daff56008eb83c638ef8c32c8c346296d8a24a157acc7aab62aa29",
+  "investigator_tests_passed": 38,
+  "report_helper_tests_passed": 24,
+  "readonly_verifier_tests_passed": 16,
+  "target_owner_grant_issued": false,
+  "mustafa_integration_document_reviewed": false
+}

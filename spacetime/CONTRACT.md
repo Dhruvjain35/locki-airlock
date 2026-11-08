@@ -2,11 +2,14 @@
 
 Frozen integration names, 2026-11-07. Module `spacetime/src/index.ts`; all backing tables PRIVATE. Subscribe ONLY to the caller-scoped `my_*` views below. Generated TS reducer/field accessors are camelCase; SQL names snake_case. Every timestamp ending `Ms` is UTC epoch milliseconds, `u64` / SDK `bigint`. `u32` and `f64` are SDK number. All `*Json` are JSON strings. Missing IDs are empty strings. Identity fields use SDK `Identity`, supplied identities to reducers are 64-hex strings.
 
-Local additive extension, not yet on maincloud: [one-use ARM delegation](../docs/airlock/ARM_DELEGATION.md).
-It adds `authorize_arm`, `arm_session_delegated`, `revoke_arm_authorization`, private
-`arm_authorizations`, and scoped `my_arm_authorizations`. The original owner-only
-ARM/DISARM contract below stays intact. Coordinate deployment and binding generation
-with Dhruv before callers use the new reducer names.
+Deployed additive extensions (maincloud `locki-w91bw`, 2026-11-08):
+[one-use ARM delegation](../docs/airlock/ARM_DELEGATION.md) and
+[approved incident evidence](../docs/airlock/INVESTIGATOR_INTEGRATION.md).
+ARM adds owner-only `authorize_arm`/`revoke_arm_authorization`, exact delegate-only
+`arm_session_delegated`, private `arm_authorizations`, and scoped
+`my_arm_authorizations`. Original owner-only ARM/DISARM remains intact. Investigator
+adds owner-only explicit grants and three read-only scoped views, without membership
+or action privileges. Client bindings must match this schema.
 
 ## Reducers (named argument objects)
 

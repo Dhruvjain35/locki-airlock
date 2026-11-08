@@ -1,7 +1,8 @@
 # Owner-authorized one-use ARM contract
 
-Status: implemented and verified on an isolated local database; **not deployed to
-`locki-w91bw` and not yet wired into Dhruv's unpublished voice adapter**. No existing
+Status: deployed to maincloud `locki-w91bw` on 2026-11-08 and verified with
+independent identities on an isolated cloud test workstation. **The actual M4
+voice/CV adapter and a physical spoken demonstration are not yet verified**. No existing
 owner-only reducer is relaxed. This is a demo integration contract, not a production
 readiness or speaker-authentication claim.
 
@@ -98,9 +99,11 @@ Mac token are the same principal and cannot be distinguished as separate devices
 4. Voice DISARM stays denied. It may offer navigation to an authenticated owner
    control; it must not hold, forward or impersonate owner credentials.
 
-The existing Sid generic speech endpoint still rejects security ARM/DISARM. Dhruv's
-unpublished implementation must integrate the dedicated callback after conflict review.
-No claim of a completed microphone-to-ARM demo is made by the server tests.
+The deterministic voice adapter and owner consent controls are being integrated in
+this checkout. Dhruv's unpublished implementation must integrate the dedicated
+callback after conflict review. No claim of a completed microphone-to-ARM demo is
+made by the server tests. Browser identity is distinct from the M4 CLI identity;
+a browser profile name does not authenticate the owner.
 
 ## Acceptance evidence and rollout
 
@@ -117,12 +120,22 @@ disconnect isolation; transient HTTP issuance revocation. Its baseline is explic
 fixture data in a test-only database, not a real sensor observation or EDGE-06 proof.
 Test sessions were disarmed. Local evidence: `data/airlock-arm-integration/report.json`.
 
-Before maincloud deployment: obtain Dhruv's actual branch and seven conflict paths,
-agree on each conflict and voice callback, regenerate both clients' bindings, validate
-the additive migration with data deletion disabled, then repeat the authorization and
-disconnect tests with dedicated cloud test identities. Preserve the live camera/Mac
-enrollments. Only then run a consenting-person real voice/camera demonstration with
-auto-lock off. No production deployment or merge is included in the current result.
+Maincloud deployment completed with `--delete-data=never`, preserving existing
+Mac, Areeb camera and `jetson-01` enrollments and memberships. All three ARM reducers
+and the caller-scoped grant view are live. Current combined ARM/investigator module:
+`0x169d2dbe86daff56008eb83c638ef8c32c8c346296d8a24a157acc7aab62aa29`.
+
+Eleven cloud runtime checks passed using independent fixture identities and a unique
+`arm-proof-*` workstation. They cover exact session parameters, wrong callers, replay,
+owner-only disarm, actual expiry, policy/app/enrollment changes, owner connection
+lifecycle, and zero lock requests. Test station was disarmed afterward. See
+[evidence/voice-arm-verification.json](evidence/voice-arm-verification.json).
+The actual `dhruv-m4-air` remained disarmed; this deployment did not authorize it.
+
+Remaining demo gates: run the owner consent flow with the real existing M4 owner
+credential, integrate the actual voice/CV branch after conflict review, and verify a
+real utterance causes the enrolled Mac to consume that grant and confirm committed
+state aloud. No owner token is transferred to the voice process or another machine.
 
 Runtime behavior references: [SpacetimeDB lifecycle reducers](https://spacetimedb.com/docs/functions/reducers/lifecycle/)
 and [TypeScript client connections](https://spacetimedb.com/docs/clients/typescript/).

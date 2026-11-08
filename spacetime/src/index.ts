@@ -61,7 +61,13 @@ const armAuthorizations = table({ name: 'arm_authorizations', public: false }, {
   durationMs: t.u64(), ownerPolicyHash: t.string(), issuedAtMs: t.u64(), expiresAtMs: t.u64(),
   status: t.string(), consumedAtMs: t.u64(),
 });
-const spacetimedb = schema({ armAuthorizations, lockClaims, baselineSnapshots, maintenanceSchedule, workstations, memberships, devices, sessions, deviceEvents, incidents, deviceHealth, lockRequests, protectedActions, approvals, agentRuns, agentSteps, acknowledgements, auditEvents });
+const incidentEvidenceGrants = table({ name: 'incident_evidence_grants', public: false }, {
+  id: t.string().primaryKey(), workstationId: t.string().index('btree'), investigator: t.identity().index('btree'),
+  incidentId: t.string(), sessionId: t.string(), grantedBy: t.identity(), eventIdsJson: t.string(),
+  incidentCreatedAtMs: t.u64(), sessionArmedAtMs: t.u64(), eventHashesJson: t.string(), baselineHash: t.string(),
+  includeBaseline: t.bool(), enabled: t.bool(), approvedAtMs: t.u64(),
+});
+const spacetimedb = schema({ incidentEvidenceGrants, armAuthorizations, lockClaims, baselineSnapshots, maintenanceSchedule, workstations, memberships, devices, sessions, deviceEvents, incidents, deviceHealth, lockRequests, protectedActions, approvals, agentRuns, agentSteps, acknowledgements, auditEvents });
 export default spacetimedb;
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 type ReadCtx = ViewCtx<InferSchema<typeof spacetimedb>>;
@@ -78,6 +84,22 @@ function identity(hex: string) { if (!/^[a-fA-F0-9]{64}$/.test(hex)) fail('Expec
 function memberId(ws: string, who: Identity) { return ws + ':' + who.toHexString(); }
 function member(ctx: Ctx | ReadCtx, ws: string) { const m = ctx.db.memberships.id.find(memberId(ws, ctx.sender)); if (!m?.enabled) fail('Not an enrolled member of this workstation'); return m; }
 function owner(ctx: Ctx, ws: string) { const w = ctx.db.workstations.id.find(ws); if (!w || !w.owner.isEqual(ctx.sender)) fail('Workstation owner required'); member(ctx, ws); return w; }
+function evidenceOnly(ctx: ReadCtx | Ctx, who: Identity) { return [...ctx.db.incidentEvidenceGrants.investigator.filter(who)].some(g => g.enabled); }
+function evidenceGrantId(ws: string, who: Identity, incidentId: string) { return digest({ ws, investigator: who.toHexString(), incidentId }); }
+function eventEvidenceHash(e: typeof deviceEvents.rowType.type) { return digest({ ...e, observedAtMs: e.observedAtMs.toString(), receivedAtMs: e.receivedAtMs.toString(), seq: e.seq.toString() }); }
+function baselineEvidenceHash(b: typeof baselineSnapshots.rowType.type) { return digest({ ...b, publisher: b.publisher.toHexString(), observedAtMs: b.observedAtMs.toString(), receivedAtMs: b.receivedAtMs.toString() }); }
+function readableEvidenceGrants(ctx: ReadCtx) {
+  if ([...ctx.db.memberships.identity.filter(ctx.sender)].some(m => m.enabled)) return [];
+  return [...ctx.db.incidentEvidenceGrants.investigator.filter(ctx.sender)].filter(g => {
+    const w = ctx.db.workstations.id.find(g.workstationId);
+    const om = w && ctx.db.memberships.id.find(memberId(w.id, g.grantedBy));
+    const i = ctx.db.incidents.id.find(g.incidentId);
+    const s = ctx.db.sessions.id.find(g.sessionId);
+    return g.enabled && w?.owner.isEqual(g.grantedBy) && om?.enabled && om.role === 'owner'
+      && i?.workstationId === g.workstationId && i.sessionId === g.sessionId && i.createdAtMs === g.incidentCreatedAtMs
+      && s?.workstationId === g.workstationId && s.armedAtMs === g.sessionArmedAtMs;
+  });
+}
 function revokeArmAuthorizations(ctx: Ctx, ws: string, reason: string) {
   for (const grant of ctx.db.armAuthorizations.workstationId.filter(ws)) if (grant.status === 'authorized') {
     ctx.db.armAuthorizations.id.update({ ...grant, status: 'revoked' });
@@ -241,6 +263,7 @@ function canReadCases(role: string) { return ['owner', 'reviewer', 'service'].in
 function canReadObservations(role: string) { return canReadCases(role) || role === 'mac'; }
 
 export const register_workstation = spacetimedb.reducer({ workstationId: t.string(), name: t.string() }, (ctx, a) => {
+  if (evidenceOnly(ctx, ctx.sender)) fail('Evidence-only investigator cannot acquire owner privileges');
   validId(a.workstationId, 'workstationId'); if (!text(a.name, 80)) fail('Name required'); if (ctx.db.workstations.id.find(a.workstationId)) fail('Workstation id already registered');
   const hash = digest({ version: 1, autoLockEnabled: false, lockCooldownMs: '30000' });
   ctx.db.workstations.insert({ id: a.workstationId, name: a.name.trim(), owner: ctx.sender, createdAtMs: now(ctx), activeSessionId: '', autoLockEnabled: false, policyVersion: 1, ownerPolicyHash: hash, lockCooldownMs: 30_000n, lastLockRequestedAtMs: 0n, returnGraceUntilMs: 0n });
@@ -249,7 +272,7 @@ export const register_workstation = spacetimedb.reducer({ workstationId: t.strin
 });
 export const enroll_device = spacetimedb.reducer({ workstationId: t.string(), deviceId: t.string(), identityHex: t.string(), role: t.string(), label: t.string() }, (ctx, a) => {
   const w = owner(ctx, a.workstationId); validId(a.deviceId); if (!['mac', 'jetson', 'service'].includes(a.role)) fail('Invalid device role');
-  const who = identity(a.identityHex); if (who.isEqual(w.owner)) fail('Owner identity cannot also be a device');
+  const who = identity(a.identityHex); if (evidenceOnly(ctx, who)) fail('Revoke evidence grants before assigning any membership'); if (who.isEqual(w.owner)) fail('Owner identity cannot also be a device');
   const old = ctx.db.devices.id.find(a.deviceId); if (old && old.workstationId !== w.id) fail('Device id belongs to another workstation');
   if (old && w.activeSessionId) fail('Disarm before resetting a device sequence');
   if (old) {
@@ -272,6 +295,7 @@ export const enroll_device = spacetimedb.reducer({ workstationId: t.string(), de
 });
 export const grant_reviewer = spacetimedb.reducer({ workstationId: t.string(), identityHex: t.string(), canApprove: t.bool() }, (ctx, a) => {
   const w = owner(ctx, a.workstationId); const who = identity(a.identityHex); if (who.isEqual(w.owner)) fail('Owner is already authorized');
+  if (evidenceOnly(ctx, who)) fail('Revoke evidence grants before assigning any membership');
   const id = memberId(w.id, who); const old = ctx.db.memberships.id.find(id); if (old && old.role !== 'reviewer') fail('Device identities cannot become reviewers');
   const row = { id, workstationId: w.id, identity: who, role: 'reviewer', canApprove: a.canApprove, enabled: true, createdAtMs: now(ctx) }; if (old) ctx.db.memberships.id.update(row); else ctx.db.memberships.insert(row); if (old?.canApprove && !a.canApprove) revokeOutstandingGrants(ctx, w.id, who, false); audit(ctx, w.id, 'reviewer_granted', who.toHexString());
 });
@@ -583,6 +607,78 @@ export const maintain_workstation = spacetimedb.reducer({ onSchedule: maintenanc
   if (ctx.db.workstations.id.find(timer.workstationId)) { refresh(ctx, timer.workstationId); cleanupMetadata(ctx, timer.workstationId); }
 });
 export const refresh_workstation = spacetimedb.reducer({ workstationId: t.string() }, (ctx, a) => { member(ctx, a.workstationId); refresh(ctx, a.workstationId); });
+
+export const grant_incident_evidence = spacetimedb.reducer({ workstationId: t.string(), identityHex: t.string(), incidentId: t.string(), eventIdsJson: t.string(), includeBaseline: t.bool() }, (ctx, a) => {
+  const w = owner(ctx, a.workstationId); const who = identity(a.identityHex);
+  if ([...ctx.db.memberships.identity.filter(who)].some(m => m.enabled)) fail('Investigator must have no enabled memberships');
+  if ([...ctx.db.incidentEvidenceGrants.investigator.filter(who)].some(g => g.enabled && g.workstationId !== w.id)) fail('Investigator already assigned to another workstation');
+  const i = ctx.db.incidents.id.find(a.incidentId);
+  if (!i || i.workstationId !== w.id) fail('Incident is outside assigned workstation');
+  const s = ctx.db.sessions.id.find(i.sessionId);
+  if (!s || s.workstationId !== w.id) fail('Incident session unavailable');
+  const ids = stringArray(a.eventIdsJson); const linked = new Set(JSON.parse(i.eventIdsJson) as string[]);
+  const hashes: Record<string, string> = Object.create(null);
+  for (const id of ids) {
+    const e = ctx.db.deviceEvents.id.find(id);
+    if (!linked.has(id) || !e || e.workstationId !== w.id || e.sessionId !== i.sessionId || e.simulated !== i.simulated) fail('Every approved event must belong to this incident and session');
+    hashes[id] = eventEvidenceHash(e);
+  }
+  let baselineHash = '';
+  if (a.includeBaseline) {
+    const b = ctx.db.baselineSnapshots.id.find(`session:${i.sessionId}`);
+    if (!b || b.workstationId !== w.id || b.sessionId !== i.sessionId) fail('Frozen incident-session baseline unavailable');
+    baselineHash = baselineEvidenceHash(b);
+  }
+  const id = evidenceGrantId(w.id, who, i.id); const old = ctx.db.incidentEvidenceGrants.id.find(id);
+  const row = { id, workstationId: w.id, investigator: who, incidentId: i.id, sessionId: i.sessionId,
+    grantedBy: ctx.sender, eventIdsJson: JSON.stringify(ids), includeBaseline: a.includeBaseline,
+    incidentCreatedAtMs: i.createdAtMs, sessionArmedAtMs: s.armedAtMs, eventHashesJson: JSON.stringify(hashes), baselineHash,
+    enabled: true, approvedAtMs: now(ctx) };
+  if (old) ctx.db.incidentEvidenceGrants.id.update(row); else ctx.db.incidentEvidenceGrants.insert(row);
+  audit(ctx, w.id, 'incident_evidence_granted', i.id, JSON.stringify({ investigator: who.toHexString(), oldScope: old ? digest({ events: old.eventIdsJson, baseline: old.includeBaseline }) : '', scope: digest({ events: row.eventIdsJson, baseline: row.includeBaseline }) }));
+});
+export const revoke_incident_evidence = spacetimedb.reducer({ workstationId: t.string(), identityHex: t.string(), incidentId: t.string() }, (ctx, a) => {
+  owner(ctx, a.workstationId); const who = identity(a.identityHex);
+  const g = ctx.db.incidentEvidenceGrants.id.find(evidenceGrantId(a.workstationId, who, a.incidentId));
+  if (!g) fail('Unknown incident evidence grant');
+  ctx.db.incidentEvidenceGrants.id.update({ ...g, enabled: false });
+  audit(ctx, a.workstationId, 'incident_evidence_revoked', a.incidentId, who.toHexString());
+});
+const investigatorIncident = t.object('InvestigatorIncident', {
+  id: t.string(), workstationId: t.string(), sessionId: t.string(), severity: t.string(), state: t.string(),
+  createdAtMs: t.u64(), updatedAtMs: t.u64(), simulated: t.bool(), approvedEventIdsJson: t.string(),
+  evidenceApprovedAtMs: t.u64(), evidenceComplete: t.bool(),
+});
+const investigatorBaseline = t.object('InvestigatorBaseline', {
+  id: t.string(), workstationId: t.string(), deviceId: t.string(), sessionId: t.string(),
+  observedAtMs: t.u64(), receivedAtMs: t.u64(), baselineJson: t.string(), activeAppId: t.string(),
+});
+export const my_investigator_incidents = spacetimedb.view({ name: 'my_investigator_incidents', public: true }, t.array(investigatorIncident), ctx => readableEvidenceGrants(ctx).map(g => {
+  const i = ctx.db.incidents.id.find(g.incidentId)!;
+  const approved = new Set(JSON.parse(g.eventIdsJson) as string[]);
+  const hashes = JSON.parse(g.eventHashesJson) as Record<string, string>;
+  return { id: i.id, workstationId: i.workstationId, sessionId: i.sessionId, severity: i.severity, state: i.state,
+    createdAtMs: i.createdAtMs, updatedAtMs: i.updatedAtMs, simulated: i.simulated, approvedEventIdsJson: g.eventIdsJson,
+    evidenceApprovedAtMs: g.approvedAtMs, evidenceComplete: (JSON.parse(i.eventIdsJson) as string[]).every(id => { const e = ctx.db.deviceEvents.id.find(id); return approved.has(id) && !!e && hashes[id] === eventEvidenceHash(e); }) };
+}));
+export const my_investigator_events = spacetimedb.view({ name: 'my_investigator_events', public: true }, t.array(deviceEvents.rowType), ctx => {
+  const result = new Map<string, typeof deviceEvents.rowType.type>();
+  for (const g of readableEvidenceGrants(ctx)) for (const id of JSON.parse(g.eventIdsJson) as string[]) {
+    const e = ctx.db.deviceEvents.id.find(id);
+    if (e && e.workstationId === g.workstationId && e.sessionId === g.sessionId && (JSON.parse(g.eventHashesJson) as Record<string, string>)[id] === eventEvidenceHash(e)) result.set(id, e);
+  }
+  return [...result.values()];
+});
+export const my_investigator_baselines = spacetimedb.view({ name: 'my_investigator_baselines', public: true }, t.array(investigatorBaseline), ctx => {
+  const result = new Map<string, typeof investigatorBaseline.type>();
+  for (const g of readableEvidenceGrants(ctx)) if (g.includeBaseline) {
+    const b = ctx.db.baselineSnapshots.id.find(`session:${g.sessionId}`);
+    if (b && b.workstationId === g.workstationId && b.sessionId === g.sessionId && baselineEvidenceHash(b) === g.baselineHash) result.set(b.id, {
+      id: b.id, workstationId: b.workstationId, deviceId: b.deviceId, sessionId: b.sessionId,
+      observedAtMs: b.observedAtMs, receivedAtMs: b.receivedAtMs, baselineJson: b.baselineJson, activeAppId: b.activeAppId });
+  }
+  return [...result.values()];
+});
 
 export const my_workstations = spacetimedb.view({ name: 'my_workstations', public: true }, t.array(workstations.rowType), ctx => ownMemberships(ctx).flatMap(m => { const w = ctx.db.workstations.id.find(m.workstationId); return w ? [w] : []; }));
 export const my_memberships = spacetimedb.view({ name: 'my_memberships', public: true }, t.array(memberships.rowType), ctx => ownMemberships(ctx));
