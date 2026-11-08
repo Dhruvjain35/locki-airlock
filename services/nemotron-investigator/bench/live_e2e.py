@@ -120,13 +120,16 @@ async def main(a) -> int:
         health = (await c.get("/health", headers=h)).json()
         modes = health.get("evidence_modes") or {}
         live = (health.get("evidence_backends") or {}).get("live") or {}
-        print(f"server: modes={modes} live_reachable={live.get('reachable')} memberships={live.get('memberships')} "
+        print(f"server: modes={modes} live_reachable={live.get('reachable')} scope={live.get('evidence_scope')} "
+              f"authorized_incidents={live.get('authorized_incidents')} memberships={live.get('memberships')} "
               f"degraded={health.get('degraded')}")
         if "live" not in (modes.get("available") or []):
             print("live evidence is not enabled on this server (start it with NI_EVIDENCE_BACKEND=spacetimedb)")
             return 2
-        if not live.get("memberships"):
-            print("the investigator identity has no workstation membership yet: waiting on the read-only grant")
+        granted = live.get("authorized_incidents") if "authorized_incidents" in live else live.get("memberships")
+        if not granted:
+            print("no evidence grant is visible to the investigator identity yet: the owner must run "
+                  "grant_incident_evidence (docs/airlock/INVESTIGATOR_INTEGRATION.md)")
             return 3
         if live.get("least_privilege_ok") is not True:
             print("the investigator identity is over-privileged (approval or owner rights): refusing; ask Sid "

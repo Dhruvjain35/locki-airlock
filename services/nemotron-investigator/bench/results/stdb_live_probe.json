@@ -1,5 +1,5 @@
 {
-  "probed_at_ms": 1794123139725,
+  "probed_at_ms": 1794124689601,
   "host": "https://maincloud.spacetimedb.com",
   "database": "locki-w91bw",
   "investigator_identity": "c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883",
@@ -8,7 +8,7 @@
     {
       "check": "ping_and_least_privilege",
       "ok": true,
-      "ms": 158.7,
+      "ms": 276.4,
       "result": {
         "reachable": true,
         "live": true,
@@ -18,9 +18,9 @@
       }
     },
     {
-      "check": "list_recent_incidents via my_incidents (operator listing)",
+      "check": "list_recent_incidents via my_investigator_incidents (operator listing)",
       "ok": true,
-      "ms": 120.2,
+      "ms": 133.8,
       "result": {
         "visible": 0
       }
@@ -28,30 +28,30 @@
     {
       "check": "direct private table read (expected refusal: HTTP 400 -> contract_error)",
       "ok": false,
-      "ms": 120.1,
+      "ms": 133.7,
       "result": null,
       "error_type": "contract_error"
     },
     {
       "check": "session read scoped to workstation (id AND workstation_id)",
       "ok": true,
-      "ms": 152.0,
+      "ms": 0.0,
       "result": {
         "rows": 0
       }
     },
     {
-      "check": "event window on received_at_ms with LIMIT 500 (syntax check)",
+      "check": "event window on my_investigator_events.received_at_ms with LIMIT 500 (syntax check)",
       "ok": true,
-      "ms": 131.7,
+      "ms": 137.7,
       "result": {
         "rows": 0
       }
     },
     {
-      "check": "baseline read, 24 h lower bound, LIMIT 200 (syntax check)",
+      "check": "baseline read on my_investigator_baselines, 24 h lower bound, LIMIT 200 (syntax check)",
       "ok": true,
-      "ms": 132.0,
+      "ms": 123.8,
       "result": {
         "rows": 0
       }
@@ -59,7 +59,7 @@
     {
       "check": "device health read with LIMIT 500 (syntax check)",
       "ok": true,
-      "ms": 119.9,
+      "ms": 0.0,
       "result": {
         "rows": 0
       }

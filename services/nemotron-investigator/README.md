@@ -36,7 +36,7 @@ scripts/serve.sh --daemon                                         # API on 127.0
 
 | mode | badge | incident ids | source |
 |---|---|---|---|
-| `live` (`NI_EVIDENCE_BACKEND=spacetimedb`, the default of `scripts/serve.sh`) | **LIVE** | `incident:<32 hex>` only | Sid's identity-scoped `my_*` views, read with the investigator's own non-owner identity. It never calls a reducer. |
+| `live` (`NI_EVIDENCE_BACKEND=spacetimedb`, the default of `scripts/serve.sh`) | **LIVE** | `incident:<32 hex>` only | Sid's owner-granted evidence views `my_investigator_incidents`, `my_investigator_events` and `my_investigator_baselines`, read with the investigator's own non-owner identity. The workstation owner grants one incident at a time with `grant_incident_evidence`. The identity holds no membership and never calls a reducer. `NI_STDB_VIEWS=membership` reads the older membership-scoped `my_*` views. |
 | `fixture` (`NI_EVIDENCE_BACKEND=fixture`, or `evidence_mode: "fixture"` with `NI_FIXTURE_ENABLED=1`) | **TEST DATA** | `incident:fixture-<slug>` only | `fixtures/scenarios/`: synthetic datasets in the exact live row shapes, with every row id carrying `fx-`. Scenario A is modeled on the team's iPhone USB test but reuses no live id or row. |
 
 Every result carries `evidence_mode`, `evidence_badge` and `evidence_banner`, and every tool call carries `live_data`. Every response about an investigation (POST 202 and GET) carries the `X-Evidence-Mode` header; `/health` lists the evidence modes instead. A live-format id is refused on fixtures, and a fixture id never queries the live database. See INTEGRATION.md §3.

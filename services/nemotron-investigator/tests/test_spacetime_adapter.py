@@ -68,6 +68,8 @@ def snap(sid, received, ws="ws:1"):
 
 
 def make(handler, **kw):
+    # The tests above the investigator section exercise the membership-scoped my_* views.
+    kw.setdefault("views", "membership")
     return SpacetimeHttpEvidenceSource("https://stdb.test", "locki-w91bw", "tok",
                                        transport=httpx.MockTransport(handler), **kw)
 
@@ -516,3 +518,87 @@ def test_rejected_buffer_is_bounded():
     assert [i["id"] for i in items[:3]] == ["evt:0", "evt:1", "evt:2"]
     assert items[3]["reason"].startswith("rejected_rows_overflow: 7")
     assert log.pop() == []
+
+
+
+# ----------------------------------------------------------------- Sid's owner-granted evidence views
+INV_COLS = ["id", "workstation_id", "session_id", "severity", "state", "created_at_ms", "updated_at_ms", "simulated",
+            "approved_event_ids_json", "evidence_approved_at_ms", "evidence_complete"]
+INV_BASE_COLS = ["id", "workstation_id", "device_id", "session_id", "observed_at_ms", "received_at_ms",
+                 "baseline_json", "active_app_id"]
+LIVE_EVT = "2300" * 8
+
+
+def inv_incident(complete=True, simulated=False):
+    return [INC_ID, "dhruv-m4-air", "sess:1", "medium", "open", 1794093979900, 1794093979900, simulated,
+            json.dumps([LIVE_EVT]), 1794100000000, complete]
+
+
+def inv_source(handler, **kw):
+    return SpacetimeHttpEvidenceSource("https://stdb.test", "locki-w91bw", "tok", identity=ME,
+                                       transport=httpx.MockTransport(handler), **kw)
+
+
+def test_investigator_views_are_the_default():
+    src = SpacetimeHttpEvidenceSource("https://stdb.test", "db", "tok")
+    assert src.views == "investigator"
+    assert "my_investigator_" in src.provenance.label and src.provenance.detail["scope"] == "incident_evidence_grant"
+    with pytest.raises(ValueError):
+        SpacetimeHttpEvidenceSource("https://stdb.test", "db", "tok", views="admin")
+
+
+async def test_investigator_incident_projection_is_read_strictly_and_scoped():
+    seen, handler = recorder(ok(INV_COLS, [inv_incident(complete=False)]))
+    inc = await inv_source(handler).get_incident(INC_ID)
+    assert seen == [f"SELECT * FROM my_investigator_incidents WHERE id = '{INC_ID}'"]
+    assert inc.scope == "owner_approved_evidence" and inc.severity == "medium" and inc.evidence_complete is False
+    assert inc.linked_event_ids() == [LIVE_EVT]
+    # fields outside the projection read as "not in scope", never as a value
+    assert inc.rule_id == "" and inc.summary == "" and inc.action_required is None and inc.acknowledged_by == ""
+    bad = inv_incident(); bad[5] = "1794093979900"  # u64 as a string: contract drift
+    with pytest.raises(EvidenceContractError):
+        await inv_source(lambda r: ok(INV_COLS, [bad])).get_incident(INC_ID)
+
+
+async def test_investigator_reads_only_its_three_views():
+    seen: list[str] = []
+
+    def handler(request):
+        q = request.content.decode()
+        seen.append(q)
+        if "my_investigator_baselines" in q:
+            return ok(INV_BASE_COLS, [["session:sess:1", "dhruv-m4-air", "dev:mac", "sess:1", 1794093000000,
+                                       1794093000050, json.dumps(["sha256:aa", "sha256:bb"]), "com.apple.finder"]])
+        return ok(EVT_COLS, [evt(LIVE_EVT, ws="dhruv-m4-air", received=1794093979810, kind="usb_added", source="mac",
+                                  metadata_json=json.dumps({"deviceKey": "sha256:cc", "label": "USB peripheral"}))])
+
+    src = inv_source(handler)
+    assert await src.get_session("dhruv-m4-air", "sess:1") is None        # outside the grant: no query at all
+    assert await src.list_device_health("dhruv-m4-air") == []             # outside the grant: no query at all
+    events = await src.list_device_events("dhruv-m4-air", 1794093970000, 1794094000000)
+    by_id = await src.get_device_events_by_ids("dhruv-m4-air", [LIVE_EVT])
+    snaps = await src.list_baseline_snapshots("dhruv-m4-air", 1794094000000)
+    assert events[0].kind == "usb_added" and by_id[0].id == LIVE_EVT
+    assert snaps[0].baseline_json == json.dumps(["sha256:aa", "sha256:bb"]) and snaps[0].camera_status == ""
+    assert seen and all(re.search(r"FROM my_investigator_(events|baselines)\b", q) for q in seen)
+    assert not any("my_device_events" in q or "my_sessions" in q or "my_device_health" in q for q in seen)
+
+
+async def test_investigator_ping_counts_grants_and_treats_any_membership_as_over_privilege():
+    def handler_for(memberships, grants):
+        def handler(request):
+            q = request.content.decode()
+            if "my_memberships" in q:
+                return ok(MEM_COLS, memberships)
+            if "my_investigator_incidents" in q:
+                return ok(INV_COLS, grants)
+            raise AssertionError(q)
+        return handler
+
+    p = await inv_source(handler_for([], [])).ping()
+    assert p["reachable"] and p["authorized_incidents"] == 0 and p["least_privilege_ok"] is True
+    p = await inv_source(handler_for([], [inv_incident()])).ping()
+    assert p["authorized_incidents"] == 1 and p["authorized_incident_ids"] == [INC_ID] and p["least_privilege_ok"]
+    member = ["m:1", "dhruv-m4-air", ME_LIVE, "reviewer", False, True, 1]
+    p = await inv_source(handler_for([member], [inv_incident()])).ping()
+    assert p["least_privilege_ok"] is False and p["over_privileged_workstations"] == ["dhruv-m4-air"]

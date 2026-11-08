@@ -2,7 +2,7 @@
 
 Everything below runs on the M5 against the local Nemotron, `nemotron-3.5-bolt:e4b` on Ollama. There are two evidence modes, and every screen says which one is in use:
 
-- **LIVE**: the real LOCKI SpacetimeDB through the read-only investigator identity. This needs Sid's `grant_reviewer` (INTEGRATION.md §7).
+- **LIVE**: the real LOCKI SpacetimeDB through the read-only investigator identity. This needs the workstation owner's `grant_incident_evidence` for the incident (INTEGRATION.md §7).
 - **TEST DATA**: the fixture scenarios. Fixture ids are `incident:fixture-*` and can never be confused with a real incident.
 
 ## 1. Live end-to-end (the success criterion)
@@ -12,7 +12,7 @@ The flow is: real SpacetimeDB incident → Nemotron calls the evidence tools →
 ```bash
 cd ~/locki-airlock-nemotron/services/nemotron-investigator
 scripts/serve.sh --daemon                                      # API on 127.0.0.1:8787, live by default
-.venv/bin/python bench/wait_for_grant.py --max-s 60            # 0 = read-only membership exists; 4 = over-privileged
+.venv/bin/python bench/wait_for_grant.py --max-s 60            # 0 = an incident grant is visible; 4 = over-privileged
 .venv/bin/python bench/live_e2e.py --key-file .secrets/handoff/mustafa-operator.key
 #   newest visible incident; or pass --incident incident:<32 hex>
 ```

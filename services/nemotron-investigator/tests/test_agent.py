@@ -10,6 +10,7 @@ import pytest
 from conftest import (A_ID, A_PATH, MODEL, SCENARIOS, calls, final, incident_of, request_tokens,
                       scripted_client, text)
 from nemotron_investigator.agent import Requester, investigate
+from nemotron_investigator.contracts import DeviceEventRow, InvestigatorBaselineRow, InvestigatorIncidentRow
 from nemotron_investigator.evidence.base import Provenance
 from nemotron_investigator.evidence.fixture import FixtureEvidenceSource
 from nemotron_investigator.ollama_client import OllamaClient
@@ -472,3 +473,103 @@ async def test_configured_step_timeout_below_one_second_is_honored(settings):
     client, _ = scripted_client([calls(("get_incident", INC))], delay_s=0.4)
     r = await investigate(A_ID, ALL, FixtureEvidenceSource(A_PATH), client, replace(settings, step_timeout_s=0.1))
     assert r["investigation_status"] == "timeout" and r["total_latency_ms"] < 1500
+
+
+
+# ----------------------------------------------------------------- live-shaped evidence (Sid's projection)
+LIVE_INC, LIVE_EVT, T_LIVE = "incident:" + "2300" * 8, "2300" * 8, 1794093979809
+
+
+class ProjectionSource:
+    """Exactly what Sid's my_investigator_* views return for one owner-granted incident (no network)."""
+
+    def __init__(self, *, baseline_keys, event_key, complete=True, simulated=False):
+        self.provenance = Provenance(backend="spacetimedb", live=True,
+                                     label="SpacetimeDB testdb (owner-granted incident evidence, my_investigator_* views)",
+                                     detail={"host": "https://stdb.invalid", "database": "testdb",
+                                             "identity": "c0ffee00" + "0" * 50 + "00beef",
+                                             "scope": "incident_evidence_grant"})
+        self.inc = InvestigatorIncidentRow(
+            id=LIVE_INC, workstation_id="dhruv-m4-air", session_id="sess:1", severity="medium", state="open",
+            created_at_ms=T_LIVE + 90, updated_at_ms=T_LIVE + 90, simulated=simulated,
+            approved_event_ids_json=json.dumps([LIVE_EVT]), evidence_approved_at_ms=T_LIVE + 10_000,
+            evidence_complete=complete)
+        self.ev = DeviceEventRow(
+            id=LIVE_EVT, workstation_id="dhruv-m4-air", session_id="sess:1", device_id="dev:mac", source="mac",
+            kind="usb_added", observed_at_ms=T_LIVE, received_at_ms=T_LIVE + 1, seq=7, confidence=1.0,
+            metadata_json=json.dumps({"deviceKey": event_key, "label": "USB peripheral",
+                                      "captureMode": "ioreg snapshot poll"}),
+            simulated=simulated, schema_version=1, classification="")
+        self.base = InvestigatorBaselineRow(
+            id="session:sess:1", workstation_id="dhruv-m4-air", device_id="dev:mac", session_id="sess:1",
+            observed_at_ms=T_LIVE - 600_000, received_at_ms=T_LIVE - 599_000,
+            baseline_json=json.dumps(baseline_keys), active_app_id="com.apple.finder")
+
+    async def get_incident(self, iid):
+        return self.inc if iid == self.inc.id else None
+
+    async def get_session(self, ws, sid):
+        return None
+
+    async def get_device_events_by_ids(self, ws, ids):
+        return [self.ev] if LIVE_EVT in ids and ws == self.inc.workstation_id else []
+
+    async def list_device_events(self, ws, since, until):
+        return [self.ev] if since <= self.ev.received_at_ms <= until else []
+
+    async def list_baseline_snapshots(self, ws, until):
+        return [self.base]
+
+    async def list_device_health(self, ws):
+        return []
+
+    async def ping(self):
+        return {"reachable": True, "live": True}
+
+    def pop_rejected_rows(self):
+        return []
+
+
+def _tool_payloads(r):
+    out = {}
+    for m in r["conversation"]:
+        if m.get("role") == "tool":
+            try:
+                out.setdefault(m["tool_name"], json.loads(m["content"]))
+            except ValueError:
+                pass
+    return out
+
+
+@pytest.mark.parametrize("baseline_keys,in_baseline", [(["sha256:aa", "sha256:bb"], False),
+                                                        (["sha256:aa", "sha256:cc"], True)])
+async def test_live_shaped_investigation_over_the_owner_approved_projection(settings, baseline_keys, in_baseline):
+    inc = {"incident_id": LIVE_INC}
+    client, _ = scripted_client([
+        calls(("get_incident", inc)), calls(("get_incident_evidence", inc)),
+        calls(("get_recent_usb_events", {**inc, "window_s": 300}), ("get_device_baseline_status", inc)),
+        calls(("get_session_status", inc)), text(),
+        final(observed_facts=[{"fact": "A USB device was added while the incident was open",
+                               "evidence_ids": [LIVE_EVT]}])])
+    src = ProjectionSource(baseline_keys=baseline_keys, event_key="sha256:cc", complete=False)
+    r = await investigate(LIVE_INC, Requester("op", ("dhruv-m4-air",)), src, client, settings)
+    assert r["evidence_mode"] == "live" and r["evidence_badge"] == "LIVE"
+    st = {t["tool"]: t["status"] for t in r["tool_execution_trace"]}
+    assert st["get_incident"] == st["get_incident_evidence"] == st["get_recent_usb_events"] == "ok"
+    assert st["get_session_status"] == "not_found"
+    t_sess = next(t for t in r["tool_execution_trace"] if t["tool"] == "get_session_status")
+    assert "outside the owner-approved evidence scope" in t_sess["error"]
+    payloads = _tool_payloads(r)
+    incident_view = payloads["get_incident"]["data"]
+    assert incident_view["evidence_scope"].startswith("owner-approved") and incident_view["evidence_complete"] is False
+    assert "rule_id" not in incident_view and "summary_untrusted" not in incident_view
+    usb = payloads["get_recent_usb_events"]["data"]
+    assert usb["events"][0]["kind"] == "usb_added"            # Sid's real kind, categorized as USB
+    base = payloads["get_device_baseline_status"]["data"]
+    assert base["baseline_parse"] == "recognized" and base["known_usb_devices"][0] == {"device_key": "sha256:aa"}
+    assert base["usb_devices_vs_baseline"][0]["in_baseline"] is in_baseline
+    assert r["official_severity"]["level"] == "medium" and r["official_severity"]["rule_id"] == ""
+    assert r["headline"].startswith("Official severity medium. Nemotron's evidence review:")
+    assert "incident_evidence_incomplete" in {a["code"] for a in r["advisories"]}
+    assert any("owner-approved evidence for this incident is incomplete" in m for m in r["missing_information"])
+    assert r["observed_facts"] and r["observed_facts"][0]["evidence_ids"] == [LIVE_EVT]

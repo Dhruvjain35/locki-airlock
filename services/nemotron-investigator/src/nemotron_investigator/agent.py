@@ -740,6 +740,9 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
     if ctx.signals.get("incomplete_reads"):
         sysnotes.append(f"[system] {ctx.signals['incomplete_reads']} read(s) hit a backend row or id limit; "
                         "those windows are incomplete and cannot prove an absence")
+    if ctx.signals.get("incident_evidence_incomplete"):
+        sysnotes.append("[system] the owner-approved evidence for this incident is incomplete (evidence_complete=false); "
+                        "missing evidence was not fetched from anywhere else")
     fields["missing_information"].extend(sysnotes)
     fields["evidence_gaps"] = gaps
 
@@ -784,6 +787,9 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
     if ctx.signals.get("incomplete_reads"):
         advisories.append({"code": "incomplete_evidence_reads",
                            "detail": f"{ctx.signals['incomplete_reads']} read(s) were truncated by backend limits"})
+    if ctx.signals.get("incident_evidence_incomplete"):
+        advisories.append({"code": "incident_evidence_incomplete",
+                           "detail": "the owner-approved evidence scope reports evidence_complete=false"})
     if ctx.signals.get("simulated_rows_seen"):
         advisories.append({"code": "simulated_evidence_present",
                            "detail": ("the incident record itself is marked simulated=true (a LOCKI test row)"

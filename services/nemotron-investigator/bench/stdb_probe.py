@@ -61,11 +61,11 @@ async def main(incident_id: str, workstation: str | None) -> dict:
         return res
 
     await check("ping_and_least_privilege", src.ping())
-    listed = await check("list_recent_incidents via my_incidents (operator listing)", _listing(src))
+    listed = await check(f"list_recent_incidents via {src._v_incidents} (operator listing)", _listing(src))
     if not incident_id and listed.get("ok") and listed["result"]["newest"]:
         incident_id = listed["result"]["newest"][0]["id"]
     out["incident_probed"] = incident_id
-    inc = (await check("get_incident via my_incidents", _row_summary(src.get_incident(incident_id)))
+    inc = (await check(f"get_incident via {src._v_incidents}", _row_summary(src.get_incident(incident_id)))
            if incident_id else {"ok": True, "result": None})
     private = await check("direct private table read (expected refusal: HTTP 400 -> contract_error)",
                           _row_count(src._sql("SELECT * FROM incidents")))
@@ -79,9 +79,9 @@ async def main(incident_id: str, workstation: str | None) -> dict:
     out["bounded_read_scope"] = {"workstation_id": ws, "session_id": sid}
     await check("session read scoped to workstation (id AND workstation_id)",
                 _row_count(src.get_session(ws, sid)))
-    await check("event window on received_at_ms with LIMIT 500 (syntax check)",
+    await check(f"event window on {src._v_events}.received_at_ms with LIMIT 500 (syntax check)",
                 _row_count(src.list_device_events(ws, now_ms - 300_000, now_ms)))
-    await check("baseline read, 24 h lower bound, LIMIT 200 (syntax check)",
+    await check(f"baseline read on {src._v_baselines}, 24 h lower bound, LIMIT 200 (syntax check)",
                 _row_count(src.list_baseline_snapshots(ws, now_ms)))
     await check("device health read with LIMIT 500 (syntax check)",
                 _row_count(src.list_device_health(ws)))
@@ -135,7 +135,8 @@ def redact(res: dict) -> dict:
 async def _row_summary(coro):
     row = await coro
     return None if row is None else {"id": row.id, "rule_id": row.rule_id, "severity": row.severity,
-                                     "workstation_id": row.workstation_id, "session_id": row.session_id}
+                                     "workstation_id": row.workstation_id, "session_id": row.session_id,
+                                     "evidence_complete": getattr(row, "evidence_complete", None)}
 
 
 async def _row_count(coro):

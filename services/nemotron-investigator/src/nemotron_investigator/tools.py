@@ -315,13 +315,24 @@ def _known_usb_devices(baseline: dict | None) -> tuple[list[dict], str]:
     return [], "unrecognized"
 
 
+def _device_key_list(raw: str) -> list[str] | None:
+    """The live baseline format: a canonical JSON array of redacted USB device keys."""
+    items = _json_list(raw)
+    if items is None or not all(isinstance(x, str) for x in items):
+        return None
+    return [x for x in items if x]
+
+
 def _usb_match(meta: dict, known: list[dict]) -> str | None:
-    """serial_hash | vendor_product_only | serial_mismatch | None.
+    """device_key | serial_hash | vendor_product_only | serial_mismatch | None.
 
     VID/PID are attacker-chosen descriptor fields, so a VID/PID match only counts
     when the event carries no serial. A different serial on the same VID/PID as a
     baseline device is a contradiction, not a match.
     """
+    key = meta.get("deviceKey")
+    if isinstance(key, str) and key and any(d.get("device_key") == key for d in known):
+        return "device_key"
     serial = meta.get("serial_hash")
     if serial and any(d.get("serial_hash") == serial for d in known):
         return "serial_hash"
@@ -365,6 +376,38 @@ async def _session(ctx: ToolContext) -> SessionRow | None:
 
 
 # -------------------------------------------------------------------------- tools
+def _approved_incident_view(ctx: ToolContext, inc, linked: list[str], flags: list[str]):
+    """The owner-approved incident projection (my_investigator_incidents): only what the
+    owner released. Rule, summary, acknowledgement and resolution are outside the scope and
+    are reported as such, never as values."""
+    data = {
+        "evidence_id": inc.id,
+        "workstation_id": _sid(ctx, inc.workstation_id, flags),
+        "session_id": _sid(ctx, inc.session_id, flags) if inc.session_id else None,
+        "severity": clean_text(inc.severity, 16),
+        "state": clean_text(inc.state, 24),
+        "created_at": iso(inc.created_at_ms),
+        "simulated": inc.simulated,
+        "evidence_scope": "owner-approved evidence for this incident only",
+        "evidence_approved_at": iso(inc.evidence_approved_at_ms),
+        "evidence_complete": inc.evidence_complete,
+        "linked_event_ids": linked,
+        "not_in_evidence_scope": ["rule_id", "summary", "acknowledgement", "resolution", "action_required",
+                                  "session record", "device health"],
+    }
+    for name in ("severity", "state"):
+        _scan(ctx, inc.id, name, data[name], flags)
+    if flags:
+        data["flags"] = sorted(set(flags))
+    if inc.simulated:
+        ctx.signal("simulated_rows_seen", True)
+    if not inc.evidence_complete:
+        ctx.signal("incident_evidence_incomplete", True)
+    ctx.register(inc.id, "incident", inc.created_at_ms, f"incident raised: severity={data['severity']}")
+    note = "" if inc.evidence_complete else "; approved evidence is INCOMPLETE"
+    return data, [inc.id], f"incident severity {data['severity']}, {len(linked)} approved events{note}"
+
+
 async def tool_get_incident(ctx: ToolContext, args: IncidentArgs):
     inc = await ctx.source.get_incident(ctx.incident.id)
     if inc is None:
@@ -374,6 +417,8 @@ async def tool_get_incident(ctx: ToolContext, args: IncidentArgs):
     ctx.untrusted(summary)
     _scan(ctx, inc.id, "summary", summary, flags)
     linked = [_sid(ctx, i, flags) for i in inc.linked_event_ids()[:12]]
+    if getattr(inc, "scope", "full") == "owner_approved_evidence":
+        return _approved_incident_view(ctx, inc, linked, flags)
     data = {
         "evidence_id": inc.id,
         "workstation_id": _sid(ctx, inc.workstation_id, flags),
@@ -403,6 +448,9 @@ async def tool_get_incident(ctx: ToolContext, args: IncidentArgs):
 async def tool_get_session_status(ctx: ToolContext, args: IncidentArgs):
     sess = await _session(ctx)
     if sess is None:
+        if getattr(ctx.incident, "scope", "full") == "owner_approved_evidence":
+            raise ToolFailure("not_found", "the session record is outside the owner-approved evidence scope for "
+                                           "this incident, so the armed state cannot be read here")
         raise ToolFailure("not_found", "no session record found for this incident's session on its workstation")
     armed = _armed_at(sess, ctx.t0)
     notes = []
@@ -540,6 +588,10 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
         snap_known, snap_parse = _known_usb_devices(_json_obj(latest.baseline_json))
         if snap_parse == "recognized":
             known, parse, baseline_source = snap_known, snap_parse, "snapshot"
+        else:
+            keys = _device_key_list(latest.baseline_json)
+            if keys is not None:  # the live format: redacted device keys
+                known, parse, baseline_source = [{"device_key": k} for k in keys], "recognized", "snapshot"
     if parse != "recognized":
         baseline_source = "none"
     usb_rows = await ctx.source.list_device_events(
@@ -552,9 +604,11 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
         meta = r.metadata()
         if parse != "recognized":
             in_base, match = None, "baseline_" + parse
+        elif known and all("device_key" in d for d in known) and not meta.get("deviceKey"):
+            in_base, match = None, "event_has_no_device_key"   # nothing to compare: unknown, not "absent"
         else:
             match = _usb_match(meta, known)
-            in_base = match in ("serial_hash", "vendor_product_only")
+            in_base = match in ("serial_hash", "vendor_product_only", "device_key")
         view = event_view(ctx, r)  # registers it for citation and timeline
         pname = clean_text(meta.get("product_name", ""), 60)
         ctx.untrusted(pname)
@@ -562,6 +616,7 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
             "evidence_id": view["evidence_id"],
             "kind": view["kind"],
             "product_name_untrusted": pname,
+            **({"device_key": clean_text(meta["deviceKey"], 80)} if isinstance(meta.get("deviceKey"), str) else {}),
             "vendor_id": _norm_hexid(meta.get("vendor_id")),
             "product_id": _norm_hexid(meta.get("product_id")),
             "in_baseline": in_base,
@@ -589,8 +644,9 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
         "baseline_parse": parse,
         "known_usb_device_count": len(known) if parse == "recognized" else None,
         "known_usb_devices": [
-            {"name_untrusted": clean_text(d.get("name", d.get("product_name", "")), 48),
-             "vendor_id": _norm_hexid(d.get("vendor_id")), "product_id": _norm_hexid(d.get("product_id"))}
+            ({"device_key": clean_text(d["device_key"], 80)} if "device_key" in d else
+             {"name_untrusted": clean_text(d.get("name", d.get("product_name", "")), 48),
+              "vendor_id": _norm_hexid(d.get("vendor_id")), "product_id": _norm_hexid(d.get("product_id"))})
             for d in known[:8]],
         "usb_devices_vs_baseline": comparisons,
         "camera_status": cam,
@@ -599,8 +655,9 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
         "component_health": comp_health,
     }
     for d in data["known_usb_devices"]:
-        ctx.untrusted(d["name_untrusted"])
-        _scan(ctx, "baseline", "baseline_device_name", d["name_untrusted"], flags)
+        if "name_untrusted" in d:
+            ctx.untrusted(d["name_untrusted"])
+            _scan(ctx, "baseline", "baseline_device_name", d["name_untrusted"], flags)
     if parse != "recognized":
         data["baseline_note"] = ("no usable USB baseline was recorded for this session, so membership of the "
                                  "devices below is unknown")

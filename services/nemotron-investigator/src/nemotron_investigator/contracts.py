@@ -29,7 +29,7 @@ compare equal across backends.
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -93,6 +93,7 @@ def try_normalize_identity(v: Any) -> str | None:
 
 
 class IncidentRow(_Row):
+    scope: ClassVar[str] = "full"   # a my_incidents row (membership-scoped view)
     id: str
     workstation_id: str
     session_id: str
@@ -205,8 +206,69 @@ class DeviceRow(_Row):
     _ident = field_validator("identity", mode="before")(_identity_to_hex)
 
 
-# View names in the live module (identity-scoped, readable without owner rights
-# once the investigator identity is granted read-only membership by the owner).
+class InvestigatorIncidentRow(_Row):
+    """A `my_investigator_incidents` row: the incident as the owner approved it for the
+    investigator (Sid's `grant_incident_evidence`). The projection deliberately omits the
+    rule, the mutable summary, actor identities, notes and action flags; those read as
+    "not in scope" (empty / None), never as a value.
+    """
+
+    scope: ClassVar[str] = "owner_approved_evidence"
+    id: str
+    workstation_id: str
+    session_id: str
+    severity: str
+    state: str
+    created_at_ms: U64
+    updated_at_ms: U64
+    simulated: bool
+    approved_event_ids_json: str
+    evidence_approved_at_ms: U64
+    evidence_complete: bool
+
+    # Fields of the full incident that are outside the approved scope.
+    rule_id: ClassVar[str] = ""
+    summary: ClassVar[str] = ""
+    digital_event_id: ClassVar[str] = ""
+    physical_event_id: ClassVar[str] = ""
+    acknowledged_by: ClassVar[str] = ""
+    resolved_by: ClassVar[str] = ""
+    resolution_note: ClassVar[str] = ""
+    action_required: ClassVar[None] = None
+
+    def linked_event_ids(self) -> list[str]:
+        try:
+            parsed = json.loads(self.approved_event_ids_json) if self.approved_event_ids_json else []
+        except (ValueError, TypeError):
+            return []
+        return [str(x) for x in parsed if isinstance(x, (str, int))] if isinstance(parsed, list) else []
+
+
+class InvestigatorBaselineRow(_Row):
+    """A `my_investigator_baselines` row: the frozen `session:<sessionId>` baseline only.
+    `baseline_json` is a canonical JSON array of redacted USB device keys. Publisher,
+    camera status and health are not in the projection (they read as unknown)."""
+
+    id: str
+    workstation_id: str
+    device_id: str
+    session_id: str
+    observed_at_ms: U64
+    received_at_ms: U64
+    baseline_json: str
+    active_app_id: str
+
+    publisher: ClassVar[str] = ""
+    camera_status: ClassVar[str] = ""
+    health_json: ClassVar[str] = "{}"
+
+
+# View names in the live module (identity-scoped). The investigator reads Sid's
+# owner-granted evidence projection by default (VIEWS_INVESTIGATOR); the broad
+# membership views stay empty for an evidence-only principal.
+VIEW_INV_INCIDENTS = "my_investigator_incidents"
+VIEW_INV_EVENTS = "my_investigator_events"
+VIEW_INV_BASELINES = "my_investigator_baselines"
 VIEW_INCIDENTS = "my_incidents"
 VIEW_SESSIONS = "my_sessions"
 VIEW_DEVICE_EVENTS = "my_device_events"

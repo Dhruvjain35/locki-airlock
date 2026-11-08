@@ -111,7 +111,8 @@ def build_source(settings: Settings, mode: str | None = None) -> EvidenceSource:
         from .evidence.spacetime_http import SpacetimeHttpEvidenceSource
         return SpacetimeHttpEvidenceSource.from_token_file(settings.stdb_host, settings.stdb_database,
                                                            settings.stdb_token_file,
-                                                           timeout_s=settings.tool_timeout_s)
+                                                           timeout_s=settings.tool_timeout_s,
+                                                           views=settings.stdb_views)
     from .evidence.fixture import FixtureEvidenceSource
     return FixtureEvidenceSource(settings.fixture_path)
 
@@ -527,9 +528,9 @@ def voice_view(rec: dict) -> dict:
 
 
 # --------------------------------------------------------------------- health
-_PING_PUBLIC = ("memberships", "least_privilege_ok")
+_PING_PUBLIC = ("memberships", "least_privilege_ok", "authorized_incidents", "evidence_scope")
 _PING_ADMIN = _PING_PUBLIC + ("authorized_for_any_workstation", "workstations", "over_privileged_workstations",
-                              "dataset_id")
+                              "dataset_id", "authorized_incident_ids")
 
 
 def _backend_view(settings: Settings, src: EvidenceSource | None, source_error: str | None,
@@ -830,6 +831,9 @@ def create_app(settings: Settings | None = None, *, source: EvidenceSource | Non
         if "live" not in state["sources"]:
             degraded.append("live_evidence_not_configured" if "live" not in state["source_errors"]
                             else "live_evidence_backend_init_failed")
+        elif backends["live"].get("reachable") and "authorized_incidents" in backends["live"]:
+            if not backends["live"]["authorized_incidents"]:
+                degraded.append("live_evidence_has_no_incident_grant")   # the owner has not granted any incident yet
         elif backends["live"].get("reachable") and not backends["live"].get("memberships"):
             degraded.append("live_evidence_has_no_workstation_membership")
         if "live" in backends and backends["live"].get("least_privilege_ok") is False:

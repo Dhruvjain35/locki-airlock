@@ -1,9 +1,10 @@
-"""Wait until the investigator identity receives a workstation membership.
+"""Wait until the owner grants the investigator an incident's evidence.
 
-Read-only: one SELECT on my_memberships per interval, through the investigator's
-own token. Exit codes:
-  0  a read-only (least-privilege) membership exists
-  4  a membership exists but carries approval or owner rights: ask Sid to fix it
+Read-only: one SELECT on my_memberships and one on my_investigator_incidents per
+interval, through the investigator's own token (Sid's minimum authorization:
+grant_incident_evidence by the workstation owner; no membership at all). Exit codes:
+  0  at least one incident grant is visible and the identity holds no membership
+  4  the identity holds a membership or approval/owner rights: over-privileged, ask to revoke
   2  timed out
 Prints no row content beyond the workstation ids and the least-privilege verdict.
 
@@ -28,14 +29,17 @@ async def main(interval_s: float, max_s: float) -> int:
     while True:
         p = await src.ping()
         stamp = time.strftime("%H:%M:%S")
-        if p.get("reachable") and p.get("memberships"):
-            ok = p.get("least_privilege_ok") is True
-            print(f"{stamp} {'GRANTED (read-only)' if ok else 'GRANTED BUT OVER-PRIVILEGED'} "
-                  f"memberships={p['memberships']} workstations={p.get('workstations')} "
-                  f"least_privilege_ok={p.get('least_privilege_ok')} over={p.get('over_privileged_workstations')}",
-                  flush=True)
-            return 0 if ok else 4
-        print(f"{stamp} waiting: reachable={p.get('reachable')} memberships={p.get('memberships')}", flush=True)
+        granted = p.get("authorized_incidents") if "authorized_incidents" in p else p.get("memberships")
+        if p.get("reachable") and p.get("least_privilege_ok") is False:
+            print(f"{stamp} OVER-PRIVILEGED memberships={p.get('memberships')} "
+                  f"over={p.get('over_privileged_workstations')}", flush=True)
+            return 4
+        if p.get("reachable") and granted:
+            print(f"{stamp} GRANTED (read-only) authorized_incidents={p.get('authorized_incidents')} "
+                  f"incidents={p.get('authorized_incident_ids')} memberships={p.get('memberships')}", flush=True)
+            return 0
+        print(f"{stamp} waiting: reachable={p.get('reachable')} authorized_incidents={p.get('authorized_incidents')} "
+              f"memberships={p.get('memberships')}", flush=True)
         if time.monotonic() - t0 + interval_s > max_s:
             return 2
         await asyncio.sleep(interval_s)

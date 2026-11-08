@@ -46,6 +46,9 @@ class Settings:
     stdb_host: str = "https://maincloud.spacetimedb.com"
     stdb_database: str = "locki-w91bw"
     stdb_token_file: str = str(PACKAGE_ROOT / ".secrets" / "stdb_investigator.token")
+    # "investigator": Sid's owner-granted incident evidence (my_investigator_* views; default).
+    # "membership": the broad my_* views of a workstation member (older deployments).
+    stdb_views: str = "investigator"
 
     @classmethod
     def from_env(cls, **overrides) -> "Settings":

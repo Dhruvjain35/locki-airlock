@@ -58,7 +58,8 @@ async def _run(args) -> int:
         from .evidence.spacetime_http import SpacetimeHttpEvidenceSource
         source = SpacetimeHttpEvidenceSource.from_token_file(settings.stdb_host, settings.stdb_database,
                                                              settings.stdb_token_file,
-                                                             timeout_s=settings.tool_timeout_s)
+                                                             timeout_s=settings.tool_timeout_s,
+                                                             views=settings.stdb_views)
     else:
         from .evidence.fixture import FixtureEvidenceSource
         source = FixtureEvidenceSource(args.dataset or settings.fixture_path)
