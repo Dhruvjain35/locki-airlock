@@ -1,0 +1,44 @@
+{
+  "checked_at_utc": "2026-11-08T01:13:47.205251+00:00",
+  "scope": "M4 ARM server contract and volunteer accuracy protocol; not a production or real-camera acceptance claim",
+  "module_datastore_tests": {
+    "passed": 111,
+    "new_delegation_cases": 37,
+    "existing_cases": 74
+  },
+  "policy_tests": {
+    "passed": 28
+  },
+  "typescript_check": "passed",
+  "module_build": "passed",
+  "diff_whitespace_check": "passed",
+  "runtime": {
+    "passed": true,
+    "database": "locki-arm-delegation-test",
+    "uri": "http://127.0.0.1:3000",
+    "workstation": "arm-proof-1794100275547",
+    "tests": [
+      "Target view and wrong caller denial",
+      "One-use ARM commits fixed session; zero lock requests; synthetic contract input explicitly labeled in test-only DB",
+      "Replay and Mac disarm denied",
+      "Actual issuing WebSocket disconnect revokes grant",
+      "Other owner tab disconnect leaves issuing connection grant usable",
+      "transient HTTP connection grant revoked"
+    ],
+    "remaining_active_session": "",
+    "real_camera_test": false,
+    "cloud_mutations": false
+  },
+  "live_read_only_check": {
+    "database": "locki-w91bw",
+    "workstation": "dhruv-m4-air",
+    "areeb_camera_enabled": true,
+    "m4_camera_device": "cam-e2d5d60c513c",
+    "m4_camera_enrolled": false,
+    "m4_configured_identity": "not available; not guessed",
+    "new_arm_reducers_deployed": false
+  },
+  "merge_conflicts_resolved": false,
+  "volunteer_trials_run": 0,
+  "production_deployability_established": false
+}
