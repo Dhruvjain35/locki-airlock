@@ -2182,7 +2182,11 @@ class LockedInRuntime:
                 record["transcript"] = text
                 record["confidence"] = round(float(result.get("confidence", 0.0)), 3)
                 r = await self.handle_utterance(text, source="recorded", stt_confidence=record["confidence"], stt_ms=record["stt_ms"], heard_mono=time.monotonic())
-                record.update(ok=r.ok, message=r.message, reply=r.reply or (self.last_reply or {}).get("text"), intent=(self.last_utterance or {}).get("intent"),
+                # This turn's own intent and replies only: handle_utterance appends the turn and returns without yielding, so the newest
+                # turn is this one. Never the previous turn's reply or intent.
+                turn = self.voice_turns[-1] if self.voice_turns and self.voice_turns[-1].get("source") == "recorded" and self.voice_turns[-1].get("text") == text[:300] else None
+                own_reply = r.reply or (" ".join(x["text"] for x in (turn or {}).get("replies", []) if x.get("text")) or None)
+                record.update(ok=r.ok, message=r.message, reply=own_reply, intent=((turn or {}).get("intent") or {}).get("intent"),
                               nemotron=(r.data or {}).get("nemotron"),
                               handled_ms=round((time.monotonic() - t0) * 1000, 1))
         finally:
@@ -2229,6 +2233,9 @@ class LockedInRuntime:
 
     def _recorded_security_refusal(self, kind: str) -> CommandResult:
         """A recording asked to arm or disarm. It never does either, and no grant is touched; LOCKI says so aloud and where the owner acts."""
+        turn = _TURN.get()
+        if turn is not None:
+            turn["intent"] = {"intent": f"{kind}_workstation", "refused": "recorded speech cannot arm or disarm"}
         reply = self._say("security_recorded_cannot_disarm" if kind == "disarm" else "security_recorded_cannot_arm")
         return self._result(False, "Recorded speech cannot arm or disarm. The owner arms and disarms in the authenticated LOCKI owner console.", reply)
 
