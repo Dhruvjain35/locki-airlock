@@ -7,7 +7,7 @@ and answers questions from the recorded evidence. An NVIDIA Nemotron model inves
 Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan.
 
 > **Status: integration snapshot, not a finished release.** Mustafa's service, its M4 client and Areeb's Jetson runtime are present in source.
-> The `afd008e` handoff and existing-owner recovery are merged with the reviewed client/runtime safeguards. Software checks pass; current host activation, a real runtime voice trial and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
+> The `f73c40a` M4 handoff, Areeb’s edge source and existing-owner recovery are merged with the reviewed client/runtime safeguards. Software checks pass; current host activation, a real runtime voice trial and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
 
 **Start here:** [Project map and ownership](docs/airlock/PROJECT_MAP.md) · [Original PRD](docs/airlock/PRD.md) ·
 [Acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) · [Wire contracts](docs/airlock/CONTRACTS.md) ·
@@ -211,16 +211,16 @@ See [existing M4 integration](docs/airlock/M4_VOICE_ARM.md). If only the M4 CLI 
 ## Evidence and acceptance
 
 The [release acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) maps all ten P0 requirements and every named PRD criterion to
-its evidence and remaining gate. The [machine-readable manifest](docs/airlock/evidence/release-acceptance.json) records source/log hashes.
+its evidence and remaining gate. The [latest merged verification](docs/airlock/evidence/merged-integration-verification.json) binds the checked source and logs; the [earlier manifest](docs/airlock/evidence/release-acceptance.json) preserves prior source scopes.
 Historical camera, audio and model timings in the runbooks are attributed team measurements; they are not fresh physical acceptance results.
 
 ## Verified so far
 
 | Check | Status |
 |---|---|
-| Backend software | Merged cofounder/client/owner-recovery source: 1,877 passed; 20 skipped |
+| Backend software | Merged cofounder/client/owner-recovery source: 1,905 passed; 20 skipped |
 | Investigator service software | Final authorization/evidence suite: 425 passed; one skipped; three real-model tests deliberately excluded |
-| Frontend | Merged record view and owner recovery: 135 tests passed; typecheck and production build passed |
+| Frontend | Merged record view and owner recovery: 137 tests passed; typecheck and production build passed |
 | GitHub Actions | Workflow published; latest inspected run failed at startup before any jobs. Cause unknown; local checks do not imply CI success |
 | Real M4 hardware | Team reports: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. The new face-disabled default has not been activated or verified on the running M4 |
 | Live SpacetimeDB | At 10:18 UTC, the existing workstation is disarmed with auto-lock off; Jetson remains enabled with its original identity and sequence 13. At 10:19 UTC, the owner-issued investigator grant and zero investigator memberships were independently read back. Owner browser recovery is still unverified |

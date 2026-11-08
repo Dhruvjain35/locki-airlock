@@ -4,7 +4,7 @@
 
 The team integration repository is now `Dhruvjain35/locki-airlock`; the inspected
 source merges the reviewed M4 client checkpoint `29d0dde`, upstream `afd008e`
-client/recorded-turn handoff and existing-owner recovery `330530f`, preserving
+client/recorded-turn handoff, the subsequent `f73c40a` per-run update and existing-owner recovery `330530f`, preserving
 credential, provenance and cancellation safeguards.
 Coordination and the exact missing artifacts are tracked in
 [issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2). Do not post new
@@ -60,7 +60,7 @@ the final advisory result with server severity. Keep action/sandbox/review tools
 out of this principal. The actual host source is now present; no second investigator
 consumer, model process or service was started during integration.
 
-The merged source passed **1,877 backend tests with 20 skipped**, **135 frontend
+The merged source passed **1,905 backend tests with 20 skipped**, **137 frontend
 tests**, typecheck and production build. The final investigator service suite
 passed **425 with one skipped and three live-model tests deselected**. It includes
 38 regression cases for old cached real records with missing or conflicting

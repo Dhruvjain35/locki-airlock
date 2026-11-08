@@ -2,13 +2,13 @@
 
 **Current integration reconciliation (2026-11-08):** the authoritative integration
 repository is `Dhruvjain35/locki-airlock`. The clean snapshot preserves the M4
-handoff through `afd008e`, Areeb’s edge source and follow-ups, Mustafa’s v0.3
+handoff through `f73c40a`, Areeb’s edge source and follow-ups, Mustafa’s v0.3
 investigator, Sid’s reviewed safeguards and the existing-owner recovery delivered
 on main at `330530f`. No old repository history, database reset or replacement
 owner identity is needed.
 
-The merged software checkpoint passed **1,877 backend tests with 20 skipped** and
-**135 frontend tests**. Source-scoped investigator, module, adapter and prior
+The merged software checkpoint passed **1,905 backend tests with 20 skipped** and
+**137 frontend tests**. Source-scoped investigator, module, adapter and prior
 checkpoints retain their own hashes and limits in
 [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) and its machine-readable manifest.
 Skipped or model-deselected tests close no physical/model acceptance gate.
@@ -36,7 +36,7 @@ trace, native Relay/model evidence and physical acceptance remain separate gates
 
 The [current project map](PROJECT_MAP.md) identifies actual source locations,
 ownership and execution order. The [release matrix](RELEASE_ACCEPTANCE.md) covers
-all ten P0 requirements and each named criterion. Face identification is disabled
+all ten P0 requirements and each named criterion. The [merged verification](evidence/merged-integration-verification.json) records the final checked source separately from historical checkpoints. Face identification is disabled
 by default in source; the M4’s effective privacy configuration still needs local
 confirmation. Present detectors report presence or motion and do not establish
 whether a person walked past, stood nearby or interacted with the computer;

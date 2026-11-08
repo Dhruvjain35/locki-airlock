@@ -1,0 +1,117 @@
+{
+  "recorded_at_utc": "2026-11-08T10:35:18.563280+00:00",
+  "repository": "Dhruvjain35/locki-airlock",
+  "source_commit": "beee4e59aa29d8a22aaf6862daf76d543044814a",
+  "incoming_cofounder_commit": "f73c40a4d7f75492dd952f39a38fe40032304228",
+  "prior_checkpoint_commit": "835d1d6efd3b78810a121dc38565a3c7607e2fcb",
+  "test_working_directory": "repository root (frontend commands in frontend/)",
+  "dependency_environment": "Existing external pinned Python environment and Node modules; no new dependencies or model weights",
+  "source_files": [
+    {
+      "path": "backend/app/api/routes.py",
+      "sha256": "73c91f6a78210f8438247332e6126fc8e26960917d7c7525389c9be2ce7fd22e"
+    },
+    {
+      "path": "backend/app/intelligence/nemotron_service.py",
+      "sha256": "6728be0beb66252d4562ca752c213d942357f3e53897a76670d7a030d4ea12d7"
+    },
+    {
+      "path": "backend/app/runtime.py",
+      "sha256": "d7760e4f31f53d503f7627ced1517ab505330a5bf1ea24e7fd714eff9270e7b4"
+    },
+    {
+      "path": "backend/tests/conftest.py",
+      "sha256": "98cd60e500ccfccf7a3a5c957d10a9f34fd3799c815abe495308e5ac123bd879"
+    },
+    {
+      "path": "backend/tests/test_nemotron_service.py",
+      "sha256": "def5cc9d6a3d338c5e42b33ff81eb9475945cf564af40213b3f5e2a1b5280ecf"
+    },
+    {
+      "path": "frontend/src/airlock/RecordedVoicePanel.tsx",
+      "sha256": "c3231915d8936d746d4639a86859bfc57f3901244ff025199c4c2dc888054e64"
+    },
+    {
+      "path": "frontend/src/airlock/recordedTurns.test.ts",
+      "sha256": "431e3d2354ef0d74d8c1662b6ad4e51adb278d1c25b8ba97771cd6887aff4e08"
+    },
+    {
+      "path": "frontend/src/airlock/recordedTurns.ts",
+      "sha256": "f21ddfc6779e0a6895ddd3436ee4d18058ae97c6bb1b605c0fafc9f200c585f5"
+    }
+  ],
+  "checks": [
+    {
+      "suite": "backend",
+      "passed": 1905,
+      "skipped": 20,
+      "deselected": 0,
+      "log": "data/acceptance/f73c40a-full-backend.log",
+      "sha256": "2f5e09dc07c8a701366da98a8dfad112ef7dec2ffced5a6cc78dc50ecce4a306"
+    },
+    {
+      "suite": "investigator",
+      "passed": 425,
+      "skipped": 1,
+      "deselected": 3,
+      "log": "data/acceptance/investigator-final-delivery.log",
+      "sha256": "c280ba15c3e1626ca1bae8f823b8d298132c136e5e3a38866f892f2843db2e60"
+    },
+    {
+      "suite": "frontend",
+      "passed": 137,
+      "skipped": 0,
+      "deselected": 0,
+      "log": "data/acceptance/f73c40a-frontend-tests.log",
+      "sha256": "8d989cb8aca44b974d361c7b22e8b327d350ec06876236feff772525cd6b4977"
+    },
+    {
+      "suite": "affected_backend",
+      "passed": 204,
+      "skipped": 0,
+      "deselected": 0,
+      "log": "data/acceptance/f73c40a-merge-focused.log",
+      "sha256": "52123ee6b629d3990e9fe0b888dda89dc900391f9ac648abacc0eb80cbeb7b12"
+    }
+  ],
+  "frontend_typecheck": "passed as part of production build",
+  "frontend_build": {
+    "passed": true,
+    "log": "data/acceptance/f73c40a-frontend-build.log",
+    "sha256": "5e1738feb01d250cf07c1e66145c0458e09f83e4fbed25fac81dbcfbb58d5262",
+    "largest_js_chunk_kb": 1002.14,
+    "existing_chunk_warning": true
+  },
+  "independent_reviews": [
+    "M4 integration correctness",
+    "investigator transport, authorization and stale-speech safety",
+    "protected source and historical evidence integrity"
+  ],
+  "protected_source_unchanged_from_prior_checkpoint": [
+    "owner recovery and consent",
+    "Areeb edge runtime and runbooks",
+    "Mac security service and investigator API",
+    "SpacetimeDB module and generated schema",
+    "original PRD"
+  ],
+  "github_actions": {
+    "last_inspected_run": 42471086631,
+    "source_commit": "f73c40a4d7f75492dd952f39a38fe40032304228",
+    "conclusion": "startup_failure",
+    "jobs": 0,
+    "cause": "not established",
+    "local_results_do_not_imply_ci_pass": true
+  },
+  "prior_evidence": "release-acceptance.json (pre-f73 source and hash records preserved)",
+  "live_activation_verified": false,
+  "m4_backend_restarted": false,
+  "owner_browser_recovery_verified": false,
+  "actual_live_voice_arm_verified": false,
+  "full_prd_acceptance": false,
+  "limitations": [
+    "Twenty backend skips and one service skip do not close acceptance gates.",
+    "Three actual-model tests were deliberately excluded; local tests loaded no models or hardware.",
+    "Grant presence and selected non-simulated incident/event stored values were checked read-only; investigator-token denials and model run remain attributed to Mustafa.",
+    "Actual M4 owner login, current revision activation, runtime speech, native Relay and consenting volunteer/hardware acceptance remain open."
+  ]
+}

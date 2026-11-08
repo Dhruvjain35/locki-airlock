@@ -1,5 +1,15 @@
 # Release acceptance reconciliation
 
+Latest merged source: **1,905 backend tests passed, 20 skipped in 186.24s**,
+**137 frontend tests passed**, and **425 investigator-service tests passed with
+one skipped and three live-model tests deselected**. Production typecheck/build
+and 204 affected backend tests also passed. Merge `beee4e5` preserves cofounder
+`f73c40a` with the reviewed safeguards; owner recovery, edge, service authorization
+and module schema remain unchanged. See the [source-bound merged receipt](evidence/merged-integration-verification.json).
+These are software results. Current host activation, owner browser recovery,
+real runtime voice/Relay and physical acceptance are not certified. The pre-f73
+checkpoints below retain their original source and hash records.
+
 Pre-`f73c40a` merged application checkpoint: **1,877 backend tests passed, 20 skipped
 in 185.75s** and **135 frontend tests passed across eight files**. Final frontend
 typecheck and production build passed. The application source at `fa196ad`
