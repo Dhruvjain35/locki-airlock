@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data (telemetry, sessions, settings, caches)
+data/
+backend/models/
+
+# Recordings and large media
+*.mp4
+*.mov
+*.avi
+*.wav
+*.aiff
+*.mkv
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# --- LOCKI AIRLOCK: never commit identities, biometrics, models or runtime state ---
+!.env.airlock.example
+**/data/
+*.private.json
+spacetime-*.json
+owner_face*.json
+*embedding*.json
+edge/jetson/state/
+# model weights and caches (download with make models; Ollama keeps its own store)
+*.onnx
+*.tflite
+*.task
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.npy
+*.npz
+.ollama/
+# camera frames, screenshots and database dumps from real runs
+*.jpg
+*.jpeg
+*.png
+*.heic
+!frontend/public/**/*.png
+!docs/**/*.png
+*.sqlite
+*.db
+*.dump
+spacetime/.spacetime/
