@@ -2,13 +2,12 @@
 
 import asyncio
 import json
+import os
 import re
 import time
 
 import httpx
 import pytest
-from pydantic import ValidationError
-
 from nemotron_investigator.contracts import DeviceEventRow, _identity_to_hex
 from nemotron_investigator.evidence import spacetime_http as sh
 from nemotron_investigator.evidence.base import (
@@ -20,7 +19,12 @@ from nemotron_investigator.evidence.base import (
     EvidenceUnavailable,
     RejectedRows,
 )
-from nemotron_investigator.evidence.spacetime_http import SpacetimeHttpEvidenceSource, decode_sql_response, lit
+from nemotron_investigator.evidence.spacetime_http import (
+    SpacetimeHttpEvidenceSource,
+    decode_sql_response,
+    lit,
+)
+from pydantic import ValidationError
 
 COLS = ["id", "workstation_id", "session_id", "severity", "state", "rule_id", "summary", "event_ids_json",
         "digital_event_id", "physical_event_id", "created_at_ms", "updated_at_ms", "acknowledged_by",
@@ -196,7 +200,7 @@ async def test_malformed_responses_are_contract_errors(body):
 
 
 def test_decode_rejects_malformed():
-    with pytest.raises(Exception):
+    with pytest.raises(EvidenceContractError):
         decode_sql_response({"not": "a list"})
     assert decode_sql_response([{"schema": _schema(["a", "b"]), "rows": [[1, 2]]}]) == [{"a": 1, "b": 2}]
     with pytest.raises(EvidenceContractError, match="row/column count"):
@@ -251,8 +255,8 @@ async def test_event_window_selects_on_received_at_ms_with_limit():
     src = make(handler)
     rows = await src.list_device_events("ws:1", -5_000, 2_000)
     assert [r.id for r in rows] == ["evt:1"]
-    assert seen == ["SELECT * FROM my_device_events WHERE workstation_id = 'ws:1' "
-                    "AND received_at_ms >= 0 AND received_at_ms <= 2000 LIMIT 500"]
+    assert seen == [("SELECT * FROM my_device_events WHERE workstation_id = 'ws:1' "
+                    "AND received_at_ms >= 0 AND received_at_ms <= 2000 LIMIT 500")]
     assert "observed_at_ms" not in seen[0]
     assert await src.list_device_events("ws:1", 3_000, 2_000) == []  # empty window: no query
     assert len(seen) == 1
@@ -336,7 +340,7 @@ async def test_baseline_read_is_bounded_and_still_finds_the_newest_snapshot():
 async def test_baseline_read_flags_truncation_when_it_cannot_narrow():
     until = 100_000_000
     old = [snap(f"base:old{i}", until - 80_000_000 + i * 1000) for i in range(300)]
-    seen, handler = _sql_window_server(old)  # nothing in the last hour
+    _seen, handler = _sql_window_server(old)  # nothing in the last hour
     src = make(handler)
     rows = await src.list_baseline_snapshots("ws:1", until)
     assert len(rows) == BASELINE_ROW_LIMIT
@@ -346,8 +350,8 @@ async def test_baseline_read_flags_truncation_when_it_cannot_narrow():
 async def test_baseline_lower_bound_never_goes_negative():
     seen, handler = _sql_window_server([])
     await make(handler).list_baseline_snapshots("ws:1", 5_000)
-    assert seen == ["SELECT * FROM my_baseline_snapshots WHERE workstation_id = 'ws:1' "
-                    "AND received_at_ms >= 0 AND received_at_ms <= 5000 LIMIT 200"]
+    assert seen == [("SELECT * FROM my_baseline_snapshots WHERE workstation_id = 'ws:1' "
+                    "AND received_at_ms >= 0 AND received_at_ms <= 5000 LIMIT 200")]
 
 
 # --------------------------------------------------------------- linked ids
@@ -404,9 +408,157 @@ def test_identity_rejects_unrecognized_encodings(raw):
 def test_from_token_file_normalizes_identity(tmp_path):
     p = tmp_path / "tok.json"
     p.write_text(json.dumps({"token": "t", "identity": "0x" + ME.upper().lstrip("0")}))
+    p.chmod(0o600)
     src = SpacetimeHttpEvidenceSource.from_token_file("https://stdb.test", "db", p)
     assert src.provenance.detail["identity"] == ME
     assert make(lambda r: None).provenance.detail["identity"] == "unknown"
+
+
+def _authorization_schema():
+    return {"misc_exports": [{"View": {"name": name, "is_public": True, "is_anonymous": False}}
+                             for name in ("my_investigator_incidents", "my_investigator_events", "my_investigator_baselines")]}
+
+
+def authorized_source(*, header=sh.EXPECTED_INVESTIGATOR_IDENTITY, memberships=(), status=200,
+                      schema=None, membership_response=None, fail_network=False, **kw):
+    calls = []
+
+    def handler(request):
+        calls.append((request.method, request.url.path, request.content.decode()))
+        if fail_network:
+            raise httpx.ConnectError("offline", request=request)
+        if request.method == "GET":
+            assert request.url.path.endswith('/schema') and request.url.query == b'version=9'
+            return httpx.Response(status, json=_authorization_schema() if schema is None else schema,
+                                  headers={} if header is None else {"spacetime-identity": header})
+        assert request.method == "POST" and request.url.path.endswith('/sql')
+        assert request.content.decode() == "SELECT * FROM my_memberships"
+        return membership_response if membership_response is not None else ok(MEM_COLS, list(memberships))
+
+    return SpacetimeHttpEvidenceSource("https://stdb.test", "db", "mock-token",
+                                      transport=httpx.MockTransport(handler), **kw), calls
+
+
+async def test_authorization_gate_uses_server_identity_not_file_metadata_and_rechecks():
+    src, calls = authorized_source(identity=OTHER)
+    await src.assert_investigator_authorized()
+    await src.assert_investigator_authorized()
+    assert src.provenance.detail["identity"] == sh.EXPECTED_INVESTIGATOR_IDENTITY
+    assert calls == [('GET', '/v1/database/db/schema', ''),
+                     ('POST', '/v1/database/db/sql', 'SELECT * FROM my_memberships')] * 2
+
+
+@pytest.mark.parametrize("header", [None, '', OTHER, '0x1', 'not-an-identity'])
+async def test_authorization_gate_rejects_wrong_or_missing_authenticated_identity(header):
+    src, calls = authorized_source(header=header, identity=sh.EXPECTED_INVESTIGATOR_IDENTITY)
+    with pytest.raises(EvidenceUnavailable):
+        await src.assert_investigator_authorized()
+    assert len(calls) == 1  # file metadata cannot authorize even the membership query
+
+
+async def test_authorization_gate_allows_explicit_test_identity_and_hex_header_prefix():
+    src, _ = authorized_source(header='0x' + ME.upper(), expected_identity=ME)
+    await src.assert_investigator_authorized()
+    assert src.provenance.detail["identity"] == ME
+
+
+@pytest.mark.parametrize("role", ['owner', 'reviewer', 'mac', 'jetson', 'service', 'unknown'])
+async def test_authorization_gate_rejects_every_enabled_membership_even_approval_false(role):
+    src, _ = authorized_source(memberships=[['m', 'other-existing-desk', ME_LIVE, role, False, True, 1]])
+    with pytest.raises(EvidenceUnavailable, match='no enabled memberships'):
+        await src.assert_investigator_authorized()
+
+
+async def test_authorization_gate_permits_explicitly_disabled_memberships_only():
+    src, _ = authorized_source(memberships=[['m', 'desk', ME_LIVE, 'reviewer', False, False, 1]])
+    await src.assert_investigator_authorized()
+    src, _ = authorized_source(membership_response=ok(['id'], [['ambiguous']]))
+    with pytest.raises(EvidenceUnavailable, match='no enabled memberships'):
+        await src.assert_investigator_authorized()
+
+
+async def test_authorization_gate_rejects_legacy_membership_mode_before_network():
+    src, calls = authorized_source(views='membership')
+    with pytest.raises(EvidenceContractError, match='incident-evidence'):
+        await src.assert_investigator_authorized()
+    assert calls == []
+
+
+@pytest.mark.parametrize('status', [301, 400, 401, 403, 404, 500, 503])
+async def test_authorization_gate_schema_failure_is_not_success(status):
+    src, calls = authorized_source(status=status)
+    with pytest.raises(EvidenceUnavailable):
+        await src.assert_investigator_authorized()
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('response', [httpx.Response(503), httpx.Response(403),
+                                    httpx.Response(200, json=[]), httpx.Response(200, json=[{}]),
+                                    httpx.Response(200, json=[{'schema': _schema(['id']), 'rows': None}])])
+async def test_authorization_gate_membership_errors_or_malformed_success_fail(response):
+    src, _ = authorized_source(membership_response=response)
+    with pytest.raises((EvidenceUnavailable, EvidenceContractError)):
+        await src.assert_investigator_authorized()
+
+
+async def test_authorization_gate_network_error_or_missing_contract_fails():
+    src, _ = authorized_source(fail_network=True)
+    with pytest.raises(EvidenceUnavailable):
+        await src.assert_investigator_authorized()
+    src, _ = authorized_source(schema={'misc_exports': []})
+    with pytest.raises(EvidenceContractError, match='views unavailable'):
+        await src.assert_investigator_authorized()
+
+
+@pytest.mark.parametrize('form', ['plain', 'json'])
+def test_private_token_reader_supports_existing_formats(tmp_path, form):
+    p = tmp_path / 'investigator.token'
+    p.write_text('mock-token\n' if form == 'plain' else json.dumps({'token': 'mock-token'}))
+    p.chmod(0o600)
+    src = SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', p)
+    assert src._token == 'mock-token'
+
+
+@pytest.mark.parametrize('mode', [0o644, 0o640, 0o604, 0o660])
+def test_token_reader_rejects_group_or_other_permissions(tmp_path, mode):
+    p = tmp_path / 'investigator.token'
+    p.write_text('mock-token')
+    p.chmod(mode)
+    with pytest.raises(EvidenceUnavailable, match='private operator-owned'):
+        SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', p)
+
+
+def test_token_reader_rejects_symlink_fifo_oversize_and_other_owner(tmp_path, monkeypatch):
+    p = tmp_path / 'investigator.token'
+    p.write_text('mock-token'); p.chmod(0o600)
+    link = tmp_path / 'link'; link.symlink_to(p)
+    fifo = tmp_path / 'fifo'; os.mkfifo(fifo, 0o600)
+    for bad in [link, fifo, tmp_path]:
+        with pytest.raises(EvidenceUnavailable):
+            SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', bad)
+    p.write_bytes(b'x' * (sh.MAX_TOKEN_FILE_BYTES + 1))
+    with pytest.raises(EvidenceUnavailable):
+        SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', p)
+    p.write_text('mock-token')
+    uid = os.getuid(); monkeypatch.setattr(sh.os, 'getuid', lambda: uid + 1)
+    with pytest.raises(EvidenceUnavailable):
+        SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', p)
+
+
+@pytest.mark.parametrize('value', ['', '{bad', '{"token":null}', '{"identity":"public"}',
+                                   '{"token":"mock\\nsecret"}', '{"token":"has space"}'])
+def test_token_reader_invalid_content_is_generic_and_never_echoed(tmp_path, value):
+    p = tmp_path / 'investigator.token'; p.write_text(value); p.chmod(0o600)
+    with pytest.raises(EvidenceUnavailable) as error:
+        SpacetimeHttpEvidenceSource.from_token_file('https://stdb.test', 'db', p)
+    assert 'mock' not in str(error.value) and 'secret' not in str(error.value)
+
+
+def test_client_ignores_environment_proxy_settings(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(sh.httpx, 'AsyncClient', lambda **kw: seen.update(kw))
+    make(lambda request: None)._client()
+    assert seen['trust_env'] is False and seen['follow_redirects'] is False
 
 
 def _members(rows):

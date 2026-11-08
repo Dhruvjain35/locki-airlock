@@ -17,6 +17,48 @@ async def run(ctx, name, args):
     return await execute_tool_call(ctx, name, args, step=1, call_index=0, timeout_s=1.0)
 
 
+@pytest.mark.parametrize("tool", ["get_incident_evidence", "get_recent_usb_events", "get_recent_vision_events",
+                                  "get_recent_application_events", "get_device_baseline_status"])
+async def test_live_tools_do_not_mix_two_grants_on_same_workstation(tool):
+    from test_agent import LIVE_EVT, ProjectionSource
+
+    class TwoGrants(ProjectionSource):
+        async def list_device_events(self, *args):
+            return [self.ev,
+                    self.ev.model_copy(update={"id": "other-grant-event", "session_id": "sess:other"}),
+                    self.ev.model_copy(update={"id": "unapproved-same-session"}),
+                    self.ev.model_copy(update={"session_id": "sess:other", "metadata_json": '{"label":"SECRET OTHER SESSION"}'})]
+
+        async def get_device_events_by_ids(self, *args):
+            return await self.list_device_events()
+
+        async def list_baseline_snapshots(self, *args):
+            return [self.base,
+                    self.base.model_copy(update={"id": "session:sess:other", "session_id": "sess:other",
+                                                 "observed_at_ms": self.base.observed_at_ms + 1,
+                                                 "baseline_json": '["SECRET OTHER BASELINE"]'}),
+                    self.base.model_copy(update={"id": "unfrozen-snapshot", "observed_at_ms": self.base.observed_at_ms + 2,
+                                                 "baseline_json": '["SECRET UNFROZEN BASELINE"]'})]
+
+        async def get_session(self, *args):
+            raise AssertionError("live tools cannot read full session rows")
+
+        async def list_device_health(self, *args):
+            raise AssertionError("live health is not incident-approved evidence")
+
+    src = TwoGrants(baseline_keys=["sha256:approved"], event_key="sha256:approved")
+    ctx = ToolContext("inv_scope", src.inc, src, max_result_chars=12000)
+    rec, content = await run(ctx, tool, {})
+    assert rec.status == "ok"
+    assert "SECRET" not in content and "other-grant-event" not in content and "unapproved-same-session" not in content
+    assert set(ctx.evidence_index) <= {LIVE_EVT, "session:sess:1"} | {eid for eid, meta in ctx.evidence_index.items() if meta["type"] == "query_result"}
+    if tool == "get_device_baseline_status":
+        data = json.loads(content)["data"]
+        assert data["known_usb_devices"] == [{"device_key": "sha256:approved"}]
+        assert len(data["usb_devices_vs_baseline"]) == 1
+        assert data["component_health"] == []
+
+
 async def test_registry_is_read_only_allowlist():
     assert set(REGISTRY) == {"get_incident", "get_session_status", "get_incident_evidence",
                              "get_recent_usb_events", "get_recent_vision_events",

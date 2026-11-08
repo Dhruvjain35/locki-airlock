@@ -3,6 +3,13 @@
 Owner: Mustafa (M5 Pro). Consumers: Dhruv's Mac backend and LOCKI voice, Sid's dashboard.
 Status: **v0.3 (2026-11-08).** It replaces v0.2. v0.3 reads Sid's owner-granted evidence views and moves the M4 tunnel to port 18787. The breaking changes are listed in §9.
 
+This is a source handoff and operator runbook, imported with upstream main
+`e38b38d610ef31b3276b672f1c834bf04cd09458`. Host setup and benchmark statements below
+are upstream reports, not a fresh verification of the running M5. This integration
+review has not deployed or restarted that host, verified its actual investigator
+token/grant receipt, or produced a new model/native trace. See the monorepo's
+[acceptance record](../../docs/airlock/RELEASE_ACCEPTANCE.md) for current check scope.
+
 ## 0. Quick start
 
 ### On Mustafa's M5 (service host)
@@ -34,11 +41,11 @@ Defaults that normally need no change:
 | `NI_STORE_DIR` | `var/investigations` (records are mode 0600; live records hold private evidence) |
 | `NI_RELAY_GATE` | `0` (`1` routes `get_recent_usb_events` through the NVIDIA NeMo Relay policy gate) |
 
-The service never sends `keep_alive` or `num_ctx` to Ollama, so it never reconfigures or reloads the shared model.
+The service omits `keep_alive` and `num_ctx` from Ollama requests. This review did not change or verify the shared model's resident state; a source handoff is not permission to start a model run.
 
 ### On Dhruv's M4 (client)
 
-The M5 accepts Dhruv's M4 key (the one listed at `github.com/Dhruvjain35.keys`, SHA256 `WeBg+LR4...nY/o`) for tunnels only.
+The upstream handoff reports that the M5 accepts Dhruv's M4 key (the one listed at `github.com/Dhruvjain35.keys`, SHA256 `WeBg+LR4...nY/o`) for tunnels only. Current host/key state was not reverified by this integration review.
 
 **What the key may do.** It works only from the M4's Tailscale address. It may open local forwards to `127.0.0.1:8787` (this API) and `127.0.0.1:11434` (Ollama) and nothing else.
 
@@ -76,7 +83,7 @@ The existing `11435` Ollama tunnel is not touched.
    curl -s -H @<(AUTH) http://127.0.0.1:18787/health | python3 -m json.tool
    # expect evidence_modes.default = "live"; until Dhruv grants an incident: degraded = ["live_evidence_has_no_incident_grant"]
 
-   # a TEST DATA run (works now):
+   # a TEST DATA request, after the host owner verifies the service and API key:
    curl -s -H @<(AUTH) -H 'Content-Type: application/json' \
      -d '{"incident_id":"incident:fixture-b-person-then-usb","evidence_mode":"fixture"}' \
      http://127.0.0.1:18787/investigations
@@ -100,7 +107,7 @@ It refuses to run when:
 
 ## 1. Where it runs
 
-- The service runs on Mustafa's M5 at `http://127.0.0.1:8787`, bound to loopback only. Remote access is only through Dhruv's SSH forward over Tailscale (§0).
+- The intended service host is Mustafa's M5 at `http://127.0.0.1:8787`, bound to loopback only. Remote access uses the coordinated SSH forward over Tailscale (§0); this runbook is not proof of the current running revision or tunnel.
 - It calls the local Ollama at `127.0.0.1:11434`, model `nemotron-3.5-bolt:e4b` (MLX runner).
 
 ## 2. Authentication
@@ -109,7 +116,7 @@ It refuses to run when:
 - **Creating a key.** Run `.venv/bin/python -m nemotron_investigator create-key --requester <id> --workstation <ws> [--workstation <ws> ...] [--scope <scope> ...] --out .secrets/handoff/<id>.key`.
   - With `--out`, the key is written to a new file (key only, mode 0600) and is not printed. Without it, the key is printed once.
   - Scopes default to `investigations:create`, `investigations:read` and `health:read`. `--scope health:admin` must be named explicitly.
-- **Current keys** (in `.secrets/handoff/`, mode 0600, never printed):
+- **Upstream handoff key configuration** (current M5 files were not inspected by this review; private files stay on their owning hosts):
 
   | key | scopes | workstations | where |
   |---|---|---|---|
@@ -118,8 +125,13 @@ It refuses to run when:
 
   The earlier `dhruv-m4-backend` key for `*` was never handed out and is revoked.
 
-  `*` is still bounded by the investigator identity's SpacetimeDB memberships, which Sid controls: the service can only see the workstations Sid grants.
-- **Reading investigations:** a requester reads only its own investigations, and only for workstations its current key still covers. Any other id returns 404.
+  `*` in an API key is bounded by the investigator identity's explicit owner-granted
+  incident evidence. It grants no SpacetimeDB membership or device role. The live
+  investigator must hold **zero enabled memberships**, including a reviewer role
+  with approval disabled. The workstation owner grants incident evidence; an API
+  key's workstation list never creates that grant.
+- **Reading investigations:** a requester reads only its own investigations, and only for workstations its current key still covers. Live records additionally require current investigator authorization and the original evidence scope; local cached records do not override a revoked or unavailable database read.
+- **Two credentials, two boundaries.** The API key authenticates the requesting client. `NI_STDB_TOKEN_FILE` holds the investigator's existing SpacetimeDB token, never an owner, reviewer, service-member or deployment/admin credential. Before live inference, the adapter's mandatory `assert_investigator_authorized()` authenticates the expected principal from the server response, verifies the three caller-scoped investigator views and rejects any enabled membership. File-supplied identity is only a hint, not proof. The separate actual-token verifier in §7 must also establish absent privileged reads/private-table access before live acceptance.
 - **The key file is validated strictly:** malformed entries are skipped, a revocation always wins, and a file writable by group or others is refused.
 
 ## 3. Evidence modes: live vs test data
@@ -128,7 +140,7 @@ Every investigation runs on exactly one evidence source, fixed when it is create
 
 | | live | fixture |
 |---|---|---|
-| source | LOCKI SpacetimeDB `locki-w91bw`, identity-scoped `my_*` views, read-only investigator identity | `fixtures/scenarios/*.json` (synthetic) |
+| source | LOCKI SpacetimeDB `locki-w91bw`, owner-granted `my_investigator_*` views, evidence-only investigator identity | `fixtures/scenarios/*.json` (synthetic) |
 | incident ids accepted | `incident:<32 lowercase hex>` only | `incident:fixture-<slug>` only |
 | row ids | as minted by LOCKI | carry an `fx-` marker (`evt:fx-...`) |
 | `evidence_mode` / `evidence_badge` | `live` / `LIVE` | `fixture` / `TEST DATA` |
@@ -213,10 +225,10 @@ Record shape, abridged; key order is not significant:
     "evidence_mode": "live", "evidence_badge": "LIVE", "evidence_banner": "LIVE EVIDENCE: ...",
     "investigation_status": "completed_with_warnings", "model_id": "nemotron-3.5-bolt:e4b",
     "evidence_provenance": {"mode": "live", "backend": "spacetimedb", "live": true, "label": "SpacetimeDB locki-w91bw (identity-scoped my_* views)"},
-    "official_severity": {"level": "high", "raw": "high", "rule_id": "...", "source": "incident record in LOCKI SpacetimeDB (my_incidents.severity)", "authoritative": true},
+    "official_severity": {"level": "high", "raw": "high", "rule_id": null, "source": "incident record in LOCKI SpacetimeDB (my_investigator_incidents.severity)", "authoritative": true},
     "effective_severity": {"level": "high", "basis": "official_severity | nemotron_escalation | official_severity_unrecognized", "rule": "max(official severity, Nemotron risk): ..."},
     "risk_assessment": {"level": "low|medium|high|critical", "confidence": "low|medium|high", "rationale": "...", "determined_by": "model_advisory"},
-    "headline": "Official severity high (rule ...). Nemotron's evidence review: medium risk, medium confidence. The official high severity stands.",
+    "headline": "Official severity high. Nemotron's evidence review: medium risk, medium confidence. The official high severity stands.",
     "summary": "...", "spoken_summary": "...", "summary_source": "model | model_spoken_summary | deterministic | deterministic_due_to_flags",
     "observed_facts": [{"fact": "...", "evidence_ids": ["evt:..."], "basis": "observed | observed_absence | incident_record"}],
     "possible_explanations": [{"explanation": "...", "likelihood": "low|medium|high", "supporting_evidence_ids": ["..."], "basis": "inferred"}],
@@ -225,7 +237,7 @@ Record shape, abridged; key order is not significant:
     "unsupported_claims": [{"claim": "...", "reason": "...", "cited_ids": ["..."]}],
     "advisories": [{"code": "...", "detail": "..."}],
     "evidence_gaps": [{"tool": "...", "status": "not_queried | evidence_unavailable | ...", "error": null}],
-    "timeline": [{"t_ms": 0, "time": "ISO-8601", "t_rel_s": -0.3, "evidence_id": "evt:...", "type": "device_event", "label": "usb: usb_device_connected (iPhone)"}],
+    "timeline": [{"t_ms": 0, "time": "ISO-8601", "t_rel_s": -0.3, "evidence_id": "evt:...", "type": "device_event", "label": "usb: usb_added (redacted device label)"}],
     "tool_execution_trace": [{"step": 1, "tool": "get_incident", "arguments": {"incident_id": "..."}, "status": "ok",
                               "duration_ms": 1.1, "evidence_ids": ["incident:..."], "result_summary": "...", "backend": "spacetimedb", "live_data": true}],
     "model_calls": [{"step": 1, "purpose": "tool_selection", "wall_ms": 457.2, "prompt_tokens": 1023, "request_chars": 4700,
@@ -302,12 +314,32 @@ How `spoken_summary` is built. It is deterministic, and this service plays no au
 
 ## 5. Severity: official vs Nemotron
 
-- **`official_severity`** is the incident record's `severity` from LOCKI's deterministic correlation rule. It is copied verbatim (`raw`) and normalized (`level`), and it is never modified.
+- **`official_severity`** comes from the current authorized `my_investigator_incidents.severity`. The live module emits `medium|high`. The value is copied verbatim (`raw`) and normalized (`level`); the model never overwrites it. The evidence projection omits the rule and mutable summary, so no live rule identifier or rule text may be invented.
 - **`risk_assessment`** is Nemotron's own judgment of the evidence (`determined_by: model_advisory`). It is reported as Nemotron produced it after grounding.
 - **`effective_severity`** = max(official, Nemotron). Nemotron can raise the review priority (`nemotron_escalation`) but never lower it. If the official value is not a standard level, `effective_severity.level` is null; the model's level never stands in for it.
+  This field is an advisory display priority, not a database severity, incident-state change or lock authorization.
 - A high-severity incident is never presented as medium.
   - The headline and voice text always lead with the official severity, and a lower Nemotron rating is labelled as Nemotron's view, followed by "the official severity stands".
   - If Nemotron's own summary wording understates the official severity, grounding replaces it with the deterministic summary (flag `understates_official_severity`, advisory `summary_replaced_by_grounding`), so the full record does not carry that wording either.
+
+**Freshness is mandatory.** Live preflight and finalization each call
+`assert_investigator_authorized()` and read the owner-approved incident projection.
+Each live event must belong to that incident's current approved-ID set and match
+its workstation/session. The baseline is exactly `session:<sessionId>`, not a
+latest device capture or a full-session fallback. Session state, device health,
+camera status, actor identity, rule and mutable summary remain out of scope.
+
+Finalization refreshes server severity/state before grounding the headline and
+advisory priority. Incident/workstation/session and approved evidence scope must
+still match; an absent, revoked, changed or failed read withholds the report as
+`live_report_withheld`, with no retained model conversation, tool trace, timeline
+or sensitive assessment in that failed result. `evidence_complete=false` is flagged
+even when the model does not choose an evidence tool. A completed live stored result
+carries the internal `evidence_scope_sha256`; the API checks it against current
+authorization/scope before serving a saved record and removes it from the public
+response. A cached result or API key does not extend a
+database grant. These checks do not create an atomic multi-view snapshot or undo
+evidence already obtained before revocation.
 
 ## 6. What the agent can and cannot do
 
@@ -328,9 +360,9 @@ How `spoken_summary` is built. It is deterministic, and this service plays no au
 
 ## 7. Live evidence access (Sid's minimum authorization)
 
-Sid's module, deployed to `locki-w91bw` (see `docs/airlock/INVESTIGATOR_INTEGRATION.md`), gives the investigator identity `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883` **per-incident, owner-granted, read-only evidence**.
+Sid's module supports **per-incident, owner-granted, read-only evidence** for the configured investigator identity. See the monorepo's [investigator handoff](../../docs/airlock/INVESTIGATOR_INTEGRATION.md) for the deployment and expected public identity. An anonymous schema match does not prove this principal has an actual grant; its own-token verification and grant receipt remain pending.
 
-**What the identity is not.** It is not a member of any workstation (no `grant_reviewer`, no role), and it can call no reducer that changes anything. No owner credential is used anywhere.
+**What the identity is not.** It is not a member of any workstation (no `grant_reviewer`, no role), and it can call no reducer that changes anything. The service and its verifiers never use the owner's credential. The owner separately uses their own authenticated CLI for grant/revoke; `--no-config` ignores `spacetime.json`, not CLI authentication.
 
 **What it reads.** The service reads only:
 - `my_investigator_incidents`: the incident, with its authoritative `severity`, `approved_event_ids_json` and `evidence_complete`;
@@ -339,11 +371,12 @@ Sid's module, deployed to `locki-w91bw` (see `docs/airlock/INVESTIGATOR_INTEGRAT
 
 **What is outside the scope.** These are reported as out of scope and never invented:
 - the rule and summary;
-- acknowledgement and resolution;
+- acknowledgement/resolution actors and notes (the projected incident `state` is still visible);
 - the session record (armed state);
 - device health and camera status.
 
 `evidence_complete=false` adds the `incident_evidence_incomplete` advisory.
+The grant is explicitly revocable; this contract promises no automatic grant TTL.
 
 **Live vocabulary.**
 
@@ -364,13 +397,26 @@ spacetime call --no-config --server https://maincloud.spacetimedb.com locki-w91b
 ```
 
 **Verify and revoke.**
-- Once granted, the M5 runs Sid's read-only verifier, `node scripts/airlock_investigator_verify.mjs --token-file .secrets/stdb_investigator.token --incident <id> --output <report>` from the monorepo. Its non-secret report can be shared.
+- The service token reader accepts a plain token or JSON containing `token` and an optional `identity` hint. Both forms must be current-operator-owned regular files, have no group/other permission bits, stay within 64KiB and pass the no-symlink check. Do not print or transfer the token.
+- Sid's Node verifier requires **JSON with a `token` field**, not a raw-token file. Use an existing private JSON token file or have its operator create a separate private JSON wrapper locally; pointing it at a plain `.token` file is not compatible. No new credential or owner token is needed.
+- Once the owner grants the selected evidence, run from the monorepo root:
+
+  ```bash
+  node scripts/airlock_investigator_verify.mjs \
+    --token-file /private/path/investigator-verifier.json \
+    --incident OWNER_APPROVED_INCIDENT_ID \
+    --outside-workstation INDEPENDENTLY_KNOWN_OTHER_WORKSTATION_ID \
+    --output /private/path/investigator-live-verification.json
+  ```
+
+  The verifier checks the server-authenticated principal, exact approved incident/events/frozen baseline, unchanged scope at the end, empty privileged caller views and denials for nine private backing tables. The other workstation's three investigator queries must succeed with zero rows; a network or HTTP failure is not proof of denied scope. Schema visibility and an empty membership list alone do not establish absence of separate cloud administrative privileges. Keep the detailed report private and share only a sanitized aggregate, without tokens or raw incident/event IDs and capture timestamps. This actual-token run and its receipt remain pending until executed on the owning host.
 - It then runs `.venv/bin/python bench/live_e2e.py --key-file .secrets/handoff/mustafa-operator.key`.
 - Afterwards the owner revokes the grant with `revoke_incident_evidence`.
 
 **Watching the grant.**
 - `bench/wait_for_grant.py` polls read-only for a grant. It exits 0 once a grant is visible and the identity holds no membership, and exits 4 if the identity is ever over-privileged.
 - `/health` reports `authorized_incidents`, and `live_evidence_has_no_incident_grant` until a grant exists.
+- These operational hints do not replace the mandatory authenticated-principal check or the owning host's actual-token verifier. Token-file identity hints and visible rows alone are not authorization proof.
 
 ## 8. Monorepo placement
 
@@ -382,6 +428,14 @@ v0.3:
 - **New tunnel.** The tunnel port on the M4 is now 18787: `LOCKI_INVESTIGATOR_URL=http://127.0.0.1:18787`. The key is collected over SSH.
 - **Live evidence.** It now comes from Sid's owner-granted `my_investigator_*` views. Live results carry no rule id or summary, because the projection omits them. The headline reads "Official severity <level>." with no rule.
 - **Health fields.** `/health` adds `authorized_incidents` and `evidence_scope` to the live backend, and the degraded code `live_evidence_has_no_incident_grant`.
+- **Evidence-only identity gate.** The integrated adapter must freshly authenticate the expected investigator and reject every enabled workstation membership before live model use. An API key, token-file identity hint, anonymous schema response or visible grant row alone is insufficient. Service token files may be plain or JSON; the separate Node actual-token verifier requires private JSON containing `token` (§7).
+- **Live report freshness.** Approved event IDs, workstation/session provenance and the frozen baseline constrain every read. Finalization refreshes authoritative severity/state; saved live reports require current authorization and a matching evidence-scope digest before being served. Failed/revoked scope withholds sensitive output (`live_report_withheld`), and incomplete approved evidence is flagged independently of model tool choice (§5).
+- **Source versus host proof.** Imported v0.3 code and fixture regressions establish software behavior only. They do not establish an installed/restarted M5 service, an actual scope grant/receipt, model-selected tool execution or a new native trace.
+
+The final integrated service unit run passed **387 tests**, with **one skipped and
+three live-model tests deselected**. Critical Python lint passed; existing full-style
+findings remain. These mocked/scripted checks do not verify an actual investigator
+token/grant, M5 deployment/restart or new model/native trace.
 
 v0.2, from v0.1:
 

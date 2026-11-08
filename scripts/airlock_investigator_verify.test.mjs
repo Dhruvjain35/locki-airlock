@@ -25,6 +25,13 @@ function fixture(overrides = {}) {
     assert.equal(options.redirect, 'error');
     if (url.endsWith('/schema?version=9')) return Response.json(schema, { headers: { 'spacetime-identity': overrides.identity || DEFAULT_INVESTIGATOR } });
     assert.ok(url.endsWith('/sql')); assert.equal(options.method, 'POST'); assert.match(options.body, /^SELECT /);
+    const outside = /^SELECT \* FROM (my_investigator_incidents|my_investigator_events|my_investigator_baselines) WHERE workstation_id = '([A-Za-z0-9_.:-]{1,128})'$/.exec(options.body);
+    if (outside) {
+      if (overrides.outsideNetworkError) throw new TypeError('network unavailable');
+      if (overrides.outsideStatus) return new Response('permission denied', { status: overrides.outsideStatus });
+      if (overrides.outsideMalformed) return Response.json({ rows: [] });
+      return Response.json(result(overrides.outsideAccess === outside[1] ? [{ id: 'forbidden', workstation_id: outside[2] }] : []));
+    }
     const name = options.body.split(' ').at(-1);
     if (privateTables.includes(name)) {
       if (overrides.rawAccess) return Response.json(result([{ id: 'private' }]));
@@ -52,8 +59,45 @@ test('returns exact approved IDs/timestamps, verifies denied reads, and performs
   assert.equal(report.events[0].received_at_ms, 1001); assert.equal(report.events[0].simulated, false);
   assert.equal(report.private_table_denials.length, privateTables.length);
   assert.deepEqual(report.empty_existing_views, oldViews);
+  assert.deepEqual(report.outside_workstation_check, { requested: false, performed: false });
+  assert.ok(f.calls.every(call => !call.body?.includes(' WHERE ')));
   assert.ok(f.calls.every(call => call.url.includes('/schema?') || call.url.endsWith('/sql')));
   assert.doesNotMatch(JSON.stringify(report), /TOKEN_MUST|private-approved-detail/);
+});
+
+test('explicit outside workstation check performs exactly three fixed SELECTs without mutations', async () => {
+  const f = fixture(); const report = await verify({ ...f, outsideWorkstation: 'desk-c20073fb' });
+  assert.deepEqual(f.calls.filter(call => call.body?.includes(' WHERE ')).map(call => call.body),
+    targetViews.map(view => `SELECT * FROM ${view} WHERE workstation_id = 'desk-c20073fb'`));
+  assert.deepEqual(report.outside_workstation_check, {
+    requested: true, performed: true, workstation_id: 'desk-c20073fb', existence_verified: false,
+    views: targetViews.map(view => ({ view, row_count: 0 })),
+  });
+  assert.equal(report.reducer_calls, 0);
+  assert.ok(f.calls.every(call => call.method === 'GET' && call.url.endsWith('/schema?version=9') ||
+    call.method === 'POST' && call.url.endsWith('/sql') && /^SELECT (?:\*|id) FROM /.test(call.body)));
+});
+
+for (const outsideWorkstation of ['', 'dhruv-m4-air', null, 42, 'x'.repeat(129), "desk' OR 1=1 --", 'desk\nother', 'desk;DELETE']) {
+  test(`invalid outside workstation is rejected before network: ${JSON.stringify(outsideWorkstation)}`, async () => {
+    const f = fixture();
+    await assert.rejects(verify({ ...f, outsideWorkstation }), { code: 'INVALID_OUTSIDE_WORKSTATION' });
+    assert.equal(f.calls.length, 0);
+  });
+}
+
+for (const view of targetViews) test(`outside rows fail verification: ${view}`, async () => {
+  await assert.rejects(verify({ ...fixture({ outsideAccess: view }), outsideWorkstation: 'desk-c20073fb' }),
+    { code: `OUTSIDE_WORKSTATION_ACCESS_${view}` });
+});
+
+for (const status of [400, 401, 403, 404, 500, 503]) test(`outside HTTP ${status} is never a successful scope denial`, async () => {
+  await assert.rejects(verify({ ...fixture({ outsideStatus: status }), outsideWorkstation: 'desk-c20073fb' }), { status });
+});
+
+test('outside network failure and malformed success response fail verification', async () => {
+  await assert.rejects(verify({ ...fixture({ outsideNetworkError: true }), outsideWorkstation: 'desk-c20073fb' }), TypeError);
+  await assert.rejects(verify({ ...fixture({ outsideMalformed: true }), outsideWorkstation: 'desk-c20073fb' }), { code: 'INVALID_SQL_RESPONSE' });
 });
 
 test('wrong authenticated identity stops before any SQL request', async () => {
@@ -83,6 +127,14 @@ test('transport rejects all reducer and identity-creation calls before network',
   await assert.rejects(client.call('arm_session', []), { code: 'NON_READ_OPERATION_FORBIDDEN' });
   await assert.rejects(client.newIdentity(), { code: 'NON_READ_OPERATION_FORBIDDEN' });
   await assert.rejects(client.sql('DELETE FROM incidents'), { code: 'NON_READ_OPERATION_FORBIDDEN' });
+  for (const query of [
+    "SELECT * FROM my_incidents WHERE workstation_id = 'other'",
+    "SELECT id FROM my_investigator_events WHERE workstation_id = 'other'",
+    "SELECT * FROM my_investigator_events WHERE workstation_id = 'other' OR 1=1",
+    "SELECT * FROM my_investigator_events WHERE workstation_id = 'other'; DELETE FROM incidents",
+    "SELECT * FROM my_investigator_events WHERE session_id = 'other'",
+    "SELECT * FROM my_investigator_events WHERE workstation_id = ''",
+  ]) await assert.rejects(client.sql(query), { code: 'NON_READ_OPERATION_FORBIDDEN' });
   assert.equal(calls, 0);
 });
 

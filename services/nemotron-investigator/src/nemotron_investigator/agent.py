@@ -46,12 +46,13 @@ from pydantic import BaseModel, ValidationError
 from .assessment import (ASSESSMENT_JSON_SCHEMA, ASSESSMENT_JSON_SCHEMA_RELAXED, ModelAssessment,
                          RelaxedModelAssessment, ground)
 from .config import Settings
+from .evidence.authorization import incident_scope_digest
 from .evidence.base import EvidenceSource, EvidenceUnavailable
 from .ollama_client import (ChatResult, DegenerateOutput, ModelError, ModelTimeout, OllamaClient,
                             OllamaUnavailable)
 from .sanitize import clean_text, looks_like_injection
 from .tools import (FINISH_TOOL, INCIDENT_ID_PATTERN, REGISTRY, FinishArgs, ToolContext, ToolExecution, call_key,
-                    execute_tool_call, incident_id_mode, ollama_tool_specs)
+                    execute_tool_call, incident_id_mode, ollama_tool_specs, same_incident_scope)
 
 SYSTEM_PROMPT = """You are the LOCKI AIRLOCK security investigator, running locally on NVIDIA Nemotron.
 You investigate ONE workstation security incident by calling read-only tools, then you stop.
@@ -137,7 +138,7 @@ def evidence_mode_fields(prov, *, incident_simulated: bool = False) -> dict:
 def official_severity_block(incident, prov) -> dict:
     raw = clean_text(incident.severity, 24)
     return {"level": _norm_level(raw), "raw": raw, "rule_id": clean_text(incident.rule_id, 48),
-            "source": ("incident record in LOCKI SpacetimeDB (my_incidents.severity)" if prov.live
+            "source": ("incident record in LOCKI SpacetimeDB (my_investigator_incidents.severity)" if prov.live
                        else "fixture incident record (test data)"),
             "authoritative": True,
             "note": "Set by LOCKI's deterministic correlation rule. Nemotron's assessment never changes it."}
@@ -320,8 +321,19 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
 
     def finish(status: str, *, assessment: dict | None = None, validation: dict | None = None,
                error: str | None = None) -> dict:
+        nonlocal ctx
         if error:
             errors.append(error)
+        if source.provenance.live and ctx is not None and not status.startswith("completed"):
+            # A failed/revoked live run is not an alternate route to cached
+            # sensitive evidence through its diagnostic trace or conversation.
+            ctx = None
+            trace.clear()
+            conversation.clear()
+            calls.clear()
+            assessment = None
+            validation = None
+            errors[:] = ["live_report_withheld"]
         model_ms = round(sum(c.wall_ms for c in calls), 2)
         tool_ms = round(sum(t.duration_ms for t in trace), 2)
         ok = [t for t in trace if t.status == "ok" and t.tool in REGISTRY]
@@ -341,6 +353,7 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
             "evidence_provenance": {"mode": mode["evidence_mode"], "backend": prov.backend, "live": prov.live,
                                     "label": prov.label},
             "official_severity": official,
+            "evidence_scope_sha256": incident_scope_digest(ctx.incident) if ctx is not None and prov.live else None,
             "effective_severity": effective_severity_block(official, model_level) if official else None,
             **(assessment or {}),
             "validation": validation,
@@ -395,6 +408,8 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
         # A real incident id never runs on fixtures, and a fixture id never queries the live database.
         return finish("rejected", error=f"incident_id_not_valid_for_{source_mode}_evidence")
     try:
+        if source.provenance.live:
+            await asyncio.wait_for(source.assert_investigator_authorized(), timeout=settings.tool_timeout_s)
         incident = await asyncio.wait_for(source.get_incident(incident_id), timeout=settings.tool_timeout_s)
     except EvidenceUnavailable as e:
         return finish("failed", error=f"evidence_source_unavailable: {clean_text(e, 160)}")
@@ -405,6 +420,8 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
     if incident is None or not requester.may_access(incident.workstation_id):
         # Same answer for "absent" and "forbidden" so callers cannot probe for incidents.
         return finish("rejected", error="incident_not_found_or_not_authorized")
+    if source.provenance.live and incident.scope != "owner_approved_evidence":
+        return finish("rejected", error="owner_approved_incident_projection_required")
     gate = None
     if settings.relay_gate:
         try:
@@ -413,6 +430,8 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
         except Exception as e:  # noqa: BLE001 - operator asked for the gate: fail closed
             return finish("failed", error=f"policy_gate_unavailable: {type(e).__name__}: {clean_text(e, 120)}")
     ctx = ToolContext(inv_id, incident, source, settings.max_tool_result_chars, relay_gate=gate)
+    if getattr(incident, "evidence_complete", True) is False:
+        ctx.signals["incident_evidence_incomplete"] = True
     if incident.simulated:  # known from preflight, whichever tools the model later calls
         ctx.signals["simulated_rows_seen"] = True
         ctx.signals["incident_simulated"] = True
@@ -709,6 +728,16 @@ async def investigate(incident_id: str, requester: Requester, source: EvidenceSo
         return finish("failed", error="invalid_model_output")
 
     # ------------------------------------------- 4. deterministic grounding
+    if source.provenance.live:
+        try:
+            await asyncio.wait_for(source.assert_investigator_authorized(), timeout=settings.tool_timeout_s)
+            fresh = await asyncio.wait_for(source.get_incident(incident_id), timeout=settings.tool_timeout_s)
+            if not same_incident_scope(ctx.incident, fresh) or not requester.may_access(fresh.workstation_id):
+                return finish("rejected", error="incident_authorization_changed")
+            ctx.incident = fresh
+            ctx.signals["incident_evidence_incomplete"] = not fresh.evidence_complete
+        except Exception:  # noqa: BLE001 - any final authorization failure must discard the cached report
+            return finish("failed", error="final_authorization_refresh_failed")
     official = official_severity_block(ctx.incident, source.provenance)
     fields, report = ground(model_assessment, ctx.evidence_index, omitted=omitted, official_level=official["level"])
     gaps = [{"tool": t.tool, "status": t.status, "error": t.error} for t in trace

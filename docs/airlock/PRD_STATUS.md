@@ -1,7 +1,8 @@
 # AIRLOCK PRD implementation and acceptance status
 
 **Current integration reconciliation (2026-11-08):** the authoritative integration
-repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251`.
+repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251` with
+the source handoffs imported through pinned main `529885c40f3bf00c55a4e38b35a3b9f022298431`.
 See [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the current P0 and named-test
 matrix, differences from the original PRD, and the distinction between inspected
 artifacts and teammate-reported hardware/model results. The older entries below
@@ -9,9 +10,32 @@ are historical evidence from Sid's original lane; their old repository links,
 test counts, hardware discovery and missing-branch statements are not current
 release certification. Full PRD acceptance remains incomplete.
 
-Final merged-source checks: 1,562 backend tests passed/20 skipped; 46 frontend tests
-and build; 149 transactional +28 policy; 151 Node adapter, 31 read/HTTP boundary,
-28 owner-consent policy, 22 camera-free edge and 10 model-transport tests passed.
+The final full backend run passed **1,772 tests/20 skipped in 182.14s**; the separate
+investigator service suite passed **387, one skipped and three live-model tests
+deselected in 4.18s**. Frontend 54 tests are recorded, and final typecheck/build
+passed after the recorded-input copy/Send-enable correction. The build retains a
+980.06kB JavaScript chunk warning. Earlier 1,699- and 1,729-pass backend checkpoints
+retain their own pre-/post-dispatch scope. Node adapters passed 151 tests; combined
+investigator/owner HTTP boundaries passed 50. The latter includes 35 fixture investigator-verifier tests and
+does not prove an actual investigator grant, receipt, M5 verification or model trace.
+Earlier retained component checks passed 149 transactional +28 policy,
+28 owner-consent policy, 22 camera-free edge and 10 model-transport tests. The
+current source and log hashes distinguish these runs; no final merged-source or
+live-deployment certification follows from their totals.
+The user-authorized application batch reached main at `2044019`, and the exact
+workflow at `7328c4e`. The earlier OAuth workflow-scope rejection is resolved;
+there is no current workflow-delivery credential blocker. Actions run
+[42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
+last reported `startup_failure` with zero jobs; its cause remains unverified.
+Current source/log hashes cover the remaining investigator hardening and docs
+without asserting a future delivery commit or an M4/M5 restart. Backend modified
+Python lint and investigator critical lint passed; pre-existing investigator
+style findings remain. The skipped/deselected tests close no acceptance gate.
+Mustafa's v0.3 service source is now present under `services/nemotron-investigator/`.
+Its evidence-only principal, per-incident provenance and fresh-severity integration
+are software review work. An actual M5 deployment/restart, scope grant/receipt,
+own-token authorization verification, model-selected multi-tool run and native LLM
+trace remain pending. Imported benchmark artifacts do not close those gates.
 Fresh cloud ARM authorization passed 12 checks; the production M4 service ARM path
 passed owner-consent HTTP/private fixture CLI issuance, session readback and replay
 denial without real M4 credentials or hardware/audio. Separate authorized stored-data
@@ -23,7 +47,7 @@ remaining gates are in the current release matrix above; raw real evidence stays
 
 This is a bounded evidence snapshot for the supplied `LOCKI_AIRLOCK_PRD.md`, sections 0–16, reconciled on 2026-11-07 after functional regression verification. The latest source release and commit-specific CI are recorded separately below. Machine-readable sanitized evidence is [software-verification.json](evidence/software-verification.json), whose historical runs retain their own source and timing boundaries. Full PRD acceptance remains incomplete. The source PRD remains unchanged. **Implemented** means code exists; **verified locally** means a described real execution occurred; **pending** means the acceptance evidence has not been collected. A synthetic observation through a real database does not become a physical observation.
 
-## P0 requirements, individually
+## Historical lane P0 requirements, individually
 
 | PRD §2 P0 | Code and current evidence | Remaining acceptance work |
 |---|---|---|
@@ -38,7 +62,7 @@ This is a bounded evidence snapshot for the supplied `LOCKI_AIRLOCK_PRD.md`, sec
 | 9. Preserve and integrate existing live voice | Existing speech pipeline retained. The restricted local voice service and committed-incident bridge use existing Speaker priorities. The targeted backend run at 22:39 UTC passed 49 tests: 21 announcement/service, 23 explicit voice-input and 5 Mac-observer tests. The latest bounded Node run passed 87 tests, including the existing voice mappings. Prerecorded CPU-only Whisper ASR also passed on one official 11-second human-speech sample; no microphone was opened. These checks cover P0 interruption, auth/origin, durable dedup, mute and factual owner-panic templates. One actual cached P0 rehearsal playback completed; stop_talking calls no security reducer. | Full real microphone→VAD/ASR→Nemotron/fallback→audible-output conversation remains pending. Recorded proof used no live microphone/model; no additional audio was played for manual panic. Hardware-event-to-acoustic timing and live untrusted-voice trial remain separate. |
 | 10. Recovery across two clients and reconnect | Independent authenticated SDK clients share incident IDs/review changes; revoked readers lose rows and saved-token reconnect restores state. Actual local SIGTERM/restart restored 29 incidents. Separate cloud Chrome owner/reviewer contexts completed synthetic arm→correlation→reviewer acknowledgement→owner resolve→disarm. Final cloud owner panic→factual note→resolve→disarm also succeeded without OS/audio/hardware action. | Two physical computers, real network-outage trials and genuine hardware recovery/unlock proof remain pending. |
 
-## PRD §13 named acceptance evidence
+## Historical lane PRD §13 named acceptance evidence
 
 | ID | Current status | Evidence needed to close |
 |---|---|---|
@@ -90,7 +114,7 @@ Record run ID, real versus simulated provenance, sample count, source/receipt/re
 
 The integration owner also ran the existing backend regression suite after installing its vision extra and verifying its two small existing vision weights: **495 passed, 8 skipped**. That regression preserves the legacy software baseline; it is separate from the 49 AIRLOCK deployed-module groups and does not certify untested hardware/audio/model paths.
 
-## Latest bounded proof details
+## Historical bounded proof details
 
 At this reconciliation, completed local checks pass **28 policy tests and 60 real datastore tests**, plus **22 frontend tests and 87 Node adapter/boundary tests**. These counts precede the publisher-stream/stale-replay work now underway. The earlier 47-datastore and 74-Node results remain historical evidence, not current totals. Baseline integration inputs use explicit `fixture:` identifiers on freshly test-owned workstations. They exercise live-arm authorization and freezing without publishing live device events, operating sensors or requesting an OS lock. This is contract proof, separate from the genuine empty-inventory capture proof in [MAC_CAPTURE.md](MAC_CAPTURE.md); neither establishes a physical USB insertion trial.
 
@@ -102,7 +126,7 @@ Historical full post-review deployed verifier reports: **49/49 groups passed on 
 
 Two earlier cloud verifier attempts exposed test synchronization assumptions: one asserted the owner cache after waiting only for reviewer correlation; another required a particular expiry error despite autonomous scheduled expiry. The verifier now waits for both independent caches and proves exact committed grant expiry/unconsumed state before accepting either valid denial path. Their failed reports remain preserved; no module correctness claim rests on discarding them.
 
-## Software verification counts and scope
+## Historical software verification counts and scope
 
 | Completed check | Result | Evidence basis |
 |---|---:|---|
@@ -130,7 +154,7 @@ Final safe UI observation at 21:43–21:44 UTC: the integration owner armed a sy
 
 Still incomplete: real Jetson/Logitech capture and human trials, physical USB insertion/removal, actual consented OS lock/unlock/confirmation, full microphone/ASR/model conversation, E4B model-selected multi-tool work and LLM spans, automatic existing Code Quest integration, two physical Macs, hardware/acoustic timing, elapsed 24h retention observation . Scope is retained; those requirements are not silently removed or claimed satisfied.
 
-## Reviewed source release
+## Historical reviewed source release
 
 The source-only competition snapshot is public at [s-k-28/locki-airlock](https://github.com/s-k-28/locki-airlock). The verified implementation is private commit `8cd9b85704754d43598218c6e1f77a5e4fa6e3a8` and byte-identical public commit [`1c394ec7f3addc3a590f08529eed0f4816cdc64e`](https://github.com/s-k-28/locki-airlock/commit/1c394ec7f3addc3a590f08529eed0f4816cdc64e), with 356 tracked files. This status stamp is a subsequent documentation-only update. Private history, credentials, runtime data, recordings, installed dependencies and model weights are excluded. `data/airlock-functional-gitleaks.log` and its JSON report record zero findings for that export. Firmware GPL text and team/upstream attribution remain intact.
 

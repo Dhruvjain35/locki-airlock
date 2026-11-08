@@ -11,7 +11,7 @@ from conftest import (A_ID, A_PATH, MODEL, SCENARIOS, calls, final, incident_of,
                       scripted_client, text)
 from nemotron_investigator.agent import Requester, investigate
 from nemotron_investigator.contracts import DeviceEventRow, InvestigatorBaselineRow, InvestigatorIncidentRow
-from nemotron_investigator.evidence.base import Provenance
+from nemotron_investigator.evidence.base import EvidenceUnavailable, Provenance
 from nemotron_investigator.evidence.fixture import FixtureEvidenceSource
 from nemotron_investigator.ollama_client import OllamaClient
 
@@ -508,6 +508,9 @@ class ProjectionSource:
     async def get_incident(self, iid):
         return self.inc if iid == self.inc.id else None
 
+    async def assert_investigator_authorized(self):
+        return None  # explicit fake authenticated least-privilege principal
+
     async def get_session(self, ws, sid):
         return None
 
@@ -573,3 +576,112 @@ async def test_live_shaped_investigation_over_the_owner_approved_projection(sett
     assert "incident_evidence_incomplete" in {a["code"] for a in r["advisories"]}
     assert any("owner-approved evidence for this incident is incomplete" in m for m in r["missing_information"])
     assert r["observed_facts"] and r["observed_facts"][0]["evidence_ids"] == [LIVE_EVT]
+
+
+async def test_live_final_refresh_uses_current_high_severity_and_digest(settings):
+    from nemotron_investigator.evidence.authorization import incident_scope_digest
+
+    class UpdatingSource(ProjectionSource):
+        reads = 0
+        auth_checks = 0
+
+        async def assert_investigator_authorized(self):
+            self.auth_checks += 1
+
+        async def get_incident(self, iid):
+            self.reads += 1
+            if self.reads > 1:
+                self.inc = self.inc.model_copy(update={"severity": "high", "updated_at_ms": self.inc.updated_at_ms + 1})
+            return await super().get_incident(iid)
+
+    src = UpdatingSource(baseline_keys=[], event_key="sha256:cc")
+    client, _ = scripted_client([calls(("get_incident_evidence", {})), text(),
+                                final(summary="This is a medium severity incident.", spoken_summary="This incident is medium severity.")])
+    result = await investigate(LIVE_INC, ALL, src, client, settings)
+    assert result["investigation_status"].startswith("completed")
+    assert src.auth_checks == 2 and src.reads == 2
+    assert result["official_severity"]["level"] == result["effective_severity"]["level"] == "high"
+    assert "my_investigator_incidents.severity" in result["official_severity"]["source"]
+    assert result["summary_source"] == "deterministic_due_to_flags"
+    assert result["headline"].startswith("Official severity high")
+    assert result["evidence_scope_sha256"] == incident_scope_digest(src.inc)
+
+
+@pytest.mark.parametrize("failure", ["revoked-principal", "revoked-grant", "read-failure", "changed-scope", "changed-session"])
+async def test_live_final_revalidation_discards_sensitive_report(settings, failure):
+    class RevokingSource(ProjectionSource):
+        reads = 0
+        auth_checks = 0
+
+        async def assert_investigator_authorized(self):
+            self.auth_checks += 1
+            if self.auth_checks > 1 and failure == "revoked-principal":
+                raise EvidenceUnavailable("principal is no longer authorized")
+
+        async def get_incident(self, iid):
+            self.reads += 1
+            if self.reads > 1:
+                if failure == "revoked-grant":
+                    return None
+                if failure == "read-failure":
+                    raise EvidenceUnavailable("read unavailable")
+                if failure == "changed-scope":
+                    return self.inc.model_copy(update={"approved_event_ids_json": "[]"})
+                if failure == "changed-session":
+                    return self.inc.model_copy(update={"session_id": "other-session"})
+            return await super().get_incident(iid)
+
+    src = RevokingSource(baseline_keys=[], event_key="sha256:sensitive")
+    client, _ = scripted_client([calls(("get_incident_evidence", {})), text(), final()])
+    result = await investigate(LIVE_INC, ALL, src, client, settings)
+    assert not result["investigation_status"].startswith("completed")
+    assert result["official_severity"] is result["evidence_scope_sha256"] is None
+    assert result["timeline"] == result["conversation"] == result["tool_execution_trace"] == []
+    assert "summary" not in result and "sha256:sensitive" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("principal", ["owner", "reviewer", "service", "wrong-identity"])
+async def test_live_wrong_or_overprivileged_principal_stops_before_any_read_or_model(settings, principal):
+    class DeniedSource(ProjectionSource):
+        async def assert_investigator_authorized(self):
+            raise EvidenceUnavailable(f"rejected {principal}")
+
+        async def get_incident(self, iid):
+            pytest.fail("unauthorized principal reached evidence read")
+
+    src = DeniedSource(baseline_keys=[], event_key="unused")
+    client, script = scripted_client([])
+    async def no_health():
+        pytest.fail("unauthorized principal reached model health")
+    client.health = no_health
+    result = await investigate(LIVE_INC, ALL, src, client, settings)
+    assert result["investigation_status"] == "failed" and not script.requests
+    assert result["official_severity"] is None
+
+
+async def test_incomplete_projection_is_flagged_without_get_incident_tool(settings):
+    src = ProjectionSource(baseline_keys=[], event_key="sha256:cc", complete=False)
+    client, _ = scripted_client([calls(("get_incident_evidence", {})), text(), final()])
+    result = await investigate(LIVE_INC, ALL, src, client, settings)
+    assert result["investigation_status"].startswith("completed")
+    assert "get_incident" not in result["metrics"]["tool_sequence"]
+    assert "incident_evidence_incomplete" in {advisory["code"] for advisory in result["advisories"]}
+    assert result["deterministic_signals"]["incident_evidence_incomplete"] is True
+
+
+async def test_degraded_live_run_with_grounded_assessment_discards_all_private_fields(settings):
+    class PartlyUnavailable(ProjectionSource):
+        async def list_device_events(self, *args):
+            raise EvidenceUnavailable("window unavailable")
+
+    src = PartlyUnavailable(baseline_keys=[], event_key="sha256:private")
+    client, _ = scripted_client([calls(("get_incident_evidence", {})),
+                                calls(("get_recent_vision_events", {})), text(),
+                                final(observed_facts=[{"fact": "A USB device was added", "evidence_ids": [LIVE_EVT]}])])
+    result = await investigate(LIVE_INC, ALL, src, client, settings)
+    assert result["investigation_status"] == "degraded"
+    assert result["errors"] == ["live_report_withheld"]
+    assert result["validation"] is result["evidence_scope_sha256"] is result["official_severity"] is None
+    assert result["timeline"] == result["tool_execution_trace"] == result["conversation"] == []
+    assert not ({"summary", "spoken_summary", "observed_facts", "model_drafts", "evidence_gaps", "headline"} & result.keys())
+    assert "sha256:private" not in json.dumps(result)

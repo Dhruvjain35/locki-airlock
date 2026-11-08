@@ -3,7 +3,8 @@
 ## Current integration target (2026-11-08)
 
 The team integration repository is now `Dhruvjain35/locki-airlock`; the inspected
-snapshot is `2212251`. Coordination and the exact missing artifacts are tracked in
+source is `integration/sid-acceptance`, reconciled with main through `529885c`.
+Coordination and the exact missing artifacts are tracked in
 [issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2). Do not post new
 integration work to the retired `Dhruvjain35/locked-in` PR.
 
@@ -20,9 +21,10 @@ principal.
 session, opens Calculator and may run a real model. It is **not** the read-only
 verifier and was not run for this reconciliation. No second investigator consumer
 was started. The snapshot's `docs/airlock/INTEGRATION.md` §5 describes Dhruv's camera
-measurements; it is not Mustafa's missing host contract with the same section number.
+measurements. Mustafa's actual host contract is now included at
+[`services/nemotron-investigator/INTEGRATION.md`](../../services/nemotron-investigator/INTEGRATION.md), v0.3.
 
-Fresh software verification on this snapshot: the read-only verifier passed 16/16,
+Fresh software verification: the read-only verifier passed 35/35,
 the report reconciler 24/24, and investigator transactional authorization 38/38.
 Fixture transports verify wrong
 identity, scope, provenance, unsafe timestamps, broader/private access and
@@ -34,11 +36,11 @@ The safe host integration remains explicit: use the three views below through hi
 existing credential, expose only returned approved evidence as read tools, retain
 model/Relay logs locally, refresh authorization before rendering, and reconcile
 the final advisory result with server severity. Keep action/sandbox/review tools
-out of this principal. Host wiring requires Mustafa's actual branch and contract;
-replacing the local service with a guessed adapter would violate this boundary.
+out of this principal. The actual host source is now present; no second investigator
+consumer, model process or service was started during integration.
 
 The investigator extension is deployed to maincloud `locki-w91bw`. Source is on
-`feature/airlock-sid`. It was first deployed separately, then preserved in the
+`integration/sid-acceptance` in the new repository. It was first deployed separately, then preserved in the
 combined ARM/investigator release. Current module hash:
 `0x169d2dbe86daff56008eb83c638ef8c32c8c346296d8a24a157acc7aab62aa29`.
 No database reset, existing identity replacement, camera enrollment change or
@@ -50,14 +52,20 @@ Assigned workstation: `dhruv-m4-air`. Its owner remains
 **The target identity has not yet been granted access or tested with its credential.**
 The owner credential remains on Dhruv's M4; the investigator credential stays with Mustafa.
 
-Mustafa's `INTEGRATION.md` §5 and scenario-B definition have not been provided or
-found in accessible branches. The contract below reflects the inspected live schema;
-comparison with that document and integration into his host remain open. His reported
-30 real-model runs were not rerun or independently inspected in this work.
+Mustafa's v0.3 §5 and scenario-B fixture are now available in the imported source.
+The approved event names and string-array baseline projection match the contract
+below. The integrated host additionally validates its server-authenticated principal,
+rejects every enabled membership, filters tools to this incident/session's approved
+evidence, refreshes server severity before final reporting, and withholds stale or
+revoked cached reports. These are software changes; they do not prove that the running
+M5 has adopted them. His stored real-model benchmark artifacts were not rerun here.
 
 ## Minimum authorization
 
-Do not enroll this identity as `service`, `reviewer`, `mac` or owner. Existing service
+Do not enroll this identity as `service`, `reviewer`, `mac` or owner.
+`grant_reviewer(..., false)` still permits incident acknowledgement, information
+requests and workstation refresh writes; it does not satisfy read-only access.
+Existing service
 permissions include action proposals and agent-step writes. Instead, a new private
 `incident_evidence_grants` table provides explicit, revocable read scope:
 
@@ -152,20 +160,23 @@ reconcileInvestigatorReport({
 
 Supply a fresh coherent authorized incident snapshot and only that incident's returned
 approved events. The helper rejects invented/unreturned IDs, wrong workstation/session,
-provenance mismatches and model fields attempting to override canonical data. It is not
-yet connected to Mustafa's host. Refresh authorized evidence immediately before report
-generation/display; stop and discard live caches on revocation or lost connection.
+provenance mismatches and model fields attempting to override canonical data. It is
+an independent report helper. Mustafa's integrated host separately refreshes authorized
+evidence before final reporting and display, binds stored live reports to the exact
+approved snapshot, and withholds output after revocation or scope/severity changes.
 A pure helper cannot detect stale cached authorization.
 
 The correlation test reproduces unknown USB plus same-session physical evidence within
 10 seconds: server `high` with model `medium` remains `high`. This establishes the
-integration rule, not the correctness of the unavailable scenario-B fixture. The two
-inspected production USB incidents currently both have server severity `medium`.
+integration rule, not physical accuracy of the available scenario-B fixture or a
+current live severity readback.
 
-## Owner command prepared for one verified incident
+## Owner-local grant and investigator verification
 
-After reviewing this exact scope, Dhruv can authorize **only** the later USB incident,
-its one event, and its frozen session baseline using his existing authenticated CLI:
+The exact private incident selection and owner-local command are in issue #2.
+The template below requires the owner to select a genuine incident and its linked
+event subset. Replace both approved-ID placeholders before running it through the
+M4's existing authenticated CLI. Sid and Mustafa do not handle the owner credential:
 
 ```bash
 spacetime call --no-config \
@@ -173,8 +184,8 @@ spacetime call --no-config \
   locki-w91bw grant_incident_evidence \
   '"dhruv-m4-air"' \
   '"c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883"' \
-  '"incident:23000b774fdc4ddaab79820a70af101b"' \
-  '"[\"23000b774fdc4ddaab79820a70af101b\"]"' \
+  '"OWNER_APPROVED_INCIDENT_ID"' \
+  '"[\"OWNER_APPROVED_EVENT_ID\"]"' \
   true
 ```
 
@@ -183,14 +194,22 @@ Mustafa then runs the read-only verifier on his own host:
 
 ```bash
 node scripts/airlock_investigator_verify.mjs \
+  --server https://maincloud.spacetimedb.com --database locki-w91bw \
+  --workstation dhruv-m4-air \
+  --outside-workstation KNOWN_OTHER_WORKSTATION_ID \
+  --expected-identity c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883 \
   --token-file /path/to/existing-private-investigator-token.json \
-  --incident incident:23000b774fdc4ddaab79820a70af101b \
+  --incident OWNER_APPROVED_INCIDENT_ID \
   --output investigator-live-verification.json
 ```
 
 The existing token JSON must be an operator-owned, mode-0600 regular file containing
 `token`. The verifier never creates credentials, calls reducers or prints the token.
-It checks the server-authenticated identity, exact scoped evidence and timestamps,
+Use an independently verified existing workstation for the negative check. The
+three investigator views must successfully return zero rows for that workstation;
+network/HTTP errors fail verification. The report records whether this check ran
+and does not claim that a restricted identity established the other station's existence.
+It also checks the server-authenticated identity, exact scoped evidence and timestamps,
 empty privileged views, nine private-table SQL denials, and unchanged read scope at
 the end. Share its non-secret report, not credentials. Revoke after the run:
 
@@ -199,24 +218,26 @@ spacetime call --no-config --server https://maincloud.spacetimedb.com \
   locki-w91bw revoke_incident_evidence \
   '"dhruv-m4-air"' \
   '"c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883"' \
-  '"incident:23000b774fdc4ddaab79820a70af101b"'
+  '"OWNER_APPROVED_INCIDENT_ID"'
 ```
 
 ## Verification boundaries
 
 38 new authorization tests and 24 severity/report tests pass; the read-only verifier
-has 16 tests. Actual local and cloud tests used separate test identities/stations and
+has 35 tests. Actual local and cloud tests used separate test identities/stations and
 verified permitted reads, private SQL denial, cross-workstation denial, no mutation
 authority, severity separation, scope replacement and revocation. Test stations were
 disarmed. Fixture input in these contract tests is not actual sensor/model proof.
 The combined development branch also passes its existing 111 datastore tests.
 
-Live admin readback verified event `23000b774fdc4ddaab79820a70af101b` captured at
-`1794093979809` (2026-11-07 23:26:19.809 UTC), received at `1794093979810`,
-`simulated=false`, and its matching frozen baseline/session IDs. This is stored-value
-verification, not proof that Mustafa has read it or independent proof of physical capture.
+Earlier authorized readback checked a genuine stored USB case's original capture
+and receipt timestamps, non-simulated classification and matching frozen baseline.
+The exact private scope is recorded in issue #2 and local ignored acceptance artifacts.
+This is stored-value verification, not proof that Mustafa has read it or independent
+proof of physical capture. No owner/deployment credential was used for the current
+investigator handoff or anonymous deployed-schema comparison.
 See [verification manifest](evidence/investigator-verification.json).
 
 Still required: Dhruv's actual scope grant, Mustafa's actual-token verifier report,
-`INTEGRATION.md` §5 comparison, scenario-B fixture review, host wiring and a real-model
-run over approved live evidence. No reset or replacement credential is necessary.
+activation of the reviewed host changes, and a real-model run over approved live
+evidence. No reset or replacement credential is necessary.

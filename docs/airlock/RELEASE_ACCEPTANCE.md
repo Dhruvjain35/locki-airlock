@@ -1,24 +1,44 @@
 # Release acceptance reconciliation
 
 Reviewed 2026-11-08 against the original supplied `LOCKI_AIRLOCK_PRD.md` §§0–16 and
-the `Dhruvjain35/locki-airlock` audited snapshot `2212251`. This is the current
+the `Dhruvjain35/locki-airlock` audited snapshot `2212251`, with the current source
+handoffs imported through pinned main `529885c40f3bf00c55a4e38b35a3b9f022298431`. This is the current
 integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane evidence.
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
 
-Final integration update: the full backend suite passed **1,562 tests, 20 skipped**;
-frontend **46 tests and production build** passed; module **149 transactional +28
-policy** tests passed; Node adapters **151**, read/HTTP boundaries **31**, owner
-consent policy **28**, camera-free edge **22**, and model transport **10** passed.
-These suites overlap and are not an acceptance score. The actual production M4
-service method was also exercised against cloud using isolated fixture identities,
+The final full backend run passed **1,772 tests, 20 skipped in 182.14s**.
+The investigator service separately passed **387 tests, one skipped and three live-model
+tests deselected in 4.18s**. Frontend **54 tests** are recorded; final typecheck and
+production build passed after the last recorded-input copy/Send-enable change.
+Earlier full backend checkpoints were 1,699/20 skipped before dispatch hardening
+and 1,729/20 skipped afterward; their source scopes and logs remain distinct.
+Node adapters passed **151** and the combined investigator/owner HTTP boundaries
+passed **50**, including the **35-test** investigator verifier. Earlier retained
+component checks passed 149 transactional +28 policy, 28 owner-consent policy,
+22 camera-free edge and 10 model-transport tests. These runs have distinct source
+scopes, overlap, and are not an acceptance score or a final-commit certification.
+
+The user-authorized first application batch reached main at
+[`2044019`](https://github.com/Dhruvjain35/locki-airlock/commit/204401941a0af5c58b7e7726555812ec5a0469d8).
+The exact updated workflow was separately published at
+[`7328c4e`](https://github.com/Dhruvjain35/locki-airlock/commit/7328c4e8788cd9985816e77a2f506a8b88f1fac4).
+The earlier OAuth workflow-scope rejection is a historical delivery attempt,
+not a current credential blocker; no additional user credentials are required.
+Separately, [Actions run 42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
+last reported `startup_failure` with zero jobs. Its cause is not established by
+that status, and local test results are not a claim of passing GitHub CI. The
+current investigator hardening/docs are bound by working-tree hashes below; their
+subsequent delivery commit is not invented here. Git delivery does not restart M4/M5.
+
+The production M4 service method was earlier exercised against cloud using isolated fixture identities,
 the real owner-consent HTTP/SDK path and a private fixture CLI credential: first
 ARM succeeded only after session readback, replay failed, final fixture was disarmed
 and there were zero lock requests. No actual M4 credential, microphone, camera,
 model or audio was used by that test.
 
-Authorized readback at 07:06 UTC confirmed the team's actual M4 session armed with
-automatic locking off. At 07:17 UTC, two stored Jetson `person_in_zone` rows were
+Earlier authorized readback confirmed the team's actual M4 session armed with
+automatic locking off. Two stored Jetson `person_in_zone` rows were
 verified in that session with distinct capture/receipt timestamps, `simulated=false`
 and `soft_observation` classification. This is **stored-value verification through
 an authorized admin read**, not independent inspection of frames, publisher receipts
@@ -46,9 +66,9 @@ Evidence levels used here:
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
 | 6 Authoritative SpacetimeDB | Server owns enrollment/session/incident/review/approval; private scoped views and deployment manifests are present. | Validate the merged host and two physical clients against the same deployed module; preserve database authority in all local fallback UI. |
-| 7 Operational local Nemotron E4B | Python investigator and transport exist. README reports run-ba05ba8e294e, four calls/4.4s through M5. Mustafa's own service is explicitly absent. | Actual host branch, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools on the correlated incident. Team timing is not inspected run proof. |
+| 7 Operational local Nemotron E4B | Mustafa's v0.3 service source now exists at `services/nemotron-investigator/`, alongside the preserved M4 investigator/transport. Integration review adds authenticated-principal/no-membership checks and per-incident evidence/fresh-severity boundaries. Upstream benchmarks remain source-specific recorded artifacts. | Actual M5 deployed revision/configuration, owner scope grant and receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools on the correlated incident. Imported code is not host/model acceptance. |
 | 8 Native Relay and protected Code Quest tools | Historical native Relay/managed boundary evidence and local gate source exist. | Actual merged-model LLM/tool spans, correlation IDs and pre-execution allowed/denied Code Quest callback proof; application logs do not substitute. |
-| 9 Existing live voice and safety priority | M4 speech stack is preserved; no second voice service is needed. Team reports local cached warnings/Bluetooth measurements. | Real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
+| 9 Existing live voice and safety priority | M4 speech stack and new turn/quiet/barge behavior are preserved. Fake tests cover microphone close/reopen failure, held/late ASR cancellation and immutable capture-epoch checks; no second voice service is needed. | Coordinated M4 restart, real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
 | 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. | Same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
 
 ## Every named acceptance criterion (§13)
@@ -63,7 +83,7 @@ Evidence levels used here:
 | MAC-03 | Historical native Calculator proof; new source uses NSWorkspace | Merged-host event/receipt and bundle/signature metadata where available; explicit visible-app limits. |
 | MAC-04 | Dry-run implementation; README says no real lock run | Prior explicit consent, real own-Mac request/action/observed-lock evidence and unlock/disarm. |
 | VOX-01 | Preserved software and team audio reports | Live microphone/ASR/model/speaker sample with P0 interruption and acoustic timing method. |
-| NV-01 | Team real E4B run report; host service absent | Exact local M5 model tag, runtime/version and actual response artifact; no cloud-model substitution. |
+| NV-01 | v0.3 service source present; upstream benchmark reports retained; current host unverified | Exact local M5 deployed revision/model tag, runtime/version and actual response artifact; no cloud-model substitution. |
 | NV-02 | Checked local investigator; scoped evidence helper 24/24 | Real model selects ≥3 approved tools on real correlated evidence, records failures/uncertainty and preserves authoritative server severity. |
 | NV-03 | Historical native tool/guardrail proof | Actual Nemotron run's native Relay start/end LLM/tool spans with shared correlation ID. |
 | NV-04 | Historical managed-boundary proof | Unauthorized callback never starts, harmless authorized callback succeeds in current host; fixture approval labeled. |
@@ -75,7 +95,7 @@ Evidence levels used here:
 | SEC-01 | Historical managed tool denial; real host/model open | Harmless malicious README fixture proposes forbidden tool; native gate denies before execution with no real secrets touched. |
 | SEC-02 | Software stale/offline handling | Physically disconnect camera; UI degrades and no stale visual evidence is presented as current. |
 | SEC-03 | Model-independent paths and earlier cached warning proof | Actual hardware warning while model unavailable; truthful policy/action state. |
-| SEC-04 | Server bounded metadata and retention policy; 16/16 read-verifier tests | Inspect real wire payloads: no frames/embeddings, consented retention, documented unresolved-case exceptions/backups. |
+| SEC-04 | Server bounded metadata and retention policy; 35/35 fixture read-verifier tests | Inspect real wire payloads: no frames/embeddings, consented retention, documented unresolved-case exceptions/backups. |
 | SEC-05 | Owner-only disarm and deterministic voice restrictions | Live unapproved/quoted/negated voice trial causes zero disarm and no delegated permission issuance. |
 
 The user's additional **EDGE-06** has partial stored-data evidence: two Jetson rows
@@ -106,7 +126,7 @@ The original snapshot's enabled face enrollment/matching conflicted with the PRD
 explicit no-face-identification / no-biometric-recognition scope. **The integrated
 source now disables face identification by default**, including demo enrollment and
 identity display. Focused privacy/vision tests passed 97 with one skip, followed by
-the full 1,562-pass backend suite. Retained optional biometric code is not P0 work
+the broader backend regressions. Retained optional biometric code is not P0 work
 and cannot authorize arm/disarm. The currently running M4 build and privacy setting
 have not been verified: do not describe it as privacy-compliant solely because the
 new source default is safe. Person/zone activity measurement remains the target.
@@ -127,19 +147,37 @@ sponsor eligibility or deployability claim is supported yet.
 ## Investigator handoff and fresh checks
 
 [Issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2) requests Mustafa's
-actual branch/contract and owner-approved incident/event IDs. His identity has no
-verified actual-token grant/report in this work. Only the real owner may grant the
+owner-approved incident/event selection and actual-host verification. The imported
+[v0.3 contract](../../services/nemotron-investigator/INTEGRATION.md) is now available,
+but his identity has no verified actual-token grant/report in this work. Only the real owner may grant the
 minimum read scope. Never substitute deployment/admin credentials or give the
 investigator mutation roles. [INVESTIGATOR_INTEGRATION.md](INVESTIGATOR_INTEGRATION.md)
 contains exact views/reducers and prepared owner commands.
 
-Fresh on this snapshot, without network or hardware: read-only verifier **16/16**;
-authoritative severity/report reconciler **24/24**; investigator transactional
-authorization suite **38/38**. These suites use explicit fixtures.
-Their commands and file hashes, plus the inspected final integration test totals and
+The service uses an evidence-only investigator identity, with no workstation
+membership/device role. Its API key does not create a database grant. Service
+token files may be plain or JSON; the separate Node verifier requires private
+JSON containing `token`. Fresh server-authenticated principal and incident scope
+checks precede model use, finalization and serving saved live reports. These
+software guards and anonymous schema comparison do not verify the actual M5 token
+or absence of separate cloud administrative access; the own-token verifier and
+its sanitized receipt remain required.
+
+Separate source-review receipts cover **142 mocked-HTTP adapter tests**, **121
+scoped tools/agent/assessment tests**, and **77 voice-input hold tests with one
+skip**. These overlap broader suites and use fake capture/scripted model inputs;
+they establish neither an actual M5 service nor a microphone or model run.
+
+The latest read-only verifier passed **35/35** with fixture responses, including
+wrong-principal, cross-workstation, token-revocation and failed-transport cases.
+It proves no actual scope grant, receipt, M5 verification or model trace. Earlier
+fixture checks passed 24/24 for authoritative severity/report reconciliation and
+38/38 for transactional investigator authorization. Their commands and file hashes,
+plus the inspected integration test totals and
 sanitized cloud-proof summaries, are recorded in
 [release-acceptance.json](evidence/release-acceptance.json). Module/script type checks,
-changed-Python lint and dependency audits passed (zero reported npm vulnerabilities).
-Build retains a 965KB JavaScript chunk warning; backend reports one dependency
+backend changed-Python lint and dependency audits passed (zero reported npm vulnerabilities).
+Investigator critical lint (`E9,F63,F7,F82`) passed; pre-existing full-style findings
+remain and are not claimed clean. The latest build retains a 980.06kB JavaScript chunk warning; backend reports one dependency
 deprecation warning. The 20 skipped backend tests are not passing acceptance proof.
 No aggregate software count closes the physical/model requirements above.

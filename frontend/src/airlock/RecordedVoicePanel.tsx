@@ -35,6 +35,7 @@ export function RecordedVoicePanel() {
       <Square size={22} fill="currentColor" />STOP SPEAKING
     </button>
     <p className="al-small al-muted">Security warnings still play after a stop.</p>
+    <p className="al-small al-muted">Recordings support conversation. Use the live microphone or owner controls to arm or disarm.</p>
     <div className="al-inline">
       <Badge tone={stt === "ready" ? "cyan" : "amber"}>Speech-to-text: {stt ?? (error ? "unreachable" : "…")}</Badge>
       <Badge tone="quiet">{mic?.running ? <><Mic size={12} />Live mic {mic.held_for_recorded ? "paused for recording" : mic.mode}</> : <><MicOff size={12} />Live mic off</>}</Badge>
@@ -44,7 +45,7 @@ export function RecordedVoicePanel() {
     <Button onClick={() => picker.current?.click()}><FileAudio size={15} />Add WAV recordings</Button>
     <div className="al-recordings">{files.map(f => <div key={f.name} className="al-inline al-spread">
       <span className="al-small">{f.name} · {(f.size / 1024).toFixed(0)} KB</span>
-      <span className="al-inline"><Button kind="primary" disabled={busy !== null || stt !== "ready"} onClick={() => void send(f)}><Send size={14} />{busy === f.name ? "Listening…" : "Send to LOCKI"}</Button>
+      <span className="al-inline"><Button kind="primary" disabled={busy !== null || status?.busy === true} onClick={() => void send(f)}><Send size={14} />{busy === f.name ? "Listening…" : "Send to LOCKI"}</Button>
         <button className="al-text-button" aria-label={`remove ${f.name}`} onClick={() => setFiles(prev => prev.filter(p => p !== f))}><X size={13} /></button></span>
     </div>)}</div>
     {turns.map((t, n) => <div key={n} className="al-recorded-turn">

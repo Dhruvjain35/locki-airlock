@@ -366,13 +366,31 @@ def _approved_apps(sess: SessionRow | None) -> tuple[list[str] | None, str]:
 
 async def _session(ctx: ToolContext) -> SessionRow | None:
     """Session lookup bound to the incident's workstation (fails closed on mismatch)."""
-    if not ctx.incident.session_id:
+    if not ctx.incident.session_id or ctx.source.provenance.live:
         return None
     sess = await ctx.source.get_session(ctx.incident.workstation_id, ctx.incident.session_id)
-    if sess is not None and sess.workstation_id != ctx.incident.workstation_id:
+    if sess is not None and (sess.workstation_id != ctx.incident.workstation_id or sess.id != ctx.incident.session_id):
         ctx.signal("session_workstation_mismatch", True)
         return None
     return sess
+
+
+def same_incident_scope(original, fresh) -> bool:
+    """Mutable severity/state may change; evidence authority and session may not."""
+    if fresh is None or any(getattr(original, key) != getattr(fresh, key) for key in
+                            ("id", "workstation_id", "session_id", "created_at_ms", "simulated", "scope")):
+        return False
+    if original.scope == "owner_approved_evidence":
+        return (set(original.linked_event_ids()) == set(fresh.linked_event_ids())
+                and original.evidence_approved_at_ms == fresh.evidence_approved_at_ms)
+    return True
+
+
+def _scoped_events(ctx: ToolContext, rows):
+    approved = set(ctx.incident.linked_event_ids())
+    return [row for row in rows if row.workstation_id == ctx.incident.workstation_id
+            and row.session_id == ctx.incident.session_id
+            and (not ctx.source.provenance.live or row.id in approved)]
 
 
 # -------------------------------------------------------------------------- tools
@@ -412,6 +430,8 @@ async def tool_get_incident(ctx: ToolContext, args: IncidentArgs):
     inc = await ctx.source.get_incident(ctx.incident.id)
     if inc is None:
         raise ToolFailure("not_found", "incident not found")
+    if not same_incident_scope(ctx.incident, inc):
+        raise ToolFailure("permission_denied", "incident evidence scope changed")
     flags: list[str] = []
     summary = clean_text(inc.summary, 200)
     ctx.untrusted(summary)
@@ -497,6 +517,7 @@ async def tool_get_incident_evidence(ctx: ToolContext, args: IncidentArgs):
         return ({"linked_event_ids": [], "events": [], "missing_event_ids": [],
                  "note": "incident record links no event ids"}, [], "incident links no events")
     rows = await ctx.source.get_device_events_by_ids(ctx.incident.workstation_id, raw_ids)
+    rows = [row for row in _scoped_events(ctx, rows) if row.id in raw_ids]
     rows = sorted(rows, key=lambda e: (_event_time(e)[0], e.seq))
     found = {r.id for r in rows}
     missing_raw = [i for i in raw_ids if i not in found]
@@ -517,7 +538,7 @@ def _window_tool(category: str, label: str):
         since = max(0, ctx.t0 - args.window_s * 1000)
         until = ctx.t0 + AFTER_INCIDENT_MS
         rows = await ctx.source.list_device_events(ctx.incident.workstation_id, since, until)
-        rows = [r for r in rows if cat.categorize(r) == category]
+        rows = [r for r in _scoped_events(ctx, rows) if cat.categorize(r) == category]
         total = len(rows)
         closest = sorted(rows, key=lambda e: abs(_event_time(e)[0] - ctx.t0))[: args.limit]
         closest.sort(key=lambda e: (_event_time(e)[0], e.seq))
@@ -579,8 +600,11 @@ def _camera_status(ctx: ToolContext, health: list[DeviceHealthRow], latest) -> t
 async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
     sess = await _session(ctx)
     snaps = await ctx.source.list_baseline_snapshots(ctx.incident.workstation_id, ctx.t0 + AFTER_INCIDENT_MS)
+    snaps = [s for s in snaps if s.workstation_id == ctx.incident.workstation_id
+             and s.session_id == ctx.incident.session_id
+             and (not ctx.source.provenance.live or s.id == f"session:{ctx.incident.session_id}")]
     latest = max(snaps, key=lambda s: s.observed_at_ms) if snaps else None
-    health = await ctx.source.list_device_health(ctx.incident.workstation_id)
+    health = [] if ctx.source.provenance.live else await ctx.source.list_device_health(ctx.incident.workstation_id)
     baseline = _json_obj(sess.baseline_json) if sess else {}
     known, parse = _known_usb_devices(baseline)
     baseline_source = "session"
@@ -596,7 +620,7 @@ async def tool_get_device_baseline_status(ctx: ToolContext, args: IncidentArgs):
         baseline_source = "none"
     usb_rows = await ctx.source.list_device_events(
         ctx.incident.workstation_id, max(0, ctx.t0 - 300_000), ctx.t0 + AFTER_INCIDENT_MS)
-    usb_rows = [r for r in usb_rows if cat.categorize(r) == cat.USB]
+    usb_rows = [r for r in _scoped_events(ctx, usb_rows) if cat.categorize(r) == cat.USB]
     comparisons = []
     evidence_ids: list[str] = []
     flags: list[str] = []

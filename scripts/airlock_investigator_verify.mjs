@@ -61,7 +61,8 @@ export class InvestigatorReadClient extends AirlockHttp {
   }
   async response(path, body, contentType = 'application/json') {
     const schemaRead = path === `${this.prefix}/schema?version=9` && body === undefined;
-    const sqlRead = path === `${this.prefix}/sql` && typeof body === 'string' && /^SELECT (?:\*|id) FROM [a-z_]+$/.test(body);
+    const outsideRead = typeof body === 'string' && /^SELECT \* FROM (my_investigator_incidents|my_investigator_events|my_investigator_baselines) WHERE workstation_id = '[A-Za-z0-9_.:-]{1,128}'$/.test(body);
+    const sqlRead = path === `${this.prefix}/sql` && typeof body === 'string' && (/^SELECT (?:\*|id) FROM [a-z_]+$/.test(body) || outsideRead);
     requireCheck(schemaRead || sqlRead, 'NON_READ_OPERATION_FORBIDDEN');
     const response = await this.fetchImpl(`${this.uri}${path}`, {
       method: body === undefined ? 'GET' : 'POST', redirect: 'error',
@@ -102,8 +103,9 @@ function grantScope(incident) {
 }
 
 export async function verifyInvestigator({ token, incidentId, workstation = 'dhruv-m4-air', expectedIdentity = DEFAULT_INVESTIGATOR,
-  server = 'https://maincloud.spacetimedb.com', database = 'locki-w91bw', fetchImpl }) {
+  server = 'https://maincloud.spacetimedb.com', database = 'locki-w91bw', outsideWorkstation, fetchImpl }) {
   requireCheck(id(incidentId) && id(workstation) && /^[a-f0-9]{64}$/i.test(expectedIdentity), 'INVALID_EXPECTED_SCOPE');
+  requireCheck(outsideWorkstation === undefined || (id(outsideWorkstation) && outsideWorkstation !== workstation), 'INVALID_OUTSIDE_WORKSTATION');
   requireCheck(typeof token === 'string' && token.length >= 16 && !/[\r\n]/.test(token), 'INVALID_TOKEN');
   const client = new InvestigatorReadClient({ server, database, token, fetchImpl });
   const { headers, data: schema } = await client.authenticatedSchema();
@@ -135,6 +137,19 @@ export async function verifyInvestigator({ token, incidentId, workstation = 'dhr
     requireCheck(baseline.workstation_id === workstation && baseline.id === `session:${baseline.session_id}` && cases.some(row => row.session_id === baseline.session_id), 'BASELINE_SCOPE_LEAK');
     safeInteger(baseline.observed_at_ms, 'BASELINE_CAPTURE_TIME'); safeInteger(baseline.received_at_ms, 'BASELINE_RECEIPT_TIME');
   }
+  // These are successful scoped reads returning no rows, not transport-error denials.
+  // The caller supplies an independently known existing workstation; these views
+  // intentionally cannot establish whether an inaccessible workstation exists.
+  const outsideCheck = { requested: outsideWorkstation !== undefined, performed: false };
+  if (outsideWorkstation !== undefined) {
+    const checks = [];
+    for (const view of INVESTIGATOR_VIEWS) {
+      const rows = sqlRows(await client.sql(`SELECT * FROM ${view} WHERE workstation_id = '${outsideWorkstation}'`));
+      requireCheck(rows.length === 0, `OUTSIDE_WORKSTATION_ACCESS_${view}`);
+      checks.push({ view, row_count: 0 });
+    }
+    Object.assign(outsideCheck, { performed: true, workstation_id: outsideWorkstation, existence_verified: false, views: checks });
+  }
   const deniedViews = viewNames.filter(name => name.startsWith('my_') && !INVESTIGATOR_VIEWS.includes(name));
   requireCheck(['my_memberships', 'my_workstations', 'my_devices', 'my_incidents', 'my_device_events', 'my_lock_requests', 'my_protected_actions', 'my_approvals'].every(name => deniedViews.includes(name)), 'EXPECTED_NEGATIVE_VIEWS_MISSING');
   for (const view of deniedViews) requireCheck((await read(view)).length === 0, `UNEXPECTED_ACCESS_${view}`);
@@ -163,7 +178,7 @@ export async function verifyInvestigator({ token, incidentId, workstation = 'dhr
       metadata_sha256: sha256(event.metadata_json) })),
     baselines: baselines.filter(row => row.session_id === target.session_id).map(row => ({ id: row.id, device_id: row.device_id,
       observed_at_ms: row.observed_at_ms, received_at_ms: row.received_at_ms, baseline_sha256: sha256(row.baseline_json) })),
-    empty_existing_views: deniedViews, private_table_denials: privateChecks, reducer_calls: 0,
+    empty_existing_views: deniedViews, private_table_denials: privateChecks, outside_workstation_check: outsideCheck, reducer_calls: 0,
     proof_boundary: 'Authenticated read-only API scope and stored timestamps only. No proof of camera capture, model inference, or tool execution. Revocation cannot recall previously read data.',
   };
 }
@@ -171,15 +186,16 @@ export async function verifyInvestigator({ token, incidentId, workstation = 'dhr
 async function main() {
   const { values } = parseArgs({ options: {
     'token-file': { type: 'string' }, incident: { type: 'string' }, workstation: { type: 'string' },
-    'expected-identity': { type: 'string' }, server: { type: 'string' }, database: { type: 'string' },
+    'expected-identity': { type: 'string' }, 'outside-workstation': { type: 'string' }, server: { type: 'string' }, database: { type: 'string' },
     output: { type: 'string' }, help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Read-only investigator verification; never calls reducers or creates credentials.\nnode scripts/airlock_investigator_verify.mjs --token-file PRIVATE.json --incident INCIDENT_ID [--output NEW_REPORT.json]\nDefaults: maincloud locki-w91bw, dhruv-m4-air, expected Mustafa identity.\nExplicit test overrides: --server ORIGIN --database NAME --workstation ID --expected-identity HEX.'); return;
+    console.log('Read-only investigator verification; never calls reducers or creates credentials.\nnode scripts/airlock_investigator_verify.mjs --token-file PRIVATE.json --incident INCIDENT_ID [--output NEW_REPORT.json] [--outside-workstation KNOWN_EXISTING_ID]\nDefaults: maincloud locki-w91bw, dhruv-m4-air, expected Mustafa identity.\n--outside-workstation explicitly checks all three investigator views return no rows for another workstation; supply an independently verified existing ID.\nExplicit test overrides: --server ORIGIN --database NAME --workstation ID --expected-identity HEX.'); return;
   }
   requireCheck(values['token-file'] && values.incident, 'TOKEN_FILE_AND_INCIDENT_REQUIRED');
   const report = await verifyInvestigator({ token: await readInvestigatorToken(values['token-file']), incidentId: values.incident,
-    workstation: values.workstation, expectedIdentity: values['expected-identity'], server: values.server, database: values.database });
+    workstation: values.workstation, expectedIdentity: values['expected-identity'], server: values.server, database: values.database,
+    outsideWorkstation: values['outside-workstation'] });
   const json = JSON.stringify(report, null, 2) + '\n';
   if (values.output) await writeFile(values.output, json, { mode: 0o600, flag: 'wx' });
   console.log(json.trimEnd());

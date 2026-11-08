@@ -3,9 +3,8 @@
 Authorization model (no owner privileges, no permission changes):
   * The investigator uses its OWN SpacetimeDB identity (token file, mode 0600),
     never the module owner's CLI token.
-  * It reads ONLY the identity-scoped `my_*` views. Rows appear only after the
-    workstation owner grants this identity read-only membership
-    (e.g. `grant_reviewer(workstation_id, <identity hex>, can_approve=false)`).
+  * Production investigations use only owner-approved `my_investigator_*`
+    evidence views, with no enabled workstation membership of any role.
   * It never calls a reducer. There is no code path here that writes.
 
 Query safety: SQL statements are fixed templates. The only interpolated values
@@ -39,8 +38,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import re
+import stat
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import httpx
 from pydantic import BaseModel
@@ -94,6 +96,8 @@ INCIDENT_LIST_LIMIT = 200             # operator listing only (list_recent_incid
 # "membership" reads the broad my_* views of a workstation member (older deployments, tests).
 VIEW_MODES = ("investigator", "membership")
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # streamed; a larger response is a contract error
+EXPECTED_INVESTIGATOR_IDENTITY = "c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883"
+MAX_TOKEN_FILE_BYTES = 65536
 _ERROR_BODY_BYTES = 4096              # how much of an error response is read at all
 _SERVER_MESSAGE_CHARS = 200           # how much of it is carried in the exception
 
@@ -130,18 +134,20 @@ def _name(el: object) -> str:
 
 def decode_sql_response(payload) -> list[dict]:
     """Convert the HTTP SQL response (list of {schema, rows}) into row dicts."""
-    if not isinstance(payload, list):
+    if not isinstance(payload, list) or len(payload) != 1:
         raise EvidenceContractError("unexpected SQL response shape")
     out: list[dict] = []
     for stmt in payload:
         if not isinstance(stmt, dict):
             raise EvidenceContractError("unexpected SQL statement shape")
-        schema = stmt.get("schema") or {}
+        schema = stmt.get("schema")
         elements = schema.get("elements", []) if isinstance(schema, dict) else None
-        rows = stmt.get("rows") or []
+        rows = stmt.get("rows")
         if not isinstance(elements, list) or not isinstance(rows, list):
             raise EvidenceContractError("unexpected SQL statement shape")
         cols = [_name(e) for e in elements]
+        if not cols or any(not c for c in cols) or len(set(cols)) != len(cols):
+            raise EvidenceContractError("invalid SQL column names")
         for row in rows:
             if isinstance(row, dict):
                 out.append(row)
@@ -229,7 +235,7 @@ def attribute_memberships(members: list, me: str | None) -> tuple[list[dict], li
 class SpacetimeHttpEvidenceSource:
     def __init__(self, host: str, database: str, token: str, *, identity: str | None = None,
                  timeout_s: float = 5.0, transport: httpx.AsyncBaseTransport | None = None,
-                 views: str = "investigator"):
+                 views: str = "investigator", expected_identity: str = EXPECTED_INVESTIGATOR_IDENTITY):
         if views not in VIEW_MODES:
             raise ValueError(f"views must be one of {VIEW_MODES}")
         self.host = host.rstrip("/")
@@ -239,6 +245,9 @@ class SpacetimeHttpEvidenceSource:
         self._transport = transport
         self._rejects = RejectedRows()
         self.views = views
+        if not isinstance(expected_identity, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", expected_identity):
+            raise ValueError("expected investigator identity must be 64 hex characters")
+        self.expected_identity = expected_identity.lower()
         inv = views == "investigator"
         self._v_incidents, self._incident_row = ((VIEW_INV_INCIDENTS, InvestigatorIncidentRow) if inv
                                                  else (VIEW_INCIDENTS, IncidentRow))
@@ -256,19 +265,74 @@ class SpacetimeHttpEvidenceSource:
     @classmethod
     def from_token_file(cls, host: str, database: str, token_file: str | Path, **kw):
         p = Path(token_file)
-        if not p.is_file():
-            raise EvidenceUnavailable(f"investigator identity token not found at {p.name}")
-        raw = p.read_text().strip()
-        identity = None
-        if raw.startswith("{"):
-            d = json.loads(raw)
-            raw, identity = d["token"], d.get("identity")
+        try:
+            fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "rb") as f:
+                info = os.fstat(f.fileno())
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                        or info.st_mode & 0o077 or info.st_size > MAX_TOKEN_FILE_BYTES):
+                    raise EvidenceUnavailable("investigator token must be a private operator-owned regular file")
+                data = f.read(MAX_TOKEN_FILE_BYTES + 1)
+            if len(data) > MAX_TOKEN_FILE_BYTES:
+                raise EvidenceUnavailable("investigator token file exceeds size limit")
+            raw = data.decode("utf-8").strip()
+            identity = None
+            if raw.startswith("{"):
+                d = json.loads(raw)
+                raw, identity = d["token"], d.get("identity")
+            if not isinstance(raw, str) or not raw or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in raw):
+                raise EvidenceUnavailable("invalid investigator token file")
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError) as e:
+            raise EvidenceUnavailable("cannot read a valid private investigator token file") from e
         return cls(host, database, raw, identity=identity, **kw)
 
     # ------------------------------------------------------------- transport
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(timeout=httpx.Timeout(self.timeout_s, connect=min(3.0, self.timeout_s)),
-                                 transport=self._transport, follow_redirects=False)
+                                 transport=self._transport, follow_redirects=False, trust_env=False)
+
+    async def assert_investigator_authorized(self) -> None:
+        """Fresh authenticated principal check. Call before inference and final evidence read.
+
+        File identity metadata is never authority. This gate authenticates the
+        fixed investigator using the server header and requires zero enabled
+        memberships, including reviewers without action approval permission.
+        """
+        if self.views != "investigator":
+            raise EvidenceContractError("live investigations require incident-evidence views")
+        async with self._client() as client:
+            try:
+                async with asyncio.timeout(self.timeout_s):
+                    async with client.stream("GET", f"{self.host}/v1/database/{self.database}/schema?version=9",
+                                             headers={"Authorization": f"Bearer {self._token}"}) as response:
+                        if response.status_code != 200:
+                            raise EvidenceUnavailable("investigator identity authentication failed")
+                        authenticated = response.headers.get("spacetime-identity", "")
+                        if not re.fullmatch(r"(?:0x)?[a-fA-F0-9]{64}", authenticated):
+                            raise EvidenceUnavailable("investigator identity authentication failed")
+                        if authenticated.removeprefix("0x").lower() != self.expected_identity:
+                            raise EvidenceUnavailable("authenticated investigator identity mismatch")
+                        body, oversized = await _read_capped(response, MAX_RESPONSE_BYTES)
+                        if oversized:
+                            raise _oversize_error()
+                        try:
+                            schema = json.loads(body)
+                        except (ValueError, RecursionError) as e:
+                            raise EvidenceContractError("invalid investigator schema response") from e
+                        if not isinstance(schema, dict) or not isinstance(schema.get("misc_exports"), list):
+                            raise EvidenceContractError("invalid investigator schema response")
+                        views = {entry["View"].get("name") for entry in schema["misc_exports"]
+                                 if isinstance(entry, dict) and isinstance(entry.get("View"), dict)
+                                 and entry["View"].get("is_public") is True
+                                 and entry["View"].get("is_anonymous") is False}
+                        if not {VIEW_INV_INCIDENTS, VIEW_INV_EVENTS, VIEW_INV_BASELINES} <= views:
+                            raise EvidenceContractError("investigator evidence views unavailable")
+                members = await self._sql(f"SELECT * FROM {VIEW_MEMBERSHIPS}", client=client)
+            except (httpx.HTTPError, TimeoutError) as e:
+                raise EvidenceUnavailable("investigator authorization check unavailable") from e
+        if any(m.get("enabled") is not False for m in members):
+            raise EvidenceUnavailable("investigator must have no enabled memberships")
+        self.provenance.detail["identity"] = self.expected_identity
 
     async def _post(self, client: httpx.AsyncClient, query: str) -> tuple[int, bytes]:
         async with client.stream("POST", f"{self.host}/v1/database/{self.database}/sql", content=query,

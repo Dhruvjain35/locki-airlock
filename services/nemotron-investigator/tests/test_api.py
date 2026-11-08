@@ -10,12 +10,24 @@ from pathlib import Path
 
 import httpx
 import pytest
-
 from conftest import A_ID, SCENARIOS, calls, final, incident_of, scripted_client, text
 from nemotron_investigator import api as api_mod
-from nemotron_investigator.api import _is_loopback, _may_read, create_app, mentions_lower_level, voice_view
-from nemotron_investigator.auth import DEFAULT_SCOPES, KNOWN_SCOPES, ApiPrincipal, KeyStore, add_key
-from nemotron_investigator.evidence.base import Provenance
+from nemotron_investigator.api import (
+    _is_loopback,
+    _may_read,
+    create_app,
+    mentions_lower_level,
+    voice_view,
+)
+from nemotron_investigator.auth import (
+    DEFAULT_SCOPES,
+    KNOWN_SCOPES,
+    ApiPrincipal,
+    KeyStore,
+    add_key,
+)
+from nemotron_investigator.evidence.authorization import incident_scope_digest
+from nemotron_investigator.evidence.base import EvidenceUnavailable, Provenance
 from nemotron_investigator.evidence.fixture import FixtureEvidenceSource
 from nemotron_investigator.store import InvestigationStore
 
@@ -137,7 +149,8 @@ class FakeAgent:
                     "tool_execution_trace": [], "model_calls": [], "timeline": []}
         progress({"kind": "preflight_ok", "t_rel_ms": 0.5, "workstation_id": ws})
         progress({"kind": "tool_call", "step": 1, "tool": "get_incident", "status": "ok"})
-        mode = {"evidence_mode": "live", "evidence_badge": "LIVE"} if source.provenance.live else {}
+        mode = {"evidence_mode": "live", "evidence_badge": "LIVE",
+                "evidence_scope_sha256": incident_scope_digest(await source.get_incident(incident_id))} if source.provenance.live else {}
         return contract_result(investigation_id, incident_id, **{**mode, **self.result_overrides})
 
 
@@ -504,8 +517,8 @@ async def test_full_view_is_labeled_while_running_and_for_legacy_records(setting
     app2 = make_app(settings)
     async with serving(app2) as c:
         r = await c.get(f"/investigations/{legacy}", headers=H(keys["dhruv"]))
-        assert r.json()["evidence_mode"] == "live" and r.json()["evidence_badge"] == "LIVE"
-        assert r.headers["X-Evidence-Mode"] == "live"
+        # Historical live reports lack a fresh, verified evidence-scope binding.
+        assert r.status_code == 404
 
 
 def test_serve_refuses_an_unknown_evidence_backend(monkeypatch):
@@ -1040,6 +1053,21 @@ class LiveLike(FixtureEvidenceSource):
         self.provenance = Provenance(backend="spacetimedb", live=True, label="SpacetimeDB testdb (identity-scoped)",
                                      detail={"host": "https://stdb.invalid", "database": "testdb",
                                              "identity": "c0ffee"})
+        self.auth_error = False
+        self.revoked = False
+        self.severity = "medium"
+        self.authority_checks = 0
+
+    async def assert_investigator_authorized(self):
+        self.authority_checks += 1
+        if self.auth_error:
+            raise EvidenceUnavailable("principal no longer has read-only scope")
+
+    async def get_incident(self, incident_id):
+        if incident_id != LIVE_ID or self.revoked:
+            return None
+        incident = await super().get_incident(A_ID)
+        return incident.model_copy(update={"id": LIVE_ID, "severity": self.severity})
 
     async def ping(self):
         return {"reachable": True, "live": True, "memberships": 0, "least_privilege_ok": True}
@@ -1086,3 +1114,92 @@ async def test_live_default_server_with_fixture_testing_enabled(settings, keys, 
         assert h["evidence_modes"] == {"default": "live", "available": ["fixture", "live"]}
         assert h["evidence_backends"]["live"]["live"] is True and h["evidence_backends"]["fixture"]["live"] is False
         assert "live_evidence_has_no_workstation_membership" in h["degraded"] and h["service"] == "degraded"
+
+
+async def test_api_verifies_live_principal_before_invoking_agent(settings, keys, fake_agent):
+    agent = fake_agent()
+    source = LiveLike()
+    source.auth_error = True
+    app = make_app(settings, source=source)
+    async with serving(app) as c:
+        r = await c.post("/investigations", headers=H(keys["dhruv"]), json={"incident_id": LIVE_ID})
+        assert r.status_code == 202
+        result = await _wait(c, r.json()["investigation_id"], keys["dhruv"])
+        assert result.json()["result"]["errors"] == ["live_principal_not_verified"]
+        assert source.authority_checks == 1 and agent.calls == []
+
+
+async def test_api_refuses_live_source_without_principal_gate(settings, keys, fake_agent):
+    agent = fake_agent()
+    source = LiveLike()
+    source.assert_investigator_authorized = None
+    app = make_app(settings, source=source)
+    async with serving(app) as c:
+        r = await c.post("/investigations", headers=H(keys["dhruv"]), json={"incident_id": LIVE_ID})
+        result = await _wait(c, r.json()["investigation_id"], keys["dhruv"])
+        assert result.json()["result"]["errors"] == ["live_principal_not_verified"]
+        assert agent.calls == []
+
+
+@pytest.mark.parametrize("view", ["full", "voice"])
+@pytest.mark.parametrize("change, expected_status", [("revoked", 404), ("auth_error", 503), ("severity", 404)])
+async def test_cached_live_report_cannot_outlive_authorized_snapshot(settings, keys, fake_agent, view, change, expected_status):
+    fake_agent()
+    source = LiveLike()
+    app = make_app(settings, source=source)
+    async with serving(app) as c:
+        created = await c.post("/investigations", headers=H(keys["dhruv"]), json={"incident_id": LIVE_ID})
+        inv = created.json()["investigation_id"]
+        current = await _wait(c, inv, keys["dhruv"])
+        assert current.status_code == 200
+        assert "evidence_scope_sha256" not in current.json()["result"]
+        checks_before = source.authority_checks
+        setattr(source, change, "high" if change == "severity" else True)
+        denied = await c.get(f"/investigations/{inv}?view={view}", headers=H(keys["dhruv"]))
+        assert denied.status_code == expected_status
+        assert source.authority_checks > checks_before
+        assert "observed_facts" not in denied.text and "spoken_summary" not in denied.text
+
+
+async def test_live_polling_exposes_status_without_cached_progress(settings, keys, monkeypatch):
+    source = LiveLike()
+    async def running(*args, progress, **kwargs):
+        progress({"kind": "preflight_ok", "workstation_id": "ws:fixture-a"})
+        progress({"kind": "tool_call", "secret_fixture_value": "private captured content"})
+        await asyncio.Event().wait()
+    monkeypatch.setattr(api_mod, "investigate", running)
+    app = make_app(settings, source=source)
+    async with serving(app) as c:
+        created = await c.post("/investigations", headers=H(keys["dhruv"]), json={"incident_id": LIVE_ID})
+        r = await _wait_status(c, created.json()["investigation_id"], keys["dhruv"], "running")
+        assert r.status_code == 200 and r.json()["progress"] == [] and r.json()["result"] is None
+        assert "private captured content" not in r.text
+
+
+@pytest.mark.parametrize("view", ["full", "voice"])
+async def test_legacy_live_severity_without_trace_requires_current_scope(settings, keys, view):
+    inv = "inv_" + "d" * 20
+    store = InvestigationStore(settings.store_dir)
+    store.create(inv, LIVE_ID, "dhruv-m4-backend", allowed_workstations=["ws:fixture-a"], evidence_mode="live")
+    store.complete(inv, {"investigation_status": "completed", "evidence_mode": "live",
+                         "official_severity": {"level": "medium", "authoritative": True}})
+    app = make_app(settings, source=LiveLike())
+    async with serving(app) as c:
+        result = await c.get(f"/investigations/{inv}?view={view}", headers=H(keys["dhruv"]))
+        assert result.status_code == 404 and "official_severity" not in result.text
+
+
+@pytest.mark.parametrize("field", ["untrusted_text_values", "possible_explanations", "missing_information",
+                                  "recommended_actions", "deterministic_signals", "unsupported_claims", "validation"])
+async def test_failed_legacy_live_records_expose_only_status(settings, keys, field):
+    inv = "inv_" + "e" * 20
+    store = InvestigationStore(settings.store_dir)
+    store.create(inv, LIVE_ID, "dhruv-m4-backend", allowed_workstations=["ws:fixture-a"], evidence_mode="live")
+    store.complete(inv, {"investigation_status": "failed", "evidence_mode": "live",
+                         field: ["private captured content"], "errors": ["private error content"]})
+    app = make_app(settings, source=LiveLike())
+    async with serving(app) as c:
+        response = await c.get(f"/investigations/{inv}", headers=H(keys["dhruv"]))
+        assert response.status_code == 200 and response.json()["status"] == "failed"
+        assert response.json()["result"]["live_report_withheld"] is True
+        assert "private captured content" not in response.text and "private error content" not in response.text

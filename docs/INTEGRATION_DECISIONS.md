@@ -2,6 +2,10 @@
 
 This snapshot joins two development lanes that diverged from the same base:
 
+The initial migration tables below retain their original source-specific intent
+and byte-identity claims. Current integration decisions and check scope are recorded
+after those historical tables and in [RELEASE_ACCEPTANCE.md](airlock/RELEASE_ACCEPTANCE.md).
+
 | Side | Branch | Commit |
 |---|---|---|
 | base | merge base | `6078e56` |
@@ -48,7 +52,7 @@ These are acceptance requirements, whichever side of a conflict they came from:
 - reviewed owner policy before any lock
 - dry-run locks
 - owner-only arming and disarming
-- a face match never disarms
+- person and desk-interaction observations without biometric identification in the default release
 
 ## Added on `integration/voice-cv-sid`
 
@@ -85,3 +89,78 @@ Software and isolated cloud results are in
 [RELEASE_ACCEPTANCE.md](airlock/RELEASE_ACCEPTANCE.md). M4 Claude must review/pull the
 PR and coordinate any restart; live microphone/audio, actual Mustafa evidence and
 held-out volunteer trials remain separate acceptance work.
+
+## Pinned-main voice and delivery reconciliation
+
+The review of upstream main `0a55fdae999abf767dcc54ed1034a6fc067db0a8` preserves
+M4's adaptive turn endings, continuation joining, quiet mode, barge-in and
+notification receipt states. The personality conflict keeps those new categories
+alongside the integration's neutral ARM/DISARM request wording and non-biometric
+demo start/end lines. A refused or unconfirmed request does not assert that an
+already-armed workstation became disarmed.
+
+Capture generations bind input queues, immutable STT worker arguments, held
+segments and utterance callbacks. Stop clears held text; a stopped or replaced
+capture cannot relabel a late result as a new command. The runtime independently
+checks active capture identity and exact epoch for protected voice requests.
+Microphone cleanup attempts close even after stop/start failure; one capture's
+failure does not block output reinitialization, other captures or warning playback.
+The snapshot reports failed capture state instead of claiming it is listening.
+
+Conversation fallback admits an installed local model only after resource checks;
+parsed loopback origins reject credential/host substitutions. These are source and
+fixture checks, not evidence that M5 served the requested model. Optional phone
+notifications distinguish queued/accepted from delivered; dispatch hardening has
+separate fake-worker/provider tests. No real notification was sent by these checks.
+
+The 1,699-pass/20-skip full backend baseline preceded final dispatch hardening;
+the separate post-fix dispatch run passed 40 tests. Final acceptance remains bound
+to its recorded source/log scope, without asserting a final merge commit or a
+running-M4 restart. No physical, spoken, model-trace or volunteer gate is closed.
+
+## Imported v0.3 investigator handoff
+
+Pinned main `e38b38d610ef31b3276b672f1c834bf04cd09458` adds Mustafa's service at
+`services/nemotron-investigator/` and its source-specific contract. This closes
+the missing-source gap; it does not verify the running M5 revision, current API
+key, database credential/grant, model response or native tracing. Preserve the
+existing M4 voice runtime and let the host owner coordinate any restart.
+
+The service's live database principal remains evidence-only: no workstation
+membership/device role and no owner/admin credential substitution. Fresh server
+identity and no-membership checks precede model use; approved incident IDs,
+workstation/session, frozen baseline and fresh authoritative severity constrain
+the report. Revoked, unavailable or changed scope withholds sensitive results.
+Serving a cached live report requires a new scope check. Optional API-key scopes
+never grant database authority, and an anonymous schema match is not own-token
+authorization proof. The actual-token verifier must still check empty privileged
+views and private-table denials on the owning host.
+
+Service credentials can be plain or JSON; Sid's Node verifier needs private JSON
+containing `token`. Operators wrap their own existing token locally when needed;
+credentials and detailed live reports remain private. The contract and acceptance
+manifest keep fixture software results separate from actual grant receipts and
+M5/model evidence.
+
+## Authorized main delivery and final software checks
+
+The recorded-input source handoff is pinned at upstream
+`529885c40f3bf00c55a4e38b35a3b9f022298431`. The first user-authorized application
+batch reached main as `204401941a0af5c58b7e7726555812ec5a0469d8`, matching integration
+application source `3b9263458c67ee1beee9e8f248cffb038d5ef28a` except the workflow.
+The workflow then reached main separately as
+`7328c4e8788cd9985816e77a2f506a8b88f1fac4`, using the connected GitHub capability.
+The earlier OAuth scope rejection is historical; there is no current credential
+blocker or need for additional user credentials. User authorization covers these
+main pushes. Host restarts and actual incident-evidence grants remain separately
+coordinated operations.
+
+Final local suites passed 1,772 backend tests/20 skipped, 387 investigator-service
+tests/one skipped/three live-model tests deselected, and the recorded 54 frontend
+tests. Final frontend typecheck/build passed after the last copy/Send-enable edit.
+The acceptance manifest binds the current reviewed source and logs; it does not
+invent the next investigator/docs delivery commit. Actions run 42464179187 last
+reported startup failure with zero jobs, which is distinct from successful source
+or workflow delivery and has no established cause here. Pre-existing investigator
+style findings remain; critical Python checks passed. Actual M4/M5 restart,
+own-token grant verification, native model traces and physical trials remain open.

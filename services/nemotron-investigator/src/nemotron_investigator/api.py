@@ -52,12 +52,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
 from .agent import Requester, evidence_mode_fields, investigate
+from .assessment import overclaims, understates_severity
 from .auth import ApiPrincipal, KeyStore
 from .config import Settings
+from .evidence.authorization import incident_scope_digest
 from .evidence.base import EvidenceSource, EvidenceUnavailable
 from .ollama_client import OllamaClient
 from .store import ACTIVE_STATUSES, INVESTIGATION_ID, InvestigationStore
-from .assessment import overclaims, understates_severity
 from .tools import INCIDENT_ID_PATTERN, incident_id_mode
 
 log = logging.getLogger("nemotron_investigator.api")
@@ -258,7 +259,9 @@ class _RateLimiter:
 
 # --------------------------------------------------------------------- read scope
 _PAST_PREFLIGHT_RESULT_KEYS = ("tool_execution_trace", "model_calls", "conversation", "timeline",
-                               "observed_facts", "risk_assessment", "untrusted_content_flags")
+                               "observed_facts", "risk_assessment", "untrusted_content_flags",
+                               "official_severity", "effective_severity", "headline", "summary",
+                               "spoken_summary", "model_drafts", "evidence_gaps", "evidence_scope_sha256")
 
 
 def _past_preflight(rec: dict) -> bool:
@@ -639,6 +642,14 @@ def create_app(settings: Settings | None = None, *, source: EvidenceSource | Non
         log.exception("unhandled error on %s", request.url.path)
         return JSONResponse(status_code=500, content={"detail": "internal error"})
 
+    async def assert_live_principal(src: EvidenceSource) -> None:
+        if not src.provenance.live:
+            return
+        check = getattr(src, "assert_investigator_authorized", None)
+        if not callable(check):
+            raise EvidenceUnavailable("live principal verification is unavailable")
+        await asyncio.wait_for(check(), timeout=settings.tool_timeout_s)
+
     async def _run(inv_id: str, body: InvestigationIn, p: ApiPrincipal, mode: str) -> None:
         store: InvestigationStore = state["store"]
         s: Settings = state["settings"]
@@ -672,6 +683,11 @@ def create_app(settings: Settings | None = None, *, source: EvidenceSource | Non
             current = state["keys"].resolve_digest(p.key_digest)
             if current is None or current.requester_id != p.requester_id or not current.has("investigations:create"):
                 finish(terminal("rejected", "api_key_revoked"))
+                return
+            try:
+                await assert_live_principal(src)
+            except Exception:  # no evidence or inference before the live principal is verified
+                finish(terminal("failed", "live_principal_not_verified"))
                 return
             store.mark_running(inv_id, allowed_workstations=current.allowed_workstations,
                                queue_wait_ms=queue_wait_ms)
@@ -746,6 +762,40 @@ def create_app(settings: Settings | None = None, *, source: EvidenceSource | Non
             raise HTTPException(status_code=404, detail="not found")
         rec.pop("_authz", None)
         mode = record_mode(rec)  # also covers records written before evidence_mode existed
+        if mode == "live":
+            result = rec.get("result") or {}
+            withheld = result.get("live_report_withheld") or "live_report_withheld" in (result.get("errors") or [])
+            if rec.get("status") not in _ASSESSED or withheld:
+                # Polling status does not publish cached live evidence or progress.
+                rec = {k: v for k, v in rec.items() if k in (
+                    "investigation_id", "incident_id", "requester_id", "status", "created_at_ms",
+                    "started_at_ms", "finished_at_ms", "evidence_mode",
+                )}
+                rec["progress"] = []
+                if result:
+                    safe_errors = {"live_principal_not_verified", "api_key_revoked", "queue_timeout",
+                                   "run_deadline_exceeded", "service_shutdown", "service_restart"}
+                    errors = [e for e in result.get("errors", []) if isinstance(e, str) and e in safe_errors]
+                    rec["result"] = {"investigation_status": rec.get("status"), "live_report_withheld": True,
+                                     "errors": errors or ["live_report_withheld"]}
+                else:
+                    rec["result"] = None
+            else:
+                src = state["sources"].get("live")
+                if src is None or not result.get("evidence_scope_sha256"):
+                    raise HTTPException(status_code=404, detail="not found")
+                try:
+                    await assert_live_principal(src)
+                    incident = await asyncio.wait_for(src.get_incident(rec["incident_id"]),
+                                                      timeout=settings.tool_timeout_s)
+                except Exception:
+                    raise HTTPException(status_code=503, detail="live evidence authorization unavailable") from None
+                if (incident is None or incident.id != rec["incident_id"]
+                        or incident.workstation_id != rec.get("workstation_id")
+                        or not Requester(p.requester_id, p.allowed_workstations).may_access(incident.workstation_id)
+                        or incident_scope_digest(incident) != result["evidence_scope_sha256"]):
+                    raise HTTPException(status_code=404, detail="not found")
+                result.pop("evidence_scope_sha256", None)
         response.headers["X-Evidence-Mode"] = mode or "unknown"
         if view == "voice":
             return voice_view(rec)
