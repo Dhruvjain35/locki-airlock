@@ -67,6 +67,7 @@ class SpacetimeConfig(BaseModel):
     lock_view: str = "my_lock_requests"
     sessions_view: str = "my_sessions"
     device_events_view: str = "my_device_events"
+    arm_grants_view: str = "my_arm_authorizations"  # owner-issued one-use voice ARM grants for this Mac (Sid's live delegation)
     remote_cameras: tuple[str, ...] = ()  # the only other devices whose camera rows this Mac acts on; none unless the owner lists them
     camera_kinds: dict[str, str] | None = None  # our camera kind -> the module's, for the camera device
 
@@ -213,6 +214,10 @@ class SpacetimeTransport:
         reducer, args = reducer_call(message, self.config)
         if not reducer:
             return Delivery("local_only", self.name, "kept in the local record: the module takes no such message from this device")
+        return self.call_reducer(reducer, args)
+
+    def call_reducer(self, reducer: str, args: list) -> Delivery:
+        """One reducer call with this Mac's own identity, judged like every message: delivered, refused (final) or failed (retry later)."""
         try:
             response = self._client.post(f"{self.config.url}/v1/database/{self.config.database}/call/{reducer}", headers=self._headers(), content=json.dumps(args))
         except httpx.HTTPError as exc:
@@ -365,9 +370,10 @@ class SpacetimeSubscriber:
     carry on regardless. A row that does not fit the contract, or is for another workstation or device, is counted and never acted on."""
 
     def __init__(self, config: SpacetimeConfig, *, on_incident: Callable[[IncidentUpdateV1], None], on_lock_request: Callable[[LockRequestV1], object], on_session: Callable[[RemoteSession], None],
-                 on_camera_event: Callable[[SecurityEventV1, str, int], None] | None = None):
+                 on_camera_event: Callable[[SecurityEventV1, str, int], None] | None = None, on_arm_grant: Callable[[object], None] | None = None):
         self.config = config
         self.on_incident, self.on_lock_request, self.on_session, self.on_camera_event = on_incident, on_lock_request, on_session, on_camera_event
+        self.on_arm_grant = on_arm_grant
         self.camera_rows = 0
         self.connected = False
         self.connections = 0
@@ -394,7 +400,9 @@ class SpacetimeSubscriber:
 
     def _views(self) -> list[str]:
         views = [self.config.sessions_view, self.config.incidents_view, self.config.lock_view]
-        return views + [self.config.device_events_view] if self.on_camera_event is not None and self.config.remote_cameras else views
+        if self.on_camera_event is not None and self.config.remote_cameras:
+            views = views + [self.config.device_events_view]
+        return views + [self.config.arm_grants_view] if self.on_arm_grant is not None else views
 
     def _ws_url(self) -> str:
         parts = urlsplit(self.config.url)
@@ -463,6 +471,12 @@ class SpacetimeSubscriber:
                 self.on_session(session_from_row(row))
             elif view == self.config.incidents_view:
                 self.on_incident(incident_from_row(row))
+            elif view == self.config.arm_grants_view:
+                from .arm_delegation import grant_from_row
+
+                grant = grant_from_row(row)
+                if self.on_arm_grant is not None:
+                    self.on_arm_grant(grant)
             elif view == self.config.device_events_view:
                 found = remote_camera_event(row, self.config.device_id, self.config.remote_cameras) if self.on_camera_event is not None else None
                 if found is None:

@@ -2243,7 +2243,8 @@ class LockedInRuntime:
         if n == IntentName.EMERGENCY_STOP:
             return await self.emergency_stop(origin=origin, reason=f"voice: {intent.text}")
         if n == IntentName.ARM_WORKSTATION:
-            return self.security.request_arm_by_voice()
+            result = self.security.request_arm_by_voice()
+            return await result if asyncio.iscoroutine(result) else result  # a delegated ARM waits for the database to confirm
         if n == IntentName.DISARM_WORKSTATION:
             return self.security.request_disarm_by_voice()
         if n == IntentName.SECURITY_WHAT_HAPPENED:

@@ -52,6 +52,7 @@ WARNING_REPEAT_S = 15.0  # the same kind of warning, spoken again this soon, onl
 # An incident the server last changed longer ago than this is shown, never spoken: a restart or reconnect re-delivers every row, and the spoken-once set is
 # only in memory. 120 s is the module's own window for admitting an observation, and the Mac's clock agreed with maincloud's to within ~0.2 s on 2026-11-07.
 INCIDENT_VOICE_MAX_AGE_MS = 120_000
+ARM_READBACK_S = 6.0  # after a delegated ARM call, how long LOCKI waits for the armed session row before saying it cannot confirm
 REMOTE_CAMERA_MAX_AGE_MS = 30_000  # a remote camera row the server received longer ago than this (a replay after reconnecting) is never a new warning
 LOCAL_LOCK_TTL_MS = 30_000
 MAX_EVIDENCE = 200
@@ -121,6 +122,8 @@ class SecurityService:
         self._voiced_incidents: set[str] = set()
         self._remote_camera_seen: dict[str, None] = {}  # insertion-ordered, bounded
         self.remote_camera: dict | None = None  # the last remote camera row and what was done with it
+        self.arm_grants = None  # ArmGrants, once connected to SpacetimeDB
+        self.voice_arm: dict | None = None  # the last spoken ARM attempt: grant, reducer result, readback, timing
         self.camera = None  # CameraWatch, built on the first arm when settings.airlock_vision is on
         self.physical: deque[tuple[float, SecurityEventV1]] = deque(maxlen=300)  # (monotonic time, camera event)
         self._presence_pending: tuple[float, SecurityEventV1] | None = None
@@ -210,8 +213,11 @@ class SecurityService:
         if problems:
             self.spacetime_error = "the database's reducers no longer match this adapter: " + "; ".join(problems)[:200]
             log.warning("SpacetimeDB: %s", self.spacetime_error)
+        from .arm_delegation import ArmGrants
+
+        self.arm_grants = ArmGrants(config.workstation_id, config.device_id)
         self.subscriber = SpacetimeSubscriber(config, on_incident=self.apply_incident_update, on_lock_request=self.handle_lock_request, on_session=self.apply_remote_session,
-                                              on_camera_event=self.apply_remote_camera_event)
+                                              on_camera_event=self.apply_remote_camera_event, on_arm_grant=self.arm_grants.apply)
         self.subscriber.start()
 
     async def start_monitoring(self) -> dict:
@@ -321,10 +327,41 @@ class SecurityService:
         self.pending_arm = {"at": time.time(), "origin": "voice"}
         self._publish_state("arm_requested")
         if self.database_arms:
+            grant = self.arm_grants.usable() if self.arm_grants is not None else None
+            if grant is not None:
+                return self._arm_with_grant(grant)  # a coroutine: the runtime awaits it
             self._last_baseline = 0.0
-            self.report_baseline()
-            return rt._result(True, "arming is the owner's, on the SpacetimeDB dashboard", rt._say("security_arm_on_dashboard"))
+            self.report_baseline()  # keeps this Mac's capture fresh for the owner's review
+            why = self.arm_grants.why_none() if self.arm_grants is not None else "not following the database's grants"
+            self.voice_arm = {"at_ms": int(time.time() * 1000), "outcome": "no_grant", "why": why}
+            return rt._result(False, f"not armed: {why}; the owner approves voice arming on the dashboard", rt._say("security_arm_needs_grant"))
         return rt._result(True, "arming needs the owner's confirmation on the dashboard", rt._say("security_confirm_arm"))
+
+    async def _arm_with_grant(self, grant):
+        """Consume the owner's one-use grant: arm_session_delegated(workstation, authorization) and nothing the speaker chose. Armed is said
+        only when the armed session row for the grant's session comes back (apply_remote_session says it); otherwise LOCKI says what failed."""
+        from .arm_delegation import ARM_DELEGATED_REDUCER
+
+        rt = self.rt
+        t0 = time.monotonic()
+        record = {"at_ms": int(time.time() * 1000), "authorization_id": grant.authorization_id, "session_id": grant.session_id, "outcome": "calling"}
+        self.voice_arm = record
+        delivery = await asyncio.to_thread(self.transport.call_reducer, ARM_DELEGATED_REDUCER, [grant.workstation_id, grant.authorization_id])
+        record["reducer_ms"] = round((time.monotonic() - t0) * 1000, 1)
+        record["reducer"] = {"status": delivery.status, "detail": delivery.detail}
+        if delivery.status != "delivered":
+            record["outcome"] = "refused" if delivery.status == "refused" else "unreachable"
+            line = "security_arm_refused" if delivery.status == "refused" else "security_arm_unreachable"
+            return rt._result(False, f"not armed: {ARM_DELEGATED_REDUCER} {delivery.status}: {delivery.detail}", rt._say(line))
+        deadline = time.monotonic() + ARM_READBACK_S
+        while time.monotonic() < deadline:
+            if self.session is not None and self.session.session_id == grant.session_id:
+                record["outcome"] = "armed"
+                record["readback_ms"] = round((time.monotonic() - t0) * 1000, 1)
+                return rt._result(True, f"armed: session {grant.session_id} confirmed by SpacetimeDB")
+            await asyncio.sleep(0.05)
+        record["outcome"] = "unconfirmed"
+        return rt._result(False, f"{ARM_DELEGATED_REDUCER} was accepted but no armed session {grant.session_id} came back within {ARM_READBACK_S:.0f} s", rt._say("security_arm_unconfirmed"))
 
     async def arm(self, owner_code: str, policy: ResponsePolicy | None = None, origin: str = "dashboard") -> ArmedSession:
         if self.session is not None and not self.session.expired():
@@ -1158,6 +1195,8 @@ class SecurityService:
             "visual_state": self.modes.state.to_dict(),
             "mode_transitions": self.modes.transitions[-10:],
             "remote_camera": self.remote_camera,
+            "voice_arm": self.voice_arm,
+            "arm_grants": None if self.arm_grants is None else self.arm_grants.snapshot(),
             "camera_events": [{"device_id": e.device_id, "kind": e.kind.value, "event_id": e.event_id, "observed_at": e.observed_at, "confidence": e.confidence, "zone": e.metadata.get("zone")} for _t, e in list(self.physical)[-12:]],
             "arming": "SpacetimeDB dashboard" if self.database_arms else "this Mac, with the owner code",
             "limits": "Detects and responds. It does not stop a device or a program that has already acted. A locked screen does not stop background processes.",
