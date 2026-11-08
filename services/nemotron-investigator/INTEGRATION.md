@@ -360,7 +360,7 @@ evidence already obtained before revocation.
 
 ## 7. Live evidence access (Sid's minimum authorization)
 
-Sid's module supports **per-incident, owner-granted, read-only evidence** for the configured investigator identity. See the monorepo's [investigator handoff](../../docs/airlock/INVESTIGATOR_INTEGRATION.md) for the deployment and expected public identity. An anonymous schema match does not prove this principal has an actual grant; its own-token verification and grant receipt remain pending.
+Sid's module supports **per-incident, owner-granted, read-only evidence** for the configured investigator identity. See the monorepo's [investigator handoff](../../docs/airlock/INVESTIGATOR_INTEGRATION.md) for the deployment and expected public identity. At 10:19 UTC on November 8, Sid's read-only admin check confirmed one enabled owner-issued grant and zero investigator memberships. Mustafa separately reports a successful own-token verifier and real LIVE M4-tunnel investigation in [issue 2](https://github.com/Dhruvjain35/locki-airlock/issues/2#issuecomment-6719727896). Those host reports are attributed; an anonymous schema match or admin read alone does not prove effective investigator permissions.
 
 **What the identity is not.** It is not a member of any workstation (no `grant_reviewer`, no role), and it can call no reducer that changes anything. The service and its verifiers never use the owner's credential. The owner separately uses their own authenticated CLI for grant/revoke; `--no-config` ignores `spacetime.json`, not CLI authentication.
 
@@ -409,7 +409,7 @@ spacetime call --no-config --server https://maincloud.spacetimedb.com locki-w91b
     --output /private/path/investigator-live-verification.json
   ```
 
-  The verifier checks the server-authenticated principal, exact approved incident/events/frozen baseline, unchanged scope at the end, empty privileged caller views and denials for nine private backing tables. The other workstation's three investigator queries must succeed with zero rows; a network or HTTP failure is not proof of denied scope. Schema visibility and an empty membership list alone do not establish absence of separate cloud administrative privileges. Keep the detailed report private and share only a sanitized aggregate, without tokens or raw incident/event IDs and capture timestamps. This actual-token run and its receipt remain pending until executed on the owning host.
+  The verifier checks the server-authenticated principal, exact approved incident/events/frozen baseline, unchanged scope at the end, empty privileged caller views and denials for nine private backing tables. The other workstation's three investigator queries must succeed with zero rows; a network or HTTP failure is not proof of denied scope. Schema visibility and an empty membership list alone do not establish absence of separate cloud administrative privileges. Keep the detailed report private and share only a sanitized aggregate, without tokens or raw incident/event IDs and capture timestamps. Mustafa reports execution on the owning host; retain its sanitized receipt and confirm the known-other-workstation result before marking this acceptance gate complete.
 - It then runs `.venv/bin/python bench/live_e2e.py --key-file .secrets/handoff/mustafa-operator.key`.
 - Afterwards the owner revokes the grant with `revoke_incident_evidence`.
 

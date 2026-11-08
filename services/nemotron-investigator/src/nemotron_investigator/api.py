@@ -762,6 +762,13 @@ def create_app(settings: Settings | None = None, *, source: EvidenceSource | Non
             raise HTTPException(status_code=404, detail="not found")
         rec.pop("_authz", None)
         mode = record_mode(rec)  # also covers records written before evidence_mode existed
+        id_mode = incident_id_mode(rec.get("incident_id"))
+        # Labels cannot downgrade a real incident into the fixture bypass. Unknown
+        # historical provenance is not authority to release cached evidence.
+        if ((id_mode == "live" and mode != "live")
+                or (mode == "fixture" and id_mode != "fixture")
+                or (mode is None and _past_preflight(rec))):
+            raise HTTPException(status_code=404, detail="not found")
         if mode == "live":
             result = rec.get("result") or {}
             withheld = result.get("live_report_withheld") or "live_report_withheld" in (result.get("errors") or [])

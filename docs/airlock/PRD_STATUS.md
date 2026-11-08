@@ -1,68 +1,51 @@
 # AIRLOCK PRD implementation and acceptance status
 
 **Current integration reconciliation (2026-11-08):** the authoritative integration
-repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251` with
-the source handoffs now including pinned upstream `afd008e`: M4 client/recorded-turn
-changes and Areeb's `e1c1a7b` edge snapshot plus follow-ups.
-See [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the current P0 and named-test
-matrix, differences from the original PRD, and the distinction between inspected
-artifacts and teammate-reported hardware/model results. The older entries below
-are historical evidence from Sid's original lane; their old repository links,
-test counts, hardware discovery and missing-branch statements are not current
-release certification. Full PRD acceptance remains incomplete.
+repository is `Dhruvjain35/locki-airlock`. The clean snapshot preserves the M4
+handoff through `afd008e`, Areeb’s edge source and follow-ups, Mustafa’s v0.3
+investigator, Sid’s reviewed safeguards and the existing-owner recovery delivered
+on main at `330530f`. No old repository history, database reset or replacement
+owner identity is needed.
 
-The reviewed M4 client checkpoint passed **1,852 backend tests/20 skipped in 193.71s**,
-with 79 focused client/runtime tests. It predates the incoming `afd008e` merge and
-does not certify the new edge/recorded-investigation source. The earlier full
-backend checkpoint passed **1,772 tests/20 skipped in 182.14s**; the investigator service baseline passed
-**387, one skipped and three live-model tests
-deselected in 4.18s**. The earlier frontend checkpoint records 54 tests and passing
-typecheck/build after the recorded-input copy/Send-enable correction. That build retains a
-980.06kB JavaScript chunk warning. Earlier 1,699- and 1,729-pass backend checkpoints
-retain their own pre-/post-dispatch scope. Node adapters passed 151 tests; combined
-investigator/owner HTTP boundaries passed 50. The latter includes 35 fixture investigator-verifier tests and
-does not prove an actual investigator grant, receipt, M5 verification or model trace.
-Earlier retained component checks passed 149 transactional +28 policy,
-28 owner-consent policy, 22 camera-free edge and 10 model-transport tests. The
-current source and log hashes distinguish these runs; no final merged-source or
-live-deployment certification follows from their totals.
-The user-authorized application batch reached main at `2044019`, and the exact
-workflow at `7328c4e`. The earlier OAuth workflow-scope rejection is resolved;
-there is no current workflow-delivery credential blocker. Actions run
-[42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
-last reported `startup_failure` with zero jobs; its cause remains unverified.
-Checkpoint source/log hashes cover the earlier investigator hardening and docs;
-the incoming client/runtime and record-display changes are being reconciled with
-the reviewed safeguards and need fresh checks and hash binding. No resulting
-merge commit or M4/M5/Jetson restart is asserted. Backend modified
-Python lint and investigator critical lint passed; pre-existing investigator
-style findings remain. The skipped/deselected tests close no acceptance gate.
-Mustafa's v0.3 service source is now present under `services/nemotron-investigator/`.
-Its evidence-only principal, per-incident provenance and fresh-severity integration
-are software review work. An actual M5 deployment/restart, scope grant/receipt,
-own-token authorization verification, model-selected multi-tool run and native LLM
-trace remain pending. Imported benchmark artifacts do not close those gates.
-The missing-M4-client gap is now closed in source: `nemotron_service.py` and the
-existing runtime select the API for configured authoritative live incident questions;
-local cases retain the in-process agent. The new read-only investigation-record
-route and per-recorded-turn display are now in source; their merge review and
-fresh checks remain separate from the earlier checkpoint. Current-host activation
-and an actual authorized model/spoken result remain open.
-Areeb's edge runtime is now present under `edge/jetson/locki_edge/`, alongside
-Sid's retained adapter. The incoming source includes explicit MobileNet-SSD/OpenCV
-DNN and detectNet person providers, a labelled motion-only alternative, durable
-outbox/sequence handling and bounded presence reassertion. It closes the earlier
-missing-source statement, not the physical inventory, soak/recovery, publisher
-provenance or 20–40 consenting volunteer accuracy/false-alert gates. Historical
-edge tests below remain scoped to the earlier adapter.
-Fresh cloud ARM authorization passed 12 checks; the production M4 service ARM path
-passed owner-consent HTTP/private fixture CLI issuance, session readback and replay
-denial without real M4 credentials or hardware/audio. Separate authorized stored-data
-readback confirmed an actual owner-armed M4 session and two non-simulated Jetson soft
-observations. This is not physical-frame/publisher-receipt or volunteer-accuracy proof.
-Face identification is now disabled by default in source (97 focused tests passed,
-one skipped); the running M4 privacy configuration remains unverified. Details and
-remaining gates are in the current release matrix above; raw real evidence stays local.
+The merged software checkpoint passed **1,877 backend tests with 20 skipped** and
+**135 frontend tests**. Source-scoped investigator, module, adapter and prior
+checkpoints retain their own hashes and limits in
+[RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) and its machine-readable manifest.
+Skipped or model-deselected tests close no physical/model acceptance gate.
+GitHub Actions still fails at startup before jobs; its cause is unverified and
+local checks do not imply a passing CI run.
+
+At **10:18 UTC**, a fresh read-only live database check showed the existing
+`dhruv-m4-air` disarmed with auto-lock off. `jetson-01` remains enabled under its
+original identity, with sequence 13. Earlier real sessions and stored
+non-simulated observations are historical evidence, not proof of a current armed
+session. The M4’s effective camera allowlist and current owner browser credential
+still require local confirmation. Follow [OWNER_ACCESS.md](OWNER_ACCESS.md) to
+recover the existing owner console on M4 without sharing its private token.
+
+At **10:19 UTC**, Sid separately read back one enabled incident-specific evidence
+grant issued by the exact existing workstation owner, including one selected
+event and its frozen baseline. Mustafa’s investigator has **zero memberships**.
+This admin read verifies grant presence, not the investigator token’s effective
+denials. In [issue 2](https://github.com/Dhruvjain35/locki-airlock/issues/2#issuecomment-6719727896),
+Mustafa reports his own-token verifier passed, private tables were denied, and a
+real LIVE M4-tunnel run used seven read-only tools in 11.9 seconds with official
+severity preserved. His live host records have not been independently reproduced
+by Sid. The actual M4 runtime voice turn, current revision activation, dashboard
+trace, native Relay/model evidence and physical acceptance remain separate gates.
+
+The [current project map](PROJECT_MAP.md) identifies actual source locations,
+ownership and execution order. The [release matrix](RELEASE_ACCEPTANCE.md) covers
+all ten P0 requirements and each named criterion. Face identification is disabled
+by default in source; the M4’s effective privacy configuration still needs local
+confirmation. Present detectors report presence or motion and do not establish
+whether a person walked past, stood nearby or interacted with the computer;
+consenting volunteer accuracy trials remain open.
+
+**Full PRD acceptance remains incomplete.** The older sections below retain
+Sid’s historical lane evidence, including old-repository links, earlier hardware
+discovery and source-scoped test counts. They are not current release or host
+certification.
 
 This is a bounded evidence snapshot for the supplied `LOCKI_AIRLOCK_PRD.md`, sections 0–16, reconciled on 2026-11-07 after functional regression verification. The latest source release and commit-specific CI are recorded separately below. Machine-readable sanitized evidence is [software-verification.json](evidence/software-verification.json), whose historical runs retain their own source and timing boundaries. Full PRD acceptance remains incomplete. The source PRD remains unchanged. **Implemented** means code exists; **verified locally** means a described real execution occurred; **pending** means the acceptance evidence has not been collected. A synthetic observation through a real database does not become a physical observation.
 

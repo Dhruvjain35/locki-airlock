@@ -3,9 +3,9 @@
 ## Current integration target (2026-11-08)
 
 The team integration repository is now `Dhruvjain35/locki-airlock`; the inspected
-source includes the reviewed M4 client checkpoint `29d0dde` and the incoming
-pinned upstream `afd008e` client/recorded-turn handoff. The incoming changes are
-being reconciled with the reviewed credential, provenance and cancellation safeguards.
+source merges the reviewed M4 client checkpoint `29d0dde`, upstream `afd008e`
+client/recorded-turn handoff and existing-owner recovery `330530f`, preserving
+credential, provenance and cancellation safeguards.
 Coordination and the exact missing artifacts are tracked in
 [issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2). Do not post new
 integration work to the retired `Dhruvjain35/locked-in` PR.
@@ -25,15 +25,15 @@ the existing runtime selects this HTTP client when its requester key is configur
 It submits `evidence_mode: "live"` to the M4's loopback API tunnel on `18787` and
 polls the service's voice view; local cases retain the in-process investigator.
 The route is present in source, not proof that either running host has adopted it.
-The incoming source also supplies `GET /api/security/investigation/{id}` on the M4
+The merged source also supplies `GET /api/security/investigation/{id}` on the M4
 and a recorded-turn console view of the headline, grounded facts/evidence IDs,
-tools and latency. Its merge must retain fresh live authorization, exact run/incident
-binding and per-turn isolation; an old answered run cannot describe a new failed turn.
+tools and latency, retaining fresh live authorization, exact run/incident binding
+and per-turn isolation; an old answered run cannot describe a new failed turn.
 
 `LOCKI_INVESTIGATOR_KEY_FILE` holds the M4 **API requester key**; it is not
 `NI_STDB_TOKEN_FILE`, the M5's evidence-only database credential, and neither is
 the owner credential used to grant evidence. `LOCKI_INVESTIGATOR_URL` selects the
-API tunnel. The incoming client/record changes are being reconciled with the reviewed
+API tunnel. The client/record changes preserve the reviewed
 credential/origin validation, result-to-incident binding and stale or cancelled
 result handling. A failed or unavailable
 API review must not be credited as Nemotron output or silently replaced by fixtures.
@@ -60,12 +60,13 @@ the final advisory result with server severity. Keep action/sandbox/review tools
 out of this principal. The actual host source is now present; no second investigator
 consumer, model process or service was started during integration.
 
-The reviewed M4 client checkpoint passed 1,852 backend tests/20 skipped and 79
-focused client/runtime tests. The earlier 1,772-pass backend run and 387-pass
-service run (one skipped/three live-model tests deselected) retain their original
-source scope. None certify the incoming `afd008e` merge or current M4/M5 operation.
-Fresh merge checks and manifest binding remain separate, while actual
-token/grant/model/spoken acceptance stays pending.
+The merged source passed **1,877 backend tests with 20 skipped**, **135 frontend
+tests**, typecheck and production build. The final investigator service suite
+passed **425 with one skipped and three live-model tests deselected**. It includes
+38 regression cases for old cached real records with missing or conflicting
+provenance: such records cannot bypass fresh authorization by claiming fixture
+mode. Earlier checkpoints retain their original source scope. These checks do not
+certify current M4/M5 operation or an actual spoken runtime result.
 
 The investigator extension is deployed to maincloud `locki-w91bw`. Source is on
 `integration/sid-acceptance` in the new repository. It was first deployed separately, then preserved in the
@@ -77,7 +78,18 @@ private-table publication was performed.
 Target investigator: `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883`.
 Assigned workstation: `dhruv-m4-air`. Its owner remains
 `c200bf80129f645f49c762279a175c3c3e84cf56af437c06191a237ac3eac422`.
-**The target identity has not yet been granted access or tested with its credential.**
+**At 10:19 UTC, read-only admin queries confirmed one enabled owner-issued incident
+grant and zero investigator memberships.** At 10:21 UTC, the selected incident and
+event were independently read back under the correct workstation/session:
+authoritative medium severity, `source=mac`, `kind=usb_added`, `simulated=false`,
+with the original capture timestamp one millisecond before server receipt. Private
+IDs and exact capture times remain in ignored local evidence. Admin readback is
+not an investigator-token permission test.
+In [issue 2](https://github.com/Dhruvjain35/locki-airlock/issues/2#issuecomment-6719727896),
+Mustafa reports his own-token verifier passed with private-table denials and a
+real LIVE M4-tunnel run completed with seven read-only tools in 11.9 seconds.
+Official medium severity remained separate from advisory medium/low confidence.
+Sid has not independently reproduced that host run or inspected its native trace.
 The owner credential remains on Dhruv's M4; the investigator credential stays with Mustafa.
 
 Mustafa's v0.3 §5 and scenario-B fixture are now available in the imported source.
@@ -262,10 +274,18 @@ Earlier authorized readback checked a genuine stored USB case's original capture
 and receipt timestamps, non-simulated classification and matching frozen baseline.
 The exact private scope is recorded in issue #2 and local ignored acceptance artifacts.
 This is stored-value verification, not proof that Mustafa has read it or independent
-proof of physical capture. No owner/deployment credential was used for the current
-investigator handoff or anonymous deployed-schema comparison.
+proof of physical capture. The current live grant and stored-value readback used
+Sid's existing deployment-admin credential for SELECTs only, without owner-token
+access, reducer calls or a permission change. Anonymous schema comparisons and
+fixture verifiers used no owner credential.
 See [verification manifest](evidence/investigator-verification.json).
 
-Still required: Dhruv's actual scope grant, Mustafa's actual-token verifier report,
-activation of the reviewed host changes, and a real-model run over approved live
-evidence. No reset or replacement credential is necessary.
+Still required: retain a sanitized receipt of Mustafa's actual-token verifier,
+including successful empty queries against a known other workstation; activate
+the reviewed host revisions; and capture an actual M4 runtime speech turn with
+the current granted incident, trace and spoken result. `record_agent_step` requires
+a matching enabled **service** device, while the existing backend publisher is a
+Mac. Do not relabel the investigator or Mac, or weaken that reducer to populate a
+panel. The existing owner-local read-only record route can display the genuine
+investigation without adding write rights. No reset or replacement credential is
+necessary.

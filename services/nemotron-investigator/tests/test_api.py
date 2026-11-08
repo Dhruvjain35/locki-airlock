@@ -1203,3 +1203,56 @@ async def test_failed_legacy_live_records_expose_only_status(settings, keys, fie
         assert response.status_code == 200 and response.json()["status"] == "failed"
         assert response.json()["result"]["live_report_withheld"] is True
         assert "private captured content" not in response.text and "private error content" not in response.text
+
+
+@pytest.mark.parametrize("view", ["full", "voice"])
+@pytest.mark.parametrize("label", ["missing", "invalid", "invalid-provenance", "top-fixture", "result-fixture", "fixture-provenance"])
+@pytest.mark.parametrize("access", ["revoked", "wrong-principal", "wrong-requester"])
+async def test_real_legacy_record_cannot_bypass_live_authorization_with_missing_or_fixture_labels(settings, keys, view, label, access):
+    inv = "inv_" + "f" * 20
+    store = InvestigationStore(settings.store_dir)
+    store.create(inv, LIVE_ID, "dhruv-m4-backend", allowed_workstations=["ws:fixture-a"],
+                 evidence_mode="fixture" if label == "top-fixture" else None)
+    store.progress(inv, {"kind": "preflight_ok", "workstation_id": "ws:fixture-a"})
+    result = {"investigation_status": "completed", "headline": "private historical captured content",
+              "observed_facts": [{"fact": "private historical captured content", "evidence_ids": ["event-1"]}],
+              "official_severity": {"level": "high", "authoritative": True}}
+    if label == "invalid":
+        result["evidence_mode"] = "unknown-mode"
+    elif label == "invalid-provenance":
+        result["evidence_provenance"] = {"live": "false"}
+    elif label == "result-fixture":
+        result["evidence_mode"] = "fixture"
+    elif label == "fixture-provenance":
+        result["evidence_provenance"] = {"live": False}
+    store.complete(inv, result)
+    source = LiveLike()
+    source.revoked = access == "revoked"
+    source.auth_error = access == "wrong-principal"
+    app = make_app(settings, source=source)
+    async with serving(app) as client:
+        response = await client.get(f"/investigations/{inv}?view={view}",
+                                    headers=H(keys["other" if access == "wrong-requester" else "dhruv"]))
+    assert response.status_code == 404
+    assert "private historical captured content" not in response.text
+    assert "official_severity" not in response.text
+
+
+@pytest.mark.parametrize("view", ["full", "voice"])
+async def test_explicit_fixture_record_remains_readable_without_live_grant(settings, keys, view):
+    inv = "inv_" + "a1" * 10
+    store = InvestigationStore(settings.store_dir)
+    store.create(inv, A_ID, "dhruv-m4-backend", allowed_workstations=["ws:fixture-a"], evidence_mode="fixture")
+    store.progress(inv, {"kind": "preflight_ok", "workstation_id": "ws:fixture-a"})
+    store.complete(inv, {"investigation_status": "completed", "evidence_mode": "fixture",
+                         "headline": "Explicit fixture result", "official_severity": {"level": "medium"}})
+    source = LiveLike()
+    source.revoked = True
+    source.auth_error = True
+    app = make_app(settings, source=source)
+    async with serving(app) as client:
+        response = await client.get(f"/investigations/{inv}?view={view}", headers=H(keys["dhruv"]))
+    assert response.status_code == 200
+    assert response.json()["evidence_mode"] == "fixture"
+    assert response.json()["evidence_badge"] == "TEST DATA"
+    assert source.authority_checks == 0

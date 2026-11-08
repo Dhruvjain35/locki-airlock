@@ -1,29 +1,33 @@
 # Release acceptance reconciliation
 
-Latest integrated M4 client checkpoint: **1,852 backend tests passed, 20 skipped
-in 193.71s** after merging `1bbbfbf` and independently reviewing the client and
-runtime safeguards. The combined client/runtime focus passed 79 tests. The M4
-client is wired in source; actual M4/M5 activation and owner access remain live gates.
-This checkpoint predates the incoming pinned `afd008e` merge, which includes
-Areeb's edge runtime and new recorded-turn investigation records. It is not a
-whole-main test result for those additions; merge checks must be recorded separately.
+Pre-`f73c40a` merged application checkpoint: **1,877 backend tests passed, 20 skipped
+in 185.75s** and **135 frontend tests passed across eight files**. Final frontend
+typecheck and production build passed. The application source at `fa196ad`
+combines pinned upstream `afd008e`, owner-access commit `330530f` and the reviewed
+client/runtime safeguards. A separate merge-focused run passed 176 tests in 4.71s.
+The full backend suite does not include the separate edge or investigator-service
+suites; their receipts retain their own source scope.
+The earlier reviewed M4 client checkpoint passed 1,852 backend tests/20 skipped
+and 79 focused tests before the edge/recorded-investigation merge.
 An earlier full attempt had one unchanged simulated-motion timing failure; all
 ten legacy mock tests passed on a targeted rerun and the subsequent full run passed.
 No actual motion, model, microphone, camera or lock was activated by these checks.
 
 Reviewed 2026-11-08 against the original supplied `LOCKI_AIRLOCK_PRD.md` §§0–16 and
 the `Dhruvjain35/locki-airlock` audited snapshot `2212251`, with the current source
-handoffs now including pinned upstream `afd008e` and edge snapshot `e1c1a7b`. This is the current
+handoffs now including pinned upstream `afd008e`, edge snapshot `e1c1a7b` and owner-access
+commit `330530f`. This is the current
 integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane evidence.
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
 
 The prior full backend checkpoint passed **1,772 tests, 20 skipped in 182.14s**,
 before the new M4 service-client merge and its independent review.
-The investigator service's source-scoped baseline passed **387 tests, one skipped and three live-model
-tests deselected in 4.18s**. The earlier frontend checkpoint records **54 tests**;
-its typecheck/build passed after the recorded-input copy/Send-enable change, before
-the current client/runtime review.
+The final investigator-service unit suite passed **425 tests, one skipped and
+three live-model tests deselected in 4.19s**, including 38 new legacy-cache
+authorization cases. Its earlier 387-test baseline retains its earlier source scope.
+The older 54-test frontend checkpoint and
+recorded-input build remain historical, superseded for the merged UI by the 135-test run.
 Earlier full backend checkpoints were 1,699/20 skipped before dispatch hardening
 and 1,729/20 skipped afterward; their source scopes and logs remain distinct.
 Node adapters passed **151** and the combined investigator/owner HTTP boundaries
@@ -42,9 +46,12 @@ Separately, [Actions run 42464179187](https://github.com/Dhruvjain35/locki-airlo
 last reported `startup_failure` with zero jobs. Its cause is not established by
 that status, and local test results are not a claim of passing GitHub CI. The
 earlier investigator hardening/docs are bound by their checkpoint hashes below.
-The incoming M4 client/runtime/record changes are being reconciled with the reviewed
-`29d0dde` safeguards and need fresh checks/hash binding; no resulting merge commit
-or host activation is invented here. The existing manifest retains its checkpoint scope.
+The owner-access batch is confirmed published at `330530f`. The broader `fa196ad`
+merged delivery remains pending at this cutoff; no later main commit is invented.
+The M4 client/runtime/record changes have been reconciled with the reviewed
+`29d0dde` safeguards. The manifest binds the merged source and separately scoped
+test logs; successful Git delivery does not establish host activation. Later upstream
+`f73c40a` is outside this checkpoint and requires its own merge/check receipt.
 Git delivery does not restart M4/M5.
 
 The production M4 service method was earlier exercised against cloud using isolated fixture identities,
@@ -61,6 +68,19 @@ an authorized admin read**, not independent inspection of frames, publisher rece
 or the actual camera's scoped view. The publish-only camera role normally has no
 event-read view; an empty camera view is expected. Session/event identifiers and raw
 incident evidence remain in ignored local artifacts under CONTRIBUTING.md.
+The latest separate authorized status readback found the workstation **disarmed**,
+the Jetson enrollment enabled and its stored sequence at 13. These are readback
+facts at their observation time, not a new arm/disarm or physical capture test.
+
+An independent authorized admin read also confirmed exactly **one enabled
+incident-evidence grant**, granted by the exact existing owner, with one selected
+event and the frozen baseline included, and **zero investigator membership rows**.
+This confirms stored grant presence and scope counts. It does not reproduce an
+investigator-token negative test or prove that the reviewed M4/M5 revisions are running.
+A subsequent incident/event read confirmed the selected record's workstation/session
+match, official medium severity and one non-simulated Mac `usb_added` event, with
+capture stored one millisecond before commit. This is stored-value verification,
+not independent physical-frame or publisher-receipt proof.
 
 Evidence levels used here:
 
@@ -76,16 +96,16 @@ Evidence levels used here:
 
 | P0 | Current integration evidence | Remaining release gate |
 |---|---|---|
-| 1 Authenticated arm/disarm and frozen baseline/app/camera/policy | Deployed owner-only reducers and narrow one-use ARM delegation; fresh cloud proof has 12 checks. Full owner-consent HTTP/private fixture CLI→production M4 service ARM/replay proof passed with zero locks and final fixture disarmed. Actual M4 owner ARM stored state was verified separately. | Actual running M4 owner-consent→voice→session-readback trial remains open; fixture credentials and direct owner ARM do not prove it. |
+| 1 Authenticated arm/disarm and frozen baseline/app/camera/policy | Deployed owner-only reducers and narrow one-use ARM delegation; fixture cloud proof has 12 checks and production-service ARM/replay proof. Owner recovery and scoped investigator consent UI are included in the 135-test frontend suite; no live recovery was performed by these tests. Earlier actual owner ARM was read back; the latest status readback is disarmed. | Actual existing-owner browser recovery and running M4 owner-consent→voice→session-readback trial remain open; fixture credentials and direct owner ARM do not prove them. |
 | 2 Independent physical evidence and 20–40 consented trials | Areeb's `e1c1a7b` edge snapshot and follow-ups are now present under `edge/jetson/locki_edge/`, with Sid's earlier adapter and Dhruv's distinct Mac CV retained. Two actual-session Jetson rows marked non-simulated were previously verified by authorized stored-data readback; this does not establish which new source revision produced them. | Actual device inventory, merged-source capture/unplug recovery, publisher receipt/frame provenance and held-out volunteer activity/false-alert trials. Source face identification defaults off; actual M4 privacy configuration remains unverified. |
 | 3 Real USB and visible app observations | M4 IOKit/NSWorkspace paths are present. Historical Sid app-launch proof is documented; README reports physical USB receipt/audio on M4. | Obtain original event/receipt/timing artifacts from the actual merged host, approved peripheral baseline and removal/insertion trial. App launch is not compromise. |
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
 | 6 Authoritative SpacetimeDB | Server owns enrollment/session/incident/review/approval; private scoped views and deployment manifests are present. | Validate the merged host and two physical clients against the same deployed module; preserve database authority in all local fallback UI. |
-| 7 Operational local Nemotron E4B | Mustafa's v0.3 service and M4 client/runtime route are present. The prior reviewed client checkpoint passed 1,852 backend tests; incoming `e383be5`/`afd008e` client/recorded-turn changes are being reconciled with its safeguards. Configured authoritative live incident questions use the API; local cases retain the in-process agent. | Fresh checks of the merged client/runtime/record route, actual M4/M5 activation, owner scope grant/receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools. Source wiring is not host/model acceptance. |
+| 7 Operational local Nemotron E4B | Merged client/runtime/record guards passed the 1,877-test backend suite and 176 focused checks. An admin read confirms one enabled owner-matched evidence grant and no investigator memberships. Mustafa reports successful own-token verification and two LIVE E4B API runs, one through the M4 tunnel, with seven selected read tools; see the attributed report below. | Confirm the current incident's grant freshness, inspected verification/model artifacts and adoption of the reviewed host revisions; run the actual M4 runtime WAV path and preserve native model/Relay traces. The teammate's API report does not independently establish those runtime/native gates. |
 | 8 Native Relay and protected Code Quest tools | Historical native Relay/managed boundary evidence and local gate source exist. | Actual merged-model LLM/tool spans, correlation IDs and pre-execution allowed/denied Code Quest callback proof; application logs do not substitute. |
 | 9 Existing live voice and safety priority | M4 speech stack and new turn/quiet/barge behavior are preserved. Fake tests cover microphone close/reopen failure, held/late ASR cancellation and immutable capture-epoch checks; no second voice service is needed. | Coordinated M4 restart, real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
-| 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. | Same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
+| 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. The merged owner-recovery UI verifies the existing owner against the selected destination/workstation before persisting a recovered profile; fake tests cover its boundaries. | Actual existing-owner recovery, same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
 
 ## Every named acceptance criterion (§13)
 
@@ -99,8 +119,8 @@ Evidence levels used here:
 | MAC-03 | Historical native Calculator proof; new source uses NSWorkspace | Merged-host event/receipt and bundle/signature metadata where available; explicit visible-app limits. |
 | MAC-04 | Dry-run implementation; README says no real lock run | Prior explicit consent, real own-Mac request/action/observed-lock evidence and unlock/disarm. |
 | VOX-01 | Preserved software and team audio reports | Live microphone/ASR/model/speaker sample with P0 interruption and acoustic timing method. |
-| NV-01 | v0.3 service source present; upstream benchmark reports retained; current host unverified | Exact local M5 deployed revision/model tag, runtime/version and actual response artifact; no cloud-model substitution. |
-| NV-02 | Checked local investigator; scoped evidence helper 24/24 | Real model selects ≥3 approved tools on real correlated evidence, records failures/uncertainty and preserves authoritative server severity. |
+| NV-01 | v0.3 source present; Mustafa reports real `nemotron-3.5-bolt:e4b` LIVE runs on M5 and through the M4 tunnel | Inspect original model/runtime/response receipts and confirm adoption of the reviewed revision; no cloud-model substitution. |
+| NV-02 | Checked local/scoped investigator software; Mustafa reports seven selected read tools, grounded facts and distinct official/advisory severity | Inspect those private run/verification artifacts and prove the current M4 runtime path on its freshly granted incident; preserve failure/uncertainty and authoritative server severity. |
 | NV-03 | Historical native tool/guardrail proof | Actual Nemotron run's native Relay start/end LLM/tool spans with shared correlation ID. |
 | NV-04 | Historical managed-boundary proof | Unauthorized callback never starts, harmless authorized callback succeeds in current host; fixture approval labeled. |
 | ST-01 | Recorded local/cloud reducer evidence | Recheck merged runtime's real session/incident IDs are reducer-created, not merely local mirrors. |
@@ -164,19 +184,35 @@ sponsor eligibility or deployability claim is supported yet.
 
 [Issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2) requests Mustafa's
 owner-approved incident/event selection and actual-host verification. The imported
-[v0.3 contract](../../services/nemotron-investigator/INTEGRATION.md) is now available,
-but his identity has no verified actual-token grant/report in this work. Only the real owner may grant the
+[v0.3 contract](../../services/nemotron-investigator/INTEGRATION.md) is available.
+Stored evidence-grant presence and exact owner match are independently confirmed;
+actual-token/model results below are attributed to Mustafa. Only the real owner may grant the
 minimum read scope. Never substitute deployment/admin credentials or give the
 investigator mutation roles. [INVESTIGATOR_INTEGRATION.md](INVESTIGATOR_INTEGRATION.md)
 contains exact views/reducers and prepared owner commands.
 
 Main `1bbbfbf` additionally supplies the M4 HTTP client and “what happened?” route
 for configured authoritative live incident IDs. This replaces the earlier missing-client
-gap. Its reviewed checkpoint passed 1,852 backend tests, while the incoming
-`afd008e` merge adds client safeguards and the recorded-turn investigation record.
-Those changes are being reconciled with the strict reviewed boundaries; previous
-suite totals and manifest hashes do not certify this incoming merge. Actual M4/M5 adoption,
-evidence authorization and model/spoken receipts remain open.
+gap. The merged `afd008e` source preserves strict endpoint/key-file checks,
+bounded responses, exact incident/run/live/severity binding and per-turn isolation.
+Read-only records are fetched afresh; running or failed jobs expose status only.
+The 1,877-test backend and 135-test frontend results cover this merged application,
+while actual reviewed-host adoption and the M4 runtime/model/spoken proof remain separate.
+
+In [Mustafa's issue #2 report](https://github.com/Dhruvjain35/locki-airlock/issues/2#issuecomment-6719727896),
+he states that the investigator's own-token verifier exited zero, private tables
+were denied, no reducers were called, and one incident was visible with no memberships.
+He reports a non-simulated LIVE E4B API run through the M4 tunnel in 11.9s and an
+M5 operator run in 12.1s, with seven read-only evidence tools followed by finish.
+The M4-tunnel run completed with warnings: grounding flagged intent wording.
+Official medium severity remained distinct from the model's medium risk/low
+confidence. These are **Mustafa's reported results**, not a reproduction by this
+review or independent inspection of the original model/native artifacts.
+He explicitly notes that the tunnel API run did not exercise the M4
+`NemotronService` runtime WAV path. Fresh incident grants, that runtime trial,
+and native Relay/LLM proof remain required. Publishing API tool traces through
+the database `record_agent_step` path is also not established; the read-only
+record panel alone does not populate that shared investigation timeline.
 
 The service uses an evidence-only investigator identity, with no workstation
 membership/device role. Its API key does not create a database grant. Service
@@ -192,9 +228,10 @@ scoped tools/agent/assessment tests**, and **77 voice-input hold tests with one
 skip**. These overlap broader suites and use fake capture/scripted model inputs;
 they establish neither an actual M5 service nor a microphone or model run.
 
-The latest read-only verifier passed **35/35** with fixture responses, including
+The locally checked read-only verifier passed **35/35** with fixture responses, including
 wrong-principal, cross-workstation, token-revocation and failed-transport cases.
-It proves no actual scope grant, receipt, M5 verification or model trace. Earlier
+That fixture run proves no actual grant, M5 verification or model trace; the
+independent admin readback and attributed live report have separate scopes. Earlier
 fixture checks passed 24/24 for authoritative severity/report reconciliation and
 38/38 for transactional investigator authorization. Their commands and file hashes,
 plus the inspected integration test totals and
@@ -202,7 +239,7 @@ sanitized cloud-proof summaries, are recorded in
 [release-acceptance.json](evidence/release-acceptance.json). Module/script type checks,
 backend changed-Python lint and dependency audits passed (zero reported npm vulnerabilities).
 Investigator critical lint (`E9,F63,F7,F82`) passed; pre-existing full-style findings
-remain and are not claimed clean. The latest build retains a 980.06kB JavaScript chunk warning; backend reports one dependency
+remain and are not claimed clean. The final merged build retains a 1,002.04kB JavaScript chunk warning; backend reports one dependency
 deprecation warning. The 20 skipped backend tests are not passing acceptance proof.
 No aggregate software count closes the physical/model requirements above.
 

@@ -7,7 +7,7 @@ and answers questions from the recorded evidence. An NVIDIA Nemotron model inves
 Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan.
 
 > **Status: integration snapshot, not a finished release.** Mustafa's service, its M4 client and Areeb's Jetson runtime are present in source.
-> The pinned `afd008e` handoff is being reconciled with the reviewed client/runtime safeguards. Actual M4/M5 activation, scoped evidence receipts and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
+> The `afd008e` handoff and existing-owner recovery are merged with the reviewed client/runtime safeguards. Software checks pass; current host activation, a real runtime voice trial and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
 
 **Start here:** [Project map and ownership](docs/airlock/PROJECT_MAP.md) · [Original PRD](docs/airlock/PRD.md) ·
 [Acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) · [Wire contracts](docs/airlock/CONTRACTS.md) ·
@@ -55,9 +55,8 @@ the computer. Those differences must be measured with [consenting volunteer tria
 **Current source wiring.** For “what happened?” about an authoritative live `incident:<32 lowercase hex>`, the existing runtime selects
 `NemotronService` when its M4 API requester key is configured. That client sends `evidence_mode: "live"` to Mustafa's authenticated API and
 polls its voice view. Local cases retain `AirlockAgent` through the existing Ollama/fallback path. This is one route selection in the existing
-voice runtime, not a second backend. Credential/origin checks, report binding and stale-result handling are under independent review.
-The source path is present; current M4/M5 activation, the actual evidence grant and model/voice receipts remain unverified. Alerts never wait on this enrichment.
-The incoming handoff also adds a read-only investigation-record route for the recorded-turn panel, with grounded facts, evidence IDs, tools and latency. Its reconciliation must preserve current authorization, exact report binding and per-turn result isolation; earlier full-suite results do not certify this addition.
+voice runtime. Credential/origin checks, report binding and stale-result handling have independent review and regression coverage. The read-only investigation-record route supplies the recorded-turn panel with grounded facts, evidence IDs, tools and latency, bound to the current result.
+Mustafa reports a real model investigation through the M4 tunnel; Sid separately verified that the exact owner-issued incident grant exists and the investigator has zero memberships. This does not verify activation of this revision or the runtime's actual speech path. Alerts never wait on this enrichment.
 
 **Independent edge source.** Areeb's runtime is now in `edge/jetson/locki_edge/`, with its [deployment runbook](docs/airlock/edge/DEPLOY.md).
 It supports explicit OpenCV DNN MobileNet-SSD person detection for JetPack 6, detectNet and motion-only alternatives, a durable metadata outbox,
@@ -219,13 +218,13 @@ Historical camera, audio and model timings in the runbooks are attributed team m
 
 | Check | Status |
 |---|---|
-| Backend software | Reviewed M4 client checkpoint: 1,852 passed; 20 skipped. This predates the incoming `afd008e` edge/recorded-investigation merge |
-| Investigator service software | Source-scoped baseline: 387 passed; one skipped; three real-model tests deliberately excluded |
-| Frontend | Earlier checkpoint: 54 tests, typecheck and production build; new recorded-investigation and separate owner-recovery delivery require their own checks |
+| Backend software | Merged cofounder/client/owner-recovery source: 1,877 passed; 20 skipped |
+| Investigator service software | Final authorization/evidence suite: 425 passed; one skipped; three real-model tests deliberately excluded |
+| Frontend | Merged record view and owner recovery: 135 tests passed; typecheck and production build passed |
 | GitHub Actions | Workflow published; latest inspected run failed at startup before any jobs. Cause unknown; local checks do not imply CI success |
 | Real M4 hardware | Team reports: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. The new face-disabled default has not been activated or verified on the running M4 |
-| Live SpacetimeDB | Current owner-armed session and committed non-simulated Jetson person rows independently read back; Mac USB/audio timings remain team reports. Separate M4 camera enrollment is still an owner action |
-| Real Nemotron inference | Team reports one investigation from the M4 through the M5 (above); current host artifacts and scoped Mustafa access remain unverified |
+| Live SpacetimeDB | At 10:18 UTC, the existing workstation is disarmed with auto-lock off; Jetson remains enabled with its original identity and sequence 13. At 10:19 UTC, the owner-issued investigator grant and zero investigator memberships were independently read back. Owner browser recovery is still unverified |
+| Real Nemotron inference | Mustafa reports an 11.9-second LIVE M4-tunnel investigation with seven read tools and authoritative severity preserved. His host artifact and denied-access evidence have not been independently reproduced by Sid |
 | Real Jetson hardware | Team reports operation; stored non-simulated person events verified. Hardware inventory, soak, unplug recovery and accuracy trials remain open |
 | Real screen lock | **Not run** (dry run only, by design) |
 
@@ -234,9 +233,8 @@ Historical camera, audio and model timings in the runbooks are attributed team m
 - **Edge host acceptance.** The `e1c1a7b` snapshot of Areeb's `feature/airlock-edge` and its follow-ups are included in the pinned `afd008e` handoff.
   Source presence closes the missing-edge-code gate. Actual inventory, capture/receipt provenance, soak/unplug recovery and 20–40 consented activity/false-alert trials remain open. The new [edge runbook](docs/airlock/edge/README.md) and Sid's [retained adapter runbook](edge/jetson/README.md) describe separate publishers, not two processes to run together.
 - **Mustafa's live investigator host.** The source and v0.3 contract are included under `services/nemotron-investigator/`.
-  The M4 runtime client is included too; its previous reviewed checkpoint passed 1,852 backend tests, and the incoming record/client changes are being reconciled with those safeguards. Activation of the reviewed changes
-  on both hosts, the actual owner-local evidence grant and an investigation using his existing identity
-  still require host receipts. Model weights, credentials and private live investigation records never belong in git.
+  The merged M4 runtime client and record view passed the software checks above. Activate the reviewed revisions through the existing host owners, run an actual recorded or live “what happened?” turn against a granted current incident, and capture the dashboard trace and spoken result. The existing grant covers one approved incident; new incidents need separate owner approval. Model weights, credentials and private live investigation records stay outside git.
+- **Existing owner console.** Update only the existing M4 frontend, recover the existing owner credential locally, and read back a real session ID with auto-lock disabled. A browser client name does not authenticate the owner; follow [OWNER_ACCESS.md](docs/airlock/OWNER_ACCESS.md).
 
 To add a missing lane, follow "Adding your lane" in [CONTRIBUTING.md](CONTRIBUTING.md). It copies a snapshot of your files without the old history.
 

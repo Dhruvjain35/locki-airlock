@@ -1,5 +1,5 @@
 {
-  "recorded_at_utc": "2026-11-08T09:30:26.314404+00:00",
+  "recorded_at_utc": "2026-11-08T10:24:55.379977+00:00",
   "repository": "Dhruvjain35/locki-airlock",
   "base_commit": "221225129b77f773e5ed54792db84fcc0f4ce7b7",
   "review_scope": "Original PRD sections 0-16, ten P0 requirements, all 22 named acceptance criteria, additional EDGE-06",
@@ -26,108 +26,37 @@
       "scope": "Earlier retained component run; not a new live-host or model verification."
     }
   ],
-  "runtime": "Local Python and Node test environments; each run retains its own suite/source scope.",
-  "test_provenance": "Fixture transports, fake audio/capture, mocked HTTP and scripted model/tool inputs; deterministic report and transactional module harnesses. Counts overlap and do not constitute physical, actual-token or real-model acceptance.",
+  "runtime": "Final application and service suites executed from the main-delivery worktree; external Python environment, shared Node dependencies and logs were held in the integration worktree.",
+  "test_provenance": "Fixture transports, mocked SDK/HTTP, fake audio/capture, scripted model/tool inputs and deterministic report/module harnesses. Counts overlap; these runs activate no camera, microphone, real model or OS lock. Independent admin readbacks and attributed teammate live runs are listed separately.",
   "model_runs": 0,
   "hardware_activated": false,
   "mustafa_actual_token_verified": false,
   "coordination_issue": "https://github.com/Dhruvjain35/locki-airlock/issues/2",
-  "files_sha256": {
-    ".github/workflows/airlock.yml": "13ce967bbc3ecd86ba22c7579597042f8961de66a5c07cb664325a20c6e7016e",
-    "backend/app/api/routes.py": "92b1589ec5d5b6ca6d81fa2dcfc1b79f01deb960d3c9a8a500f9c8b8c25c3af1",
-    "backend/app/config.py": "42db3484a9ebdba3e58433fa9626333681b56ef5439d9bcc0a0103e501ba2770",
-    "backend/app/intelligence/companion.py": "bb2a1618b495dfc0ed324890b9d849064ab4f4daf38bdbb2a6cbee381315c0a6",
-    "backend/app/intelligence/ollama_llm.py": "aee4564fd298fe25eb49668b9899daed0128943472a700a83539f1a951a2d651",
-    "backend/app/runtime.py": "c2d586c31724db4ab1d85a4974d757c30a3c43bb1eb921f6e0a742e28a696188",
-    "backend/app/security/arm_delegation.py": "acc1eb2d410b4ab358a0bc206ca959103592f38b2de3795e09f24eca5aa2ab34",
-    "backend/app/security/camera.py": "277ff16114797ee3d917b04b3b88252c60787fdb65ae0936c4f255f47d83b0bc",
-    "backend/app/security/demo.py": "1b71b2543f2774b49f91f991b101080e2081d858e77c762b48e20d56f80a4ea3",
-    "backend/app/security/dispatch.py": "e35ef6b4cd9df29adf232d79914bcb84e6f2546587cb0bfd3e8f7b2f594ac4f7",
-    "backend/app/security/service.py": "8aa3586e9ea04d412ec44926e1340a8a523e0be45e2a837cdf015afa01ce16ca",
-    "backend/app/security/spacetime_adapter.py": "adade3f06980616c4757c387e69b5a7c3fd999fcdbcd2534a102984506cc63a2",
-    "backend/app/voice/input.py": "a60b409242c737894f091a3bf8ec5292cbc002668428aa61c4e656187fb04c95",
-    "backend/app/voice/intents.py": "2d153234d4a18c33e81f77d7b588d5dfb51b7e81d47ed6fa315490e935b7bd5e",
-    "backend/app/voice/personality.py": "8a5fe97ce06986e0eedd80206c33db19adbaaecc6a01c1f46c5bfc42cd772215",
-    "backend/app/voice/recorded.py": "c9cadef588afa3d42b2466453f481b3b66143f690658ff90ec5b0025cd7ec40a",
-    "backend/app/voice/service.py": "5b8a68e1415dc6466e525007133fea5b85594b04da06f5ddadc2e2615309f1df",
-    "backend/app/voice/tts.py": "f90e18ea9618860a91e397be35658a7af5788e56e2dddf2f5a28ae998574d50c",
-    "backend/pyproject.toml": "a692653e5a3bd1d8f63c9eb991c01ea115b608cc208737966e0228446335f28b",
-    "backend/tests/test_audio_default_output.py": "74be1dddbc9ac00356aa1d02b28507cb074eeef5f227cb247f5d9e1cf19bb404",
-    "backend/tests/test_conversation_turns.py": "0b895dde1ed2ebaa578c9da95d2bdf9913207ef39a0c4567815bb9af8f8e9906",
-    "backend/tests/test_recorded_voice.py": "0de83c38536f67bd449ca4b84a834e3bcb5a5856cfc7c4d2abc102eac73f36d1",
-    "backend/tests/test_security_arm_delegation.py": "004a731a7bec7023151d6700730daba857a0cd22a965555985fb9c4aabfdb2fa",
-    "backend/tests/test_security_dispatch.py": "fc8d30dc16227d3d8c8b68e33b84ebcbb4d5855d4c57f1a6ccb1f0fae997ca26",
-    "backend/tests/test_security_voice_merge.py": "c03591eea83bebfe81c5168406aaab86af18bf5cf62d24b1ee7d380ad8a850c8",
-    "backend/uv.lock": "bee6cc2ffe95e74bf904296cfc06cca030ad562f66c176c3b850efd34a0b1dd2",
-    "docs/airlock/evidence/investigator-verification.json": "adea9c34e9f462a670b501804c5f6a8ee5236a0b18730d348b7cc95a1cf66347",
-    "docs/airlock/evidence/m4-integrated-arm-verification.json": "e17440525cb1670421cbbe502736f2dd107c05bbd296ed595d693103a77eb37e",
-    "docs/airlock/evidence/voice-arm-verification.json": "e007efde157fa08f5f1df369bd69b39c625817cbf158290cece465d206949d8b",
-    "frontend/src/airlock/AirlockApp.tsx": "a81251102f0a6ddccbff599becb6fa6997e020cc5c3379f45c1a5d0e1f35678f",
-    "frontend/src/airlock/DeskView.tsx": "445c9a049ef7cc2ecb5e0aea56ffd171853a963468e216b0610336254e4b2ca7",
-    "frontend/src/airlock/DispatchPanel.tsx": "da468c38185b46ab72a8f792113bca825bde1d4d679997f140dfabcdc3184de7",
-    "frontend/src/airlock/IncidentAlerts.tsx": "dcbbab64804b42f08fb9e196868bfe83cdcde0c8197040da6c4dac41bd9fc2e2",
-    "frontend/src/airlock/RecordedVoicePanel.tsx": "52a5c75f852be9e1fca5c6374f0cd6c4d6f278538d242723734358aca36e9416",
-    "frontend/src/airlock/VoiceArm.tsx": "15e3edde71dc7e4bedb7118e47b717e79ee5e29f3ceb467acc8d6c8f3d68b87f",
-    "frontend/src/airlock/client.ts": "033b1f9dc877856d1b3e065aadabc7b8a2f3d2e3d966964799a135fda86cd67f",
-    "frontend/src/airlock/forms.tsx": "cb2304fbb79dadfadd6c861afbf0a3b043474ca9ae063d2175c6f433c97eb8b4",
-    "frontend/src/airlock/voiceArmConsent.ts": "bb11ea47a41efec5397cc3a8c6af1b97cf53041f8d9c0ee4fc98d7e8c310cb3a",
-    "frontend/src/components/VoicePanel.tsx": "512484f5cb573ce36334f3ab3124b1762d5dd6e6b41dadbcaeaef3b99a9e5675",
-    "frontend/src/demo/AirlockDemo.tsx": "59e0225122cd0e57f325ff0ab2960e461a0595e972a28db30e6361fa3f209f82",
-    "frontend/src/demo/demoApi.ts": "5cdc78cd9ea81d333b54dec9d2b1dc6ccd6cf9f4fd093cb0fbfba3f9eaa67eb6",
-    "frontend/src/services/api.ts": "6ab9cdf0944ac7e210d6a10ef68b2fe97307c712303c4da90916920e750e8246",
-    "scripts/airlock_investigator_report.mjs": "3e9ad56e24c60341092d8c9752b3b9f8ee3d88aac2473f4285209419149cddac",
-    "scripts/airlock_investigator_report.test.ts": "00b2ee2b9d425ad6075c0a80ad23ecdc5537dee7c439ca37b91b4b25c4605a84",
-    "scripts/airlock_investigator_verify.mjs": "d4cd5708424028a367d0d36fabd5a20eae7c142539bb28e1676416aaee21605b",
-    "scripts/airlock_investigator_verify.test.mjs": "f88fb4aa822a75c386ccaf22c53dc3ec1b4102e40ed06ca8c1e7cfab605da10e",
-    "services/nemotron-investigator/INTEGRATION.md": "b02a66e948fd76b745a49329f97c06452f6906f20d8acd2aa694a552860e099d",
-    "services/nemotron-investigator/pyproject.toml": "77f25fb4f059b6c4826f37956ca5336ad5fa4b4ebade7e0b1bae3ca1ed72201c",
-    "services/nemotron-investigator/src/nemotron_investigator/agent.py": "c67553d751afdfcffb5f5642782061b82731f9d6ea1b02cab826d741ceef1fde",
-    "services/nemotron-investigator/src/nemotron_investigator/api.py": "49468447b38493013b0a61f28929e323e4697a03c4727c81c39bf559cb01fbc0",
-    "services/nemotron-investigator/src/nemotron_investigator/assessment.py": "fe4b52a23fe156cb62d6fddac7a4b46ea731f9b5335c69f243c02f69435f45e6",
-    "services/nemotron-investigator/src/nemotron_investigator/auth.py": "cd0458795c6ffc54566d96b9d04365854598944dbc29ee1b820eb1f023b5452c",
-    "services/nemotron-investigator/src/nemotron_investigator/config.py": "e5c8f8eb325cf6c5684d0699f084731a420438c2e7e0869328c07e0024d0a6c4",
-    "services/nemotron-investigator/src/nemotron_investigator/contracts.py": "5ae02498dd730423e6dee2c68498e44f533b7c6bef73fcbfc3d3cb00a0c88a65",
-    "services/nemotron-investigator/src/nemotron_investigator/evidence/authorization.py": "bbe1c7335e93f585befbec5e09d6e87e12a2a6b236ed058b13c199966e0b416c",
-    "services/nemotron-investigator/src/nemotron_investigator/evidence/base.py": "513b7c1abdee728d9730543148f8ceecda1d1b0dc7470ca4ad01aa0778048d5e",
-    "services/nemotron-investigator/src/nemotron_investigator/evidence/spacetime_http.py": "497f753ffad2ddd97ee555d88437b1dbb4c83ae6aeb7f98a1bed69afeb77c174",
-    "services/nemotron-investigator/src/nemotron_investigator/ollama_client.py": "02a13b411414ac929a5fb8f42b12cae2b43c0c183643cff4a5205a512bcd2f65",
-    "services/nemotron-investigator/src/nemotron_investigator/store.py": "b35a8c2c5963255639530f4091246111bdfca0655073c06c1f30c49da0acbc90",
-    "services/nemotron-investigator/src/nemotron_investigator/tools.py": "1ee3eda8d853c5c0a5692727bd00591cb9bef5a4f2e9dead51d52de40b1fc477",
-    "services/nemotron-investigator/tests/test_agent.py": "2a4f227668e10d1ec262baff5e0b83e176fe147537aa06f299b20b3ba4c2546e",
-    "services/nemotron-investigator/tests/test_api.py": "c26cb5bc148deacfe23756612e45e6ec7afbd20bf7e83331620cff079fd9f35b",
-    "services/nemotron-investigator/tests/test_assessment.py": "0e95f392671d732440b65f09b7d7457b2b362e8488814ec4bab8d11811537ce3",
-    "services/nemotron-investigator/tests/test_spacetime_adapter.py": "b4fa215d01a3eac2333f61d8ade387d1ec7c49184f66d442e3d42b0d21383dc7",
-    "services/nemotron-investigator/tests/test_tools.py": "1e87aa6fdde2ace296036ad7cd8d7c8f24331d7abda380d25fab40d066cdd109",
-    "spacetime/src/index.ts": "2e5b7bde07ba3bfeb96eb8308a6b8cc6d8f175bc4d50fb7188c6999085ef1751",
-    "spacetime/tests/investigator-evidence.test.ts": "9b6e4f3894f9219e641f3a9c4ae43478dbd598244b99a45fdab3c79020f4f83a",
-    "README.md": "d21a2c1d4c66f948cbb3f22a874a3d01503016cb2115a5eca96fbaf2cb20ec4f",
-    "docs/airlock/PROJECT_MAP.md": "b1da5af41e37ffbd919b4d7f8a842136473ef7aa34d8f2c733b851b76c075aad",
-    "docs/airlock/PRD.md": "eec390f7a60fc31604f502e373a036dd91fb56f2b7784028d151cc773ed4c1c7",
-    "backend/app/intelligence/nemotron_service.py": "be6aae5f726198d4dedd2b7442e8e7c889c2c138ddb5fbd4f84b6ffed073254d",
-    "backend/tests/test_nemotron_service.py": "31449130d46e6148687fc2f8d7099075ffad2442ddc09696da4b77df232f3dad",
-    "backend/tests/test_nemotron_service_contract.py": "483424c35a35eed891a502189cea3caa9ad9e2a9327da160dd7d7514b34dbd8e",
-    "backend/tests/test_nemotron_service_runtime.py": "d93d779d6aa99e0390def4f5f76df2583dc45dd4a9403e696b0be91db1fbfcfd"
-  },
   "final_integration_checks": [
     {
       "suite": "backend",
-      "passed": 1772,
+      "passed": 1877,
       "skipped": 20,
       "failed": 0,
-      "seconds": 182.14,
-      "log": "data/acceptance/backend-final-recorded-integrated.log",
-      "source_scope": "Final frozen backend application source; investigator-service unit results are listed separately. No current-host physical/model proof."
+      "seconds": 185.75,
+      "log": "data/acceptance/backend-final-afd-owner-merged.log",
+      "source_scope": "Application source at fa196ad, including pinned afd008e and owner-access 330530f; executed cwd main-delivery with its backend PYTHONPATH and external integration venv. Separate investigator-service and edge suites are not included."
     },
     {
       "suite": "frontend",
-      "passed": 54,
+      "passed": 135,
       "build": "passed",
-      "log": "data/acceptance/frontend-recorded-tests.log",
-      "build_log": "data/acceptance/frontend-recorded-build.log",
-      "source_scope": "54-test run recorded before the final recorded-input copy/Send-enable edit; final typecheck/build rerun after that edit passed. No browser/live-STT acceptance claimed.",
+      "log": "data/acceptance/frontend-final-afd-owner-merged.log",
+      "build_log": "data/acceptance/frontend-final-delivery-build.log",
+      "source_scope": "Merged frontend at fa196ad including recorded investigation records, existing-owner recovery and exact investigator evidence consent. Executed cwd main-delivery/frontend; mocked/unit boundaries, no live owner recovery or investigator grant.",
       "failed": 0,
       "typecheck": "passed",
-      "build_seconds": 1.59
+      "build_seconds": 1.4,
+      "test_files": 8,
+      "seconds": 0.729,
+      "typecheck_log": "data/acceptance/frontend-final-delivery-typecheck.log",
+      "typecheck_exit_code": 0,
+      "build_exit_code": 0
     },
     {
       "suite": "module transactional",
@@ -158,7 +87,7 @@
     {
       "suite": "camera-free edge",
       "passed": 22,
-      "scope": "Earlier retained component run; counts overlap other listed suites."
+      "scope": "Earlier 22-test Sid adapter receipt; does not certify the newly imported Areeb locki_edge suite or hardware."
     },
     {
       "suite": "Nemotron transport",
@@ -213,14 +142,23 @@
     },
     {
       "suite": "investigator service full unit suite",
-      "passed": 387,
+      "passed": 425,
       "skipped": 1,
       "deselected": 3,
       "deselected_scope": "live-model tests",
       "failed": 0,
-      "seconds": 4.18,
-      "log": "data/acceptance/investigator-service-final.log",
-      "provenance": "Mocked HTTP and scripted model/tool inputs; no owning-host token, live grant, model/native trace or service deployment verified."
+      "seconds": 4.19,
+      "log": "data/acceptance/investigator-final-delivery.log",
+      "provenance": "Mocked HTTP and scripted model/tool inputs; no actual investigator credential, host activation, model or native trace reproduced by this review.",
+      "source_scope": "Current working-tree service API and tests after fa196ad, including 38 new legacy-cache authorization regressions; API 38 are included in 425, not additive."
+    },
+    {
+      "suite": "afd008e merged client/runtime/record route focused",
+      "passed": 176,
+      "failed": 0,
+      "seconds": 4.71,
+      "log": "data/acceptance/afd008e-merge-focused.log",
+      "source_scope": "Source review of merged private key/exact loopback/bounded records, fresh live/run/severity binding, status-only failures and per-recorded-turn isolation. Overlaps the final full backend suite."
     }
   ],
   "validation": {
@@ -228,7 +166,7 @@
     "integration_script_typecheck": "passed",
     "changed_python_lint": "Passed for modified backend Python files; investigator critical lint is listed separately.",
     "npm_audits_reported_vulnerabilities": 0,
-    "frontend_build_warning": "980.06 kB JavaScript chunk after the final recorded-input copy/Send-enable edit",
+    "frontend_build_warning": "1,002.04 kB JavaScript chunk in final merged build; warning retained",
     "backend_warning": "one dependency deprecation",
     "counts_overlap": true,
     "backend_modified_python_lint": "passed",
@@ -236,7 +174,8 @@
     "investigator_full_style_clean": false,
     "investigator_style_note": "Pre-existing full-style findings remain; a full investigator style pass is not claimed.",
     "checks_bound_to_listed_working_tree_hashes": true,
-    "final_followup_delivery_commit_asserted": false
+    "final_followup_delivery_commit_asserted": false,
+    "empty_typecheck_log": "Successful tsc exit0 was observed; the recorded zero-byte stdout log is expected."
   },
   "cloud_verification": {
     "arm_authorization": {
@@ -258,7 +197,8 @@
       "lock_requests": 0,
       "audio_playback": false
     },
-    "real_data_readback": {
+    "scope_note": "Historical fixture authorization, historical armed readback, current disarmed status and current owner-matched grant/evidence readback have separate scopes. No actual owner browser recovery, M4 runtime WAV/model/spoken trial or native trace was reproduced by this review.",
+    "historical_real_data_readback": {
       "authorized_admin_read": true,
       "owner_armed_m4_session_confirmed": true,
       "auto_lock_enabled": false,
@@ -272,68 +212,67 @@
       "independent_frame_provenance_verified": false,
       "raw_identifiers_and_incident_evidence_committed": false
     },
-    "scope_note": "Earlier isolated-fixture and authorized stored-data readback proofs, not a current running-M4/M5 restart, spoken authorization, actual investigator grant or independent frame-provenance verification."
+    "latest_status_readback": {
+      "authorized_admin_read": true,
+      "workstation_state": "disarmed",
+      "jetson_enabled": true,
+      "jetson_last_seq": 13,
+      "writes": 0,
+      "scope": "Stored status only, not a new arm/disarm or physical capture trial. Raw identifiers and sensor timestamps remain private."
+    },
+    "current_investigator_grant_readback": {
+      "authorized_admin_read": true,
+      "enabled_grants": 1,
+      "granting_identity_matches_existing_owner": true,
+      "approved_event_count": 1,
+      "include_frozen_baseline": true,
+      "investigator_membership_rows": 0,
+      "writes": 0,
+      "investigator_token_used": false,
+      "original_reducer_receipt_inspected": false,
+      "scope": "Confirms stored grant presence/scope counts with admin access; does not reproduce investigator-token negative tests or model execution."
+    },
+    "current_granted_evidence_readback": {
+      "authorized_admin_read": true,
+      "incident_workstation_and_session_match": true,
+      "official_severity": "medium",
+      "event_kind": "usb_added",
+      "event_source": "mac",
+      "simulated": false,
+      "capture_to_commit_ms": 1,
+      "writes": 0,
+      "scope": "Stored values only; no raw incident/event payloads or identifiers committed, no independent hardware/frame/publisher receipt proof."
+    }
   },
   "privacy": {
     "face_identification_default_off_in_source": true,
     "actual_running_m4_configuration_verified": false,
     "no_biometrics_prd_scope_unchanged": true
   },
-  "test_log_sha256": {
-    "data/acceptance/backend-dispatch-review-fixes.log": "035eaae569025034fe22806c78e57f8f618d1cb5451d09b40cbf9b228a4c794b",
-    "data/acceptance/backend-face-default-off-focused.log": "5f51619911dec1874d554f3622d4728945db89d83b5d55396226b7a26a026fdb",
-    "data/acceptance/backend-final-dispatch-integrated.log": "db719bbf3cb6738c915f223616bae9cbb56a4437d43ae60d6c990ab5c8e63a93",
-    "data/acceptance/backend-final-integrated.log": "9afc744fcbc949a50c02a0b2704657ade819ea03e25ef20cb4b2e98beb177ee9",
-    "data/acceptance/backend-final-recorded-integrated.log": "4679d44cf4c1ac041f0deb7a242a915a3bb1066ab9fa9c14081a1b158dbc4861",
-    "data/acceptance/backend-final.log": "daa2c5d7ecc2f4b766fa06a263a6052f74922c3aaa47f4469cc084df2af0c702",
-    "data/acceptance/backend-merged-voice-audio-focused.log": "43717d83c130babb6e079f4663ef00e6ca7be89004befccb797dbd353dcee091",
-    "data/acceptance/changed-python-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-    "data/acceptance/edge-tests.log": "6e7d985804350b1c47c15a9cf6a5eba4d8b2fb9a4b0052375dd520f2c9ec7372",
-    "data/acceptance/frontend-audit.log": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
-    "data/acceptance/frontend-build.log": "ad1b24ea818271fc4d5a6bf0bf8f22adb895beed1df817b344b6a25c1e62da11",
-    "data/acceptance/frontend-recorded-build.log": "b4357863ffca440739a1c35901f798aa67c61054aae04986d0bdea913dd0290f",
-    "data/acceptance/frontend-recorded-tests.log": "4662dd582e07a5863bae9e7f952adb44c8327e911627a23e25057d1f580de2a1",
-    "data/acceptance/frontend-tests.log": "3618e857ceac6ea0554ca067ddba85ff0645f9036048666da7fa62f55b5ae7f4",
-    "data/acceptance/http-investigator-final.log": "619c1ba91616d1f0433e0007c9f9f30017172ee05bf5e3eb184791149f813914",
-    "data/acceptance/integration-scripts-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "data/acceptance/investigator-api-readback.log": "254adc0547c76b937cc487038f970b08e01518a827b072a1d5c5d177611450b8",
-    "data/acceptance/investigator-critical-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-    "data/acceptance/investigator-scope-focused.log": "84cdafda4536f1c931b21ca4843a6c2fe88a9fd2677911cd685192cfa5a1d48f",
-    "data/acceptance/investigator-service-final.log": "5ba3b5078f2fda2f3b0714e2cb983fda137a252efa2576efd5d92a092d140d99",
-    "data/acceptance/investigator-verify-final.log": "d188f950f478e30c0756832fe107b6c8f841bc1775bd26f7fed4ac72b8152817",
-    "data/acceptance/module-tests.log": "3c3baa00604833f03d412aab283f9edd240fa96d50105245eccd9c8cbcbba5e7",
-    "data/acceptance/module-typecheck.log": "ac907af526ae939d8cd2d9b478c6e5ac3dda8ae5c5c64fb0d414bdb20fb5ceb5",
-    "data/acceptance/nemotron-transport-tests.log": "643c7cfc3921e5830e047bed28578bc933677c101c9c5a9f6610b6207052d03c",
-    "data/acceptance/node-http-tests.log": "1582ed3425955f175170b693b5910b822448a6f77a2b8a9d6cae68d75f43f519",
-    "data/acceptance/node-tests.log": "633af3cfebf653455554ca9d719d0efc6e11b960423d2408125e2b37ceb1d230",
-    "data/acceptance/owner-policy-tests.log": "5a05aed641d1698fafdaac151c8e28c832b59ca3a9f313dc06f91d8eb63bea18",
-    "data/acceptance/policy-tests.log": "df182d358ff7985368b16b4a5a595cac702592ac71398d74c7b4d7dc9c269a36",
-    "data/acceptance/recorded-merged-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-    "data/acceptance/safety-followup-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-    "data/acceptance/spacetime-audit.log": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
-    "data/acceptance/tsx-final.log": "4057de01d6ffab958cbec235a9ca3c4fe9af01cd710451b55ec1872fa98fa3c1",
-    "data/acceptance/voice-input-hold-focused.log": "e98de813ee67b362e11773dd367c6a74fcd00b7814e6e10f9181f2de9c87d8e4",
-    "data/acceptance/investigator-ci-command-final.log": "ba81714300b820de483d75925958ff36c09f1285c071e08216e81ca84a12893d",
-    "data/acceptance/backend-final-nemotron-verified.log": "dbb60e7f7d25b3c9acbf4d55705d5830775f356f138e5b455a3c2f355b8d7281",
-    "data/acceptance/backend-final-nemotron-integrated.log": "7b95d6655505e09d49ec775ac62f11e8c65d8784479a55af2b843f53cd902f1f",
-    "data/acceptance/legacy-mock-timing-retest.log": "92ac036c13a84d4498b02791993ebe86196313cc42491482dc810335b27578ec",
-    "data/acceptance/nemotron-client-runtime-focused.log": "88e1e1f152f0434badff66900035d96b4737a5437c23613dcafbf556b4c1a90c",
-    "data/acceptance/nemotron-client-runtime-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
-    "data/acceptance/frontend-nemotron-final-build.log": "0c40c3eb8dbba170c75beeae6e163a299023af248170521d9169bd2a63a0086f"
-  },
-  "merged_upstream_commit": "1bbbfbf8282d7430d8395a188dff2ea20776fe89",
+  "merged_upstream_commit": "afd008ede94ca66981faa2cee46bd44e0eab03c7",
   "source_binding": {
-    "scope": "Current frozen integration working-tree code and service contract at the recorded check cutoff; the subsequent investigator/docs delivery commit is not asserted.",
+    "scope": "Pre-f73c40a main-delivery source/documentation bytes at this evidence cutoff. Application suites verify fa196ad; the separate 425-test service suite verifies the subsequent uncommitted API/cache correction. Source hashes are a selected-file inventory, not a claim every imported edge path was exercised.",
+    "source_commit": "fa196adb1c9910fcc77a5aede0e47ed4c6128120",
     "upstream_pins": [
       "0a55fdae999abf767dcc54ed1034a6fc067db0a8",
       "e38b38d610ef31b3276b672f1c834bf04cd09458",
-      "529885c40f3bf00c55a4e38b35a3b9f022298431"
+      "529885c40f3bf00c55a4e38b35a3b9f022298431",
+      "1bbbfbf8282d7430d8395a188dff2ea20776fe89",
+      "afd008ede94ca66981faa2cee46bd44e0eab03c7",
+      "330530f675453af9e1426a5a56475b6154e9deda"
     ],
-    "integration_application_commit": "3b9263458c67ee1beee9e8f248cffb038d5ef28a",
+    "working_tree_source_changes_after_commit": [
+      "services/nemotron-investigator/src/nemotron_investigator/api.py",
+      "services/nemotron-investigator/tests/test_api.py"
+    ],
+    "test_execution_worktree": "main-delivery",
+    "artifact_storage_worktree": "integration except the explicitly labelled delivery artifacts",
+    "cross_worktree_source_byte_identity_claimed": false,
     "final_followup_commit_asserted": false,
-    "pending_final_source_and_log_hash_refresh": false
+    "pending_final_source_and_log_hash_refresh": false,
+    "excluded_later_upstream_commit": "f73c40a4d7f75492dd952f39a38fe40032304228"
   },
-  "model_run_scope": "No new model execution in these integration checks; imported upstream benchmark artifacts were not rerun.",
+  "model_run_scope": "No new model run by this review. Two live E4B API runs and own-token verifier success are attributed to Mustafa; they do not reproduce the actual M4 runtime WAV path or native Relay/LLM tracing.",
   "actual_running_m4_restarted_by_this_review": false,
   "mustafa_service_handoff": {
     "source_present": true,
@@ -355,7 +294,10 @@
     "token_file_identity_is_authority": false,
     "api_key_is_database_grant": false,
     "live_report_scope": "Fresh server-authenticated principal and no-membership gate; current approved incident/event/baseline provenance; refreshed severity/state; current authorization and internal scope digest required before serving saved live reports.",
-    "actual_owner_credential_used": false
+    "current_owner_matched_grant_presence_independently_confirmed": true,
+    "grant_receipt_scope": "Stored enabled grant/owner/scope counts confirmed by authorized admin read; original owner reducer receipt not inspected.",
+    "own_token_and_model_results_reported_by_mustafa": true,
+    "owner_token_read_by_this_review": false
   },
   "prior_full_regressions": [
     {
@@ -375,6 +317,15 @@
       "seconds": 176.94,
       "log": "data/acceptance/backend-final-dispatch-integrated.log",
       "source_scope": "Before the later recorded-input and investigator-service corrections."
+    },
+    {
+      "suite": "backend",
+      "passed": 1772,
+      "skipped": 20,
+      "failed": 0,
+      "seconds": 182.14,
+      "log": "data/acceptance/backend-final-recorded-integrated.log",
+      "source_scope": "Earlier 1,772-test pre-client checkpoint; superseded for current application source, retained for provenance."
     }
   ],
   "recorded_time_scope": "Manifest generation time; no raw live sensor/session timestamps are included.",
@@ -389,8 +340,13 @@
     "additional_user_credentials_required": false,
     "followup_investigator_docs_delivery_commit_recorded": false,
     "runtime_restart_implied": false,
-    "authorization": "User authorized main delivery; runtime restart and owner incident-evidence grants remain separately coordinated.",
-    "published_workflow_sha256": "13ce967bbc3ecd86ba22c7579597042f8961de66a5c07cb664325a20c6e7016e"
+    "authorization": "User authorized main delivery; this manifest task stages, commits and pushes nothing. Current recorded main receipt is owner-access 330530f; broader fa196ad batch and service correction delivery remain pending.",
+    "published_workflow_sha256": "13ce967bbc3ecd86ba22c7579597042f8961de66a5c07cb664325a20c6e7016e",
+    "owner_access_batch_published": true,
+    "pending_broader_delivery_head": "fa196adb1c9910fcc77a5aede0e47ed4c6128120",
+    "current_broader_batch_published": false,
+    "published_owner_ui_commit": "330530f675453af9e1426a5a56475b6154e9deda",
+    "later_upstream_outside_checkpoint": "f73c40a4d7f75492dd952f39a38fe40032304228"
   },
   "github_actions": {
     "last_observed_run_id": "42464179187",
@@ -442,16 +398,19 @@
         "path": "data/acceptance/investigator-api-readback.log"
       }
     ],
-    "scope": "Staged application/documentation patch; no scanner rule or ignore was weakened."
+    "scope": "Historical checkpoint staged application/documentation scan; findings were verified source/log digests, not credentials. This entry does not claim the newly generated manifest was scanned."
   },
   "latest_integrated_client_check": {
-    "backend_passed": 1852,
+    "backend_passed": 1877,
     "backend_skipped": 20,
-    "seconds": 193.71,
-    "log": "data/acceptance/backend-final-nemotron-verified.log",
-    "focused_client_runtime_passed": 79,
-    "focused_log": "data/acceptance/nemotron-client-runtime-focused.log",
-    "source": "Integrated M4 API client; source proof, not actual host activation."
+    "seconds": 185.75,
+    "log": "data/acceptance/backend-final-afd-owner-merged.log",
+    "focused_client_runtime_passed": 176,
+    "focused_log": "data/acceptance/afd008e-merge-focused.log",
+    "frontend_passed": 135,
+    "frontend_test_files": 8,
+    "frontend_log": "data/acceptance/frontend-final-afd-owner-merged.log",
+    "source": "Application source at fa196ad; source/unit proof, not actual host activation or a model run."
   },
   "earlier_failed_attempt": {
     "log": "data/acceptance/backend-final-nemotron-integrated.log",
@@ -464,5 +423,899 @@
     "retest_log": "data/acceptance/legacy-mock-timing-retest.log",
     "subsequent_full_run_passed": true,
     "assertions_weakened": false
-  }
+  },
+  "manifest_format": 2,
+  "source_files": [
+    {
+      "path": ".github/workflows/airlock.yml",
+      "sha256": "13ce967bbc3ecd86ba22c7579597042f8961de66a5c07cb664325a20c6e7016e"
+    },
+    {
+      "path": "README.md",
+      "sha256": "217b6b202e8413cbe4b0fb0ae18cb3f1236e878804199ef408a45ffd20c67576"
+    },
+    {
+      "path": "backend/app/api/routes.py",
+      "sha256": "a7ccb48d9631656e45a240b84df99e6296865ea5aa55e23ab5f0fa7f8a56ad06"
+    },
+    {
+      "path": "backend/app/config.py",
+      "sha256": "42db3484a9ebdba3e58433fa9626333681b56ef5439d9bcc0a0103e501ba2770"
+    },
+    {
+      "path": "backend/app/intelligence/companion.py",
+      "sha256": "bb2a1618b495dfc0ed324890b9d849064ab4f4daf38bdbb2a6cbee381315c0a6"
+    },
+    {
+      "path": "backend/app/intelligence/nemotron_service.py",
+      "sha256": "4b6ab8d2ad983c182285bb6ebfc6866c7428413be89ecb9de8f5b0810a30032a"
+    },
+    {
+      "path": "backend/app/intelligence/ollama_llm.py",
+      "sha256": "aee4564fd298fe25eb49668b9899daed0128943472a700a83539f1a951a2d651"
+    },
+    {
+      "path": "backend/app/runtime.py",
+      "sha256": "c9c13909816fc87832a02e602fafe198507932de355d45d5e70658a3c7289ab6"
+    },
+    {
+      "path": "backend/app/security/arm_delegation.py",
+      "sha256": "acc1eb2d410b4ab358a0bc206ca959103592f38b2de3795e09f24eca5aa2ab34"
+    },
+    {
+      "path": "backend/app/security/camera.py",
+      "sha256": "277ff16114797ee3d917b04b3b88252c60787fdb65ae0936c4f255f47d83b0bc"
+    },
+    {
+      "path": "backend/app/security/demo.py",
+      "sha256": "1b71b2543f2774b49f91f991b101080e2081d858e77c762b48e20d56f80a4ea3"
+    },
+    {
+      "path": "backend/app/security/dispatch.py",
+      "sha256": "e35ef6b4cd9df29adf232d79914bcb84e6f2546587cb0bfd3e8f7b2f594ac4f7"
+    },
+    {
+      "path": "backend/app/security/service.py",
+      "sha256": "8aa3586e9ea04d412ec44926e1340a8a523e0be45e2a837cdf015afa01ce16ca"
+    },
+    {
+      "path": "backend/app/security/spacetime_adapter.py",
+      "sha256": "adade3f06980616c4757c387e69b5a7c3fd999fcdbcd2534a102984506cc63a2"
+    },
+    {
+      "path": "backend/app/voice/input.py",
+      "sha256": "a60b409242c737894f091a3bf8ec5292cbc002668428aa61c4e656187fb04c95"
+    },
+    {
+      "path": "backend/app/voice/intents.py",
+      "sha256": "2d153234d4a18c33e81f77d7b588d5dfb51b7e81d47ed6fa315490e935b7bd5e"
+    },
+    {
+      "path": "backend/app/voice/personality.py",
+      "sha256": "e0a8109898b7cbaf55589d6675ccc3ea0f7bbbdd627e525b9ae15461bbb095a4"
+    },
+    {
+      "path": "backend/app/voice/recorded.py",
+      "sha256": "c9cadef588afa3d42b2466453f481b3b66143f690658ff90ec5b0025cd7ec40a"
+    },
+    {
+      "path": "backend/app/voice/service.py",
+      "sha256": "5b8a68e1415dc6466e525007133fea5b85594b04da06f5ddadc2e2615309f1df"
+    },
+    {
+      "path": "backend/app/voice/tts.py",
+      "sha256": "f90e18ea9618860a91e397be35658a7af5788e56e2dddf2f5a28ae998574d50c"
+    },
+    {
+      "path": "backend/pyproject.toml",
+      "sha256": "a692653e5a3bd1d8f63c9eb991c01ea115b608cc208737966e0228446335f28b"
+    },
+    {
+      "path": "backend/tests/test_audio_default_output.py",
+      "sha256": "74be1dddbc9ac00356aa1d02b28507cb074eeef5f227cb247f5d9e1cf19bb404"
+    },
+    {
+      "path": "backend/tests/test_conversation_turns.py",
+      "sha256": "0b895dde1ed2ebaa578c9da95d2bdf9913207ef39a0c4567815bb9af8f8e9906"
+    },
+    {
+      "path": "backend/tests/test_nemotron_service.py",
+      "sha256": "1c9bc2989db846c0c83bd3674e6ccb5356216fefb76e975816c63b0ccb487386"
+    },
+    {
+      "path": "backend/tests/test_nemotron_service_contract.py",
+      "sha256": "42f94d7e766349e2dac770d40177a487994ab879e766e1cd1b5d51709777fd35"
+    },
+    {
+      "path": "backend/tests/test_nemotron_service_runtime.py",
+      "sha256": "d93d779d6aa99e0390def4f5f76df2583dc45dd4a9403e696b0be91db1fbfcfd"
+    },
+    {
+      "path": "backend/tests/test_recorded_voice.py",
+      "sha256": "00e0858722b88939f8e3c1cbab9c2d44188ea3d2cb4f9e57efc7a782856d7172"
+    },
+    {
+      "path": "backend/tests/test_security_arm_delegation.py",
+      "sha256": "004a731a7bec7023151d6700730daba857a0cd22a965555985fb9c4aabfdb2fa"
+    },
+    {
+      "path": "backend/tests/test_security_dispatch.py",
+      "sha256": "fc8d30dc16227d3d8c8b68e33b84ebcbb4d5855d4c57f1a6ccb1f0fae997ca26"
+    },
+    {
+      "path": "backend/tests/test_security_voice_merge.py",
+      "sha256": "c03591eea83bebfe81c5168406aaab86af18bf5cf62d24b1ee7d380ad8a850c8"
+    },
+    {
+      "path": "backend/uv.lock",
+      "sha256": "bee6cc2ffe95e74bf904296cfc06cca030ad562f66c176c3b850efd34a0b1dd2"
+    },
+    {
+      "path": "docs/INTEGRATION_DECISIONS.md",
+      "sha256": "e65a631ef885adaee30c0d19ddfe34d3e3f5e3dd26e350ec5beb43e8e4564c63"
+    },
+    {
+      "path": "docs/airlock/INVESTIGATOR_INTEGRATION.md",
+      "sha256": "7a4e73b0594c700ac4ab0bdc52bb00bfdf95cc8ecc58d7ef02a6ec5c38c5b06f"
+    },
+    {
+      "path": "docs/airlock/OWNER_ACCESS.md",
+      "sha256": "eaefb150ed6cb250d00064a50dd599235f65c28d93459d431c52b7d52d49f470"
+    },
+    {
+      "path": "docs/airlock/PRD.md",
+      "sha256": "eec390f7a60fc31604f502e373a036dd91fb56f2b7784028d151cc773ed4c1c7"
+    },
+    {
+      "path": "docs/airlock/PRD_STATUS.md",
+      "sha256": "a92311c8c52467528b1fac0d18432da7e5d861db2f7bf1f1cbfdbf057429d4b3"
+    },
+    {
+      "path": "docs/airlock/PROJECT_MAP.md",
+      "sha256": "48e8cbcf42015568dfc690c603fa3a5bfb8e6e4aca64635bb84ca84a1c6e105b"
+    },
+    {
+      "path": "docs/airlock/RELEASE_ACCEPTANCE.md",
+      "sha256": "5cefef274f24db9669d3de38824bf0b25453983a2496a16f719c6dc5be5632ab"
+    },
+    {
+      "path": "docs/airlock/edge/DEPLOY.md",
+      "sha256": "21b0fd63e227fa1ed98e13f4008920ccd82e06df2c72336b0d80a9d9a046b3ca"
+    },
+    {
+      "path": "docs/airlock/edge/README.md",
+      "sha256": "c5d6791c6f7984c8401c512125766473fb95708720fba935ddb1d990c274dead"
+    },
+    {
+      "path": "docs/airlock/evidence/investigator-verification.json",
+      "sha256": "adea9c34e9f462a670b501804c5f6a8ee5236a0b18730d348b7cc95a1cf66347"
+    },
+    {
+      "path": "docs/airlock/evidence/m4-integrated-arm-verification.json",
+      "sha256": "e17440525cb1670421cbbe502736f2dd107c05bbd296ed595d693103a77eb37e"
+    },
+    {
+      "path": "docs/airlock/evidence/owner-access-verification.json",
+      "sha256": "6b7f9aede01a1eb391d6479ebb559f119d2c4f15e3d11bce82483d396a696735"
+    },
+    {
+      "path": "docs/airlock/evidence/voice-arm-verification.json",
+      "sha256": "e007efde157fa08f5f1df369bd69b39c625817cbf158290cece465d206949d8b"
+    },
+    {
+      "path": "edge/jetson/airlock.env.example",
+      "sha256": "14e3a53c10f87b0d9da7d297b60270ff2fed6256900b2bdf6d9df7bb0c629af5"
+    },
+    {
+      "path": "edge/jetson/contract/locki-w91bw.live.json",
+      "sha256": "58f881342ee247499e916c3589d2784f4168d7d3dc594bbd6fbb49cb0fd03d3b"
+    },
+    {
+      "path": "edge/jetson/contract/locki-w91bw.pinned.json",
+      "sha256": "967b96684e83a3b4fa0667202a59e7c81ea8e715932bc16091ade133801d7b33"
+    },
+    {
+      "path": "edge/jetson/locki_edge/__init__.py",
+      "sha256": "27e8febb48ada44153ea2add9969a2c50a9831a74d9755fdd53c549a888b1cc2"
+    },
+    {
+      "path": "edge/jetson/locki_edge/alert.py",
+      "sha256": "7747ea48ed34731977a869d28060416fd17d32ad61a13164c91b7cb782a012bc"
+    },
+    {
+      "path": "edge/jetson/locki_edge/api.py",
+      "sha256": "d64c8da2ad5fe0561c88941bae59fdc68901fbca609293d4713176a5cc6a292e"
+    },
+    {
+      "path": "edge/jetson/locki_edge/capture.py",
+      "sha256": "a5b99b956e1cd3f65a3d009eef18cb4a5d74f425306b2edd33e46370105e252b"
+    },
+    {
+      "path": "edge/jetson/locki_edge/config.py",
+      "sha256": "e17c84462d274ba17f3f82b53e93ee46d02e4f24376f31d79132481911cb41d3"
+    },
+    {
+      "path": "edge/jetson/locki_edge/contract.py",
+      "sha256": "fa7884264817689259edc43721ba8979448cfda0dbf3df696678555a434d8e1b"
+    },
+    {
+      "path": "edge/jetson/locki_edge/normalizer.py",
+      "sha256": "b8f813773dac886c1bfab080235001024ff4079948088f14448beb091eac821c"
+    },
+    {
+      "path": "edge/jetson/locki_edge/notify.py",
+      "sha256": "3451334eb74abb36692855cecd0e8c57e1c56b14bce4e1bc287518002f098378"
+    },
+    {
+      "path": "edge/jetson/locki_edge/observers.py",
+      "sha256": "d0a8a28d24187e68528876509053b25589dfd376245ddb146b490d24a90ef719"
+    },
+    {
+      "path": "edge/jetson/locki_edge/outbox.py",
+      "sha256": "e89943d07a75fbdf0fb73718bbd535ffe8c31452df5f442976a891cdfb11fb0a"
+    },
+    {
+      "path": "edge/jetson/locki_edge/publish.py",
+      "sha256": "ba4137bd555d3f1ebfc21383525bae3251112384e90b3ff4758cdcc9679b218c"
+    },
+    {
+      "path": "edge/jetson/locki_edge/runtime.py",
+      "sha256": "b0b6ba35aeccf89096a35fba3b502d96c3f9d787abf7f4f3edf4d7b69672cd72"
+    },
+    {
+      "path": "edge/jetson/locki_edge/service.py",
+      "sha256": "e2e6e389a9424145a55021487f38f817d4074a9e09a1288131e2616eee78a477"
+    },
+    {
+      "path": "edge/jetson/locki_edge/session.py",
+      "sha256": "900b1e9568b3234cad84c59495c298ce455eb480385423ec5974f8789954f165"
+    },
+    {
+      "path": "edge/jetson/locki_edge/stdb.py",
+      "sha256": "6ae7141d1550b245eea10fcdf0653ba40b712278c9601725af6bcc71415dba28"
+    },
+    {
+      "path": "edge/jetson/locki_edge/vision.py",
+      "sha256": "74df727b49683893c03c253207ef02e44517497f9c807bfbd137669357012406"
+    },
+    {
+      "path": "edge/jetson/tests/test_alert_listener.py",
+      "sha256": "5cef0526fa4a17e233259cf2f1468f41e23222fc4d81fa164c2d1ba841c3a979"
+    },
+    {
+      "path": "edge/jetson/tests/test_camera_adapter.py",
+      "sha256": "2f4fce29897035aa695fae28d42f19c9443f21547dee24e5828206dfbe110b98"
+    },
+    {
+      "path": "edge/jetson/tests/test_contract.py",
+      "sha256": "f1ad53c0e843e5bfd026c8300fbf914460d04786d68d0e8ea6559398a4540175"
+    },
+    {
+      "path": "edge/jetson/tests/test_deploy_scripts.py",
+      "sha256": "07b95347e7f834ba907c555247309e33d9836aa5ffd53a15476cd797821a8efe"
+    },
+    {
+      "path": "edge/jetson/tests/test_edge.py",
+      "sha256": "78f34578f364e646bf7de909869f41cea61cfeb72d906c9a291c7d163bb097bc"
+    },
+    {
+      "path": "edge/jetson/tests/test_mac_person_and_health.py",
+      "sha256": "3f6a17f79395df891386bab2faf4a2cc0ac0acc30c3966715edd26d6b8df1409"
+    },
+    {
+      "path": "edge/jetson/tests/test_notify.py",
+      "sha256": "190fdda954c5981e6c1559515d4743762bcdcdd6c6fc8d36cb0a2910688ddbaf"
+    },
+    {
+      "path": "edge/jetson/tests/test_plugin_hardening.py",
+      "sha256": "4006f6d126a462ee7dfbd3d94a8ff53257e68365ed36cb3aa4dec36e96197cd2"
+    },
+    {
+      "path": "edge/jetson/tests/test_presence_reassert.py",
+      "sha256": "0c8c9699ce517ab2ecefc8b0fd4b2ffe4709bb5a8902be9d2dfb95080d8e042e"
+    },
+    {
+      "path": "edge/jetson/tests/test_runtime_failures.py",
+      "sha256": "2161d0a540f7cfcc5e6d1c236fc4ed3a538e2ccf057be7d95ac29816e44361f6"
+    },
+    {
+      "path": "edge/jetson/tests/test_session.py",
+      "sha256": "8173b7eba873708ce1e0083c8411c15dcd32287dfca8513f579d45db3e712a3e"
+    },
+    {
+      "path": "edge/jetson/tests/test_stdb_sql.py",
+      "sha256": "dcf48e2d5eb71a6a23f5a124599312ea0ee82c13d1de278c3a056c5d2b94793f"
+    },
+    {
+      "path": "edge/jetson/tests/test_trials.py",
+      "sha256": "009e343fee2edf64722adfa1184706e6986219db0b40c424c6dd7e11e1866fa8"
+    },
+    {
+      "path": "edge/jetson/tools/accept_run.py",
+      "sha256": "864b2989ed3e54b9ffba250d4e348a98a3d95fed58e8845d16483337c3e889a6"
+    },
+    {
+      "path": "edge/jetson/tools/alert_listener.py",
+      "sha256": "070f03e1268f964b777cfa7f9200dafb79f2d8deedf69e6f63b4c03f7b1e36ea"
+    },
+    {
+      "path": "edge/jetson/tools/contract_check.py",
+      "sha256": "b9087b1cb6426968037d3a3d57f2be3a102a9d0e76083bcea765e2501dde98c3"
+    },
+    {
+      "path": "edge/jetson/tools/register_identity.py",
+      "sha256": "a1d5da81ff9ce20f5cd2efca1c08d65e28650ed36154283ed3848546cb32b044"
+    },
+    {
+      "path": "edge/jetson/tools/soak.py",
+      "sha256": "b9e34b7fa0215dff6031be5cf69a608ed4b28b93372c44334729a6151f848c2c"
+    },
+    {
+      "path": "edge/jetson/tools/stdb_live.py",
+      "sha256": "d9591ab8d333d096b8498024d5f677c29687b5529c2b11a03ad744d1753f956a"
+    },
+    {
+      "path": "edge/jetson/tools/trials.py",
+      "sha256": "344c0d05817228f73331dbfdc6b26107c114969dfdf60bd7e56fbd3c84fc9380"
+    },
+    {
+      "path": "edge/jetson/tools/watch_accepted.py",
+      "sha256": "eb984452da4827149e68be379c3ca23fa8cac62193449ff8de1d3428214a5dec"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256": "5add75d7f6ef60c96979c70d619cee22a23b94410a93f2ca6e7324f06bbf026f"
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "c9eedb704dad98e725f4b87264df1c82c80acf59d382714d2541b58ee8e9f8da"
+    },
+    {
+      "path": "frontend/src/airlock/AirlockApp.tsx",
+      "sha256": "0d9eec257910e6a47dcee3555bde1b5935674de9e23f4361d4745b3488b3b1fd"
+    },
+    {
+      "path": "frontend/src/airlock/DeskView.tsx",
+      "sha256": "445c9a049ef7cc2ecb5e0aea56ffd171853a963468e216b0610336254e4b2ca7"
+    },
+    {
+      "path": "frontend/src/airlock/DispatchPanel.tsx",
+      "sha256": "da468c38185b46ab72a8f792113bca825bde1d4d679997f140dfabcdc3184de7"
+    },
+    {
+      "path": "frontend/src/airlock/IncidentAlerts.tsx",
+      "sha256": "dcbbab64804b42f08fb9e196868bfe83cdcde0c8197040da6c4dac41bd9fc2e2"
+    },
+    {
+      "path": "frontend/src/airlock/InvestigatorAccess.tsx",
+      "sha256": "0765e82a9b3d805e15148ba9103549105249bba3151e8782391b421db8a2fd38"
+    },
+    {
+      "path": "frontend/src/airlock/OwnerRecovery.tsx",
+      "sha256": "6af6d07e38003546df67421d3316f6741da8c68dd929c27cc0db641fa0f520a4"
+    },
+    {
+      "path": "frontend/src/airlock/RecordedVoicePanel.tsx",
+      "sha256": "8a44f1b808f7e8679b81bc76dbc459492a630287585f14cef2ee586783b89118"
+    },
+    {
+      "path": "frontend/src/airlock/VoiceArm.tsx",
+      "sha256": "15e3edde71dc7e4bedb7118e47b717e79ee5e29f3ceb467acc8d6c8f3d68b87f"
+    },
+    {
+      "path": "frontend/src/airlock/airlock.css",
+      "sha256": "0149b190f6c79492de0d80b13a937a5210b15f26190f47d7dcfad2185eac6d62"
+    },
+    {
+      "path": "frontend/src/airlock/client.ts",
+      "sha256": "1db41cc87e6e14d5cca7b238f5e615a2df798339b83da0c6874a11195e4f9eed"
+    },
+    {
+      "path": "frontend/src/airlock/forms.tsx",
+      "sha256": "cb2304fbb79dadfadd6c861afbf0a3b043474ca9ae063d2175c6f433c97eb8b4"
+    },
+    {
+      "path": "frontend/src/airlock/investigatorAccess.test.ts",
+      "sha256": "9500509d6ece7e30b273f51945c781c521b06ccc0b478645c680ed8346c97026"
+    },
+    {
+      "path": "frontend/src/airlock/investigatorAccessPolicy.ts",
+      "sha256": "e02f54edf2c9a232463120f600f2bda5a0f5109c33d615faba3cadf582f3c70b"
+    },
+    {
+      "path": "frontend/src/airlock/ownerRecovery.test.ts",
+      "sha256": "4674d05e62897ea6f5c4c94a32c7e06266acf754824d372952d4354c8b5d38a5"
+    },
+    {
+      "path": "frontend/src/airlock/ownerRecoveryPolicy.ts",
+      "sha256": "1045df007dc85decec2b2b250d01b201e06113e1a8cfa7566a9cebd4af701709"
+    },
+    {
+      "path": "frontend/src/airlock/voiceArmConsent.ts",
+      "sha256": "bb11ea47a41efec5397cc3a8c6af1b97cf53041f8d9c0ee4fc98d7e8c310cb3a"
+    },
+    {
+      "path": "frontend/src/components/VoicePanel.tsx",
+      "sha256": "512484f5cb573ce36334f3ab3124b1762d5dd6e6b41dadbcaeaef3b99a9e5675"
+    },
+    {
+      "path": "frontend/src/demo/AirlockDemo.tsx",
+      "sha256": "59e0225122cd0e57f325ff0ab2960e461a0595e972a28db30e6361fa3f209f82"
+    },
+    {
+      "path": "frontend/src/demo/demoApi.ts",
+      "sha256": "5cdc78cd9ea81d333b54dec9d2b1dc6ccd6cf9f4fd093cb0fbfba3f9eaa67eb6"
+    },
+    {
+      "path": "frontend/src/services/api.ts",
+      "sha256": "8295536451a6a59f51b5685979461373ed777079a7f9ce5fce2725d6c81c4f01"
+    },
+    {
+      "path": "scripts/airlock_investigator_report.mjs",
+      "sha256": "3e9ad56e24c60341092d8c9752b3b9f8ee3d88aac2473f4285209419149cddac"
+    },
+    {
+      "path": "scripts/airlock_investigator_report.test.ts",
+      "sha256": "00b2ee2b9d425ad6075c0a80ad23ecdc5537dee7c439ca37b91b4b25c4605a84"
+    },
+    {
+      "path": "scripts/airlock_investigator_verify.mjs",
+      "sha256": "d4cd5708424028a367d0d36fabd5a20eae7c142539bb28e1676416aaee21605b"
+    },
+    {
+      "path": "scripts/airlock_investigator_verify.test.mjs",
+      "sha256": "f88fb4aa822a75c386ccaf22c53dc3ec1b4102e40ed06ca8c1e7cfab605da10e"
+    },
+    {
+      "path": "scripts/edge_deploy.sh",
+      "sha256": "6bbb5ab539180a0324ae764f7db6f17b74629aed06a2548f13c854503c7648fc"
+    },
+    {
+      "path": "scripts/edge_jetson_detect.sh",
+      "sha256": "2ade19b47bc3c6e49357bb2ac6d4a08bdb19553e6f87ae3e5bd0a8b8ed577c7b"
+    },
+    {
+      "path": "scripts/edge_jetson_install.sh",
+      "sha256": "d18573fe5fe6af0f595afb9759b0d0ce009d945f5c4718031b3825021ec6f816"
+    },
+    {
+      "path": "scripts/edge_jetson_inventory.sh",
+      "sha256": "24bb9d827cf29dcd5f12368566fb7514ebadee88cae55bc161b4a5294198cb40"
+    },
+    {
+      "path": "scripts/edge_service.sh",
+      "sha256": "b4fec0b02f09747e0b14551c02a04042598c549c0b4e69598343ae9f33ea06f7"
+    },
+    {
+      "path": "services/nemotron-investigator/INTEGRATION.md",
+      "sha256": "6fb21ecda4adcbc598a8872590c81c74de5ddbeca9e861b521a1c03bff05b59d"
+    },
+    {
+      "path": "services/nemotron-investigator/pyproject.toml",
+      "sha256": "77f25fb4f059b6c4826f37956ca5336ad5fa4b4ebade7e0b1bae3ca1ed72201c"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/agent.py",
+      "sha256": "c67553d751afdfcffb5f5642782061b82731f9d6ea1b02cab826d741ceef1fde"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/api.py",
+      "sha256": "56f2976ca1aa9f078b201f9bca9ffe29e02770a113d07abaca00240de19b6152"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/assessment.py",
+      "sha256": "fe4b52a23fe156cb62d6fddac7a4b46ea731f9b5335c69f243c02f69435f45e6"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/auth.py",
+      "sha256": "cd0458795c6ffc54566d96b9d04365854598944dbc29ee1b820eb1f023b5452c"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/config.py",
+      "sha256": "e5c8f8eb325cf6c5684d0699f084731a420438c2e7e0869328c07e0024d0a6c4"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/contracts.py",
+      "sha256": "5ae02498dd730423e6dee2c68498e44f533b7c6bef73fcbfc3d3cb00a0c88a65"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/evidence/authorization.py",
+      "sha256": "bbe1c7335e93f585befbec5e09d6e87e12a2a6b236ed058b13c199966e0b416c"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/evidence/base.py",
+      "sha256": "513b7c1abdee728d9730543148f8ceecda1d1b0dc7470ca4ad01aa0778048d5e"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/evidence/spacetime_http.py",
+      "sha256": "497f753ffad2ddd97ee555d88437b1dbb4c83ae6aeb7f98a1bed69afeb77c174"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/ollama_client.py",
+      "sha256": "02a13b411414ac929a5fb8f42b12cae2b43c0c183643cff4a5205a512bcd2f65"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/store.py",
+      "sha256": "b35a8c2c5963255639530f4091246111bdfca0655073c06c1f30c49da0acbc90"
+    },
+    {
+      "path": "services/nemotron-investigator/src/nemotron_investigator/tools.py",
+      "sha256": "1ee3eda8d853c5c0a5692727bd00591cb9bef5a4f2e9dead51d52de40b1fc477"
+    },
+    {
+      "path": "services/nemotron-investigator/tests/test_agent.py",
+      "sha256": "2a4f227668e10d1ec262baff5e0b83e176fe147537aa06f299b20b3ba4c2546e"
+    },
+    {
+      "path": "services/nemotron-investigator/tests/test_api.py",
+      "sha256": "ffec18128e691699068209baa42e091667d9e52e75464c9cdc0fff9893ce1013"
+    },
+    {
+      "path": "services/nemotron-investigator/tests/test_assessment.py",
+      "sha256": "0e95f392671d732440b65f09b7d7457b2b362e8488814ec4bab8d11811537ce3"
+    },
+    {
+      "path": "services/nemotron-investigator/tests/test_spacetime_adapter.py",
+      "sha256": "b4fa215d01a3eac2333f61d8ade387d1ec7c49184f66d442e3d42b0d21383dc7"
+    },
+    {
+      "path": "services/nemotron-investigator/tests/test_tools.py",
+      "sha256": "1e87aa6fdde2ace296036ad7cd8d7c8f24331d7abda380d25fab40d066cdd109"
+    },
+    {
+      "path": "spacetime/src/index.ts",
+      "sha256": "2e5b7bde07ba3bfeb96eb8308a6b8cc6d8f175bc4d50fb7188c6999085ef1751"
+    },
+    {
+      "path": "spacetime/tests/investigator-evidence.test.ts",
+      "sha256": "9b6e4f3894f9219e641f3a9c4ae43478dbd598244b99a45fdab3c79020f4f83a"
+    }
+  ],
+  "test_logs": [
+    {
+      "path": "data/acceptance/afd008e-frontend-build.log",
+      "sha256": "550e49f241f11b9ce20040310d76d9fe2ebe55e57a2a1960cf4a8ef5fffb0fde",
+      "artifact_worktree": "delivery"
+    },
+    {
+      "path": "data/acceptance/afd008e-frontend-tests.log",
+      "sha256": "b98217bb6614029ef6a90e6fcf82ef9d77c368e3cd77fc432996c2954c7d4e80",
+      "artifact_worktree": "delivery"
+    },
+    {
+      "path": "data/acceptance/afd008e-merge-focused.log",
+      "sha256": "b7dbbe05b70b96e7c5eb8238fe2dcec657e71c7d375f739f214bf6a59d42cee4",
+      "artifact_worktree": "delivery"
+    },
+    {
+      "path": "data/acceptance/backend-dispatch-review-fixes.log",
+      "sha256": "035eaae569025034fe22806c78e57f8f618d1cb5451d09b40cbf9b228a4c794b",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-face-default-off-focused.log",
+      "sha256": "5f51619911dec1874d554f3622d4728945db89d83b5d55396226b7a26a026fdb",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-afd-owner-merged.log",
+      "sha256": "7a67d033ba8ee24b0d14d49cf772a39116f1356fbbcfb1903cbb4e715e4a9c98",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-dispatch-integrated.log",
+      "sha256": "db719bbf3cb6738c915f223616bae9cbb56a4437d43ae60d6c990ab5c8e63a93",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-integrated.log",
+      "sha256": "9afc744fcbc949a50c02a0b2704657ade819ea03e25ef20cb4b2e98beb177ee9",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-nemotron-integrated.log",
+      "sha256": "7b95d6655505e09d49ec775ac62f11e8c65d8784479a55af2b843f53cd902f1f",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-nemotron-verified.log",
+      "sha256": "dbb60e7f7d25b3c9acbf4d55705d5830775f356f138e5b455a3c2f355b8d7281",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final-recorded-integrated.log",
+      "sha256": "4679d44cf4c1ac041f0deb7a242a915a3bb1066ab9fa9c14081a1b158dbc4861",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-final.log",
+      "sha256": "daa2c5d7ecc2f4b766fa06a263a6052f74922c3aaa47f4469cc084df2af0c702",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/backend-merged-voice-audio-focused.log",
+      "sha256": "43717d83c130babb6e079f4663ef00e6ca7be89004befccb797dbd353dcee091",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/changed-python-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/edge-tests.log",
+      "sha256": "6e7d985804350b1c47c15a9cf6a5eba4d8b2fb9a4b0052375dd520f2c9ec7372",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-audit.log",
+      "sha256": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-build.log",
+      "sha256": "ad1b24ea818271fc4d5a6bf0bf8f22adb895beed1df817b344b6a25c1e62da11",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-final-afd-owner-merged.log",
+      "sha256": "ea420f4cbec2fe6d1d1f1383eef1aaaefc63c05202b08e0c6ffaaa98c6d3e2a6",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-final-delivery-build.log",
+      "sha256": "2dc5d2b8be3859fe904f9d9427978db134e52ce1ba4ad5b5068d8a4abae545fc",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-final-delivery-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-nemotron-final-build.log",
+      "sha256": "0c40c3eb8dbba170c75beeae6e163a299023af248170521d9169bd2a63a0086f",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-recorded-build.log",
+      "sha256": "b4357863ffca440739a1c35901f798aa67c61054aae04986d0bdea913dd0290f",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-recorded-tests.log",
+      "sha256": "4662dd582e07a5863bae9e7f952adb44c8327e911627a23e25057d1f580de2a1",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/frontend-tests.log",
+      "sha256": "3618e857ceac6ea0554ca067ddba85ff0645f9036048666da7fa62f55b5ae7f4",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/http-investigator-final.log",
+      "sha256": "619c1ba91616d1f0433e0007c9f9f30017172ee05bf5e3eb184791149f813914",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/integration-scripts-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-api-readback.log",
+      "sha256": "254adc0547c76b937cc487038f970b08e01518a827b072a1d5c5d177611450b8",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-ci-command-final.log",
+      "sha256": "ba81714300b820de483d75925958ff36c09f1285c071e08216e81ca84a12893d",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-critical-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-final-delivery.log",
+      "sha256": "c280ba15c3e1626ca1bae8f823b8d298132c136e5e3a38866f892f2843db2e60",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-scope-focused.log",
+      "sha256": "84cdafda4536f1c931b21ca4843a6c2fe88a9fd2677911cd685192cfa5a1d48f",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-service-final.log",
+      "sha256": "5ba3b5078f2fda2f3b0714e2cb983fda137a252efa2576efd5d92a092d140d99",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/investigator-verify-final.log",
+      "sha256": "d188f950f478e30c0756832fe107b6c8f841bc1775bd26f7fed4ac72b8152817",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/legacy-mock-timing-retest.log",
+      "sha256": "92ac036c13a84d4498b02791993ebe86196313cc42491482dc810335b27578ec",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/module-tests.log",
+      "sha256": "3c3baa00604833f03d412aab283f9edd240fa96d50105245eccd9c8cbcbba5e7",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/module-typecheck.log",
+      "sha256": "ac907af526ae939d8cd2d9b478c6e5ac3dda8ae5c5c64fb0d414bdb20fb5ceb5",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/nemotron-client-runtime-focused.log",
+      "sha256": "88e1e1f152f0434badff66900035d96b4737a5437c23613dcafbf556b4c1a90c",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/nemotron-client-runtime-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/nemotron-transport-tests.log",
+      "sha256": "643c7cfc3921e5830e047bed28578bc933677c101c9c5a9f6610b6207052d03c",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/node-http-tests.log",
+      "sha256": "1582ed3425955f175170b693b5910b822448a6f77a2b8a9d6cae68d75f43f519",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/node-tests.log",
+      "sha256": "633af3cfebf653455554ca9d719d0efc6e11b960423d2408125e2b37ceb1d230",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/owner-policy-tests.log",
+      "sha256": "5a05aed641d1698fafdaac151c8e28c832b59ca3a9f313dc06f91d8eb63bea18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/policy-tests.log",
+      "sha256": "df182d358ff7985368b16b4a5a595cac702592ac71398d74c7b4d7dc9c269a36",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/recorded-merged-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/safety-followup-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/spacetime-audit.log",
+      "sha256": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/tsx-final.log",
+      "sha256": "4057de01d6ffab958cbec235a9ca3c4fe9af01cd710451b55ec1872fa98fa3c1",
+      "artifact_worktree": "integration"
+    },
+    {
+      "path": "data/acceptance/voice-input-hold-focused.log",
+      "sha256": "e98de813ee67b362e11773dd367c6a74fcd00b7814e6e10f9181f2de9c87d8e4",
+      "artifact_worktree": "integration"
+    }
+  ],
+  "test_artifact_location": "Ignored local acceptance artifacts in the named delivery or integration worktree; log location is distinct from test execution cwd.",
+  "private_status_artifacts": [
+    {
+      "path": "data/acceptance/current-owner-jetson-status.json",
+      "sha256": "15eda055ab756471169bb6b42b636f27516a0596c6ae9e69c795a969256ccf38",
+      "artifact_worktree": "integration",
+      "contents_committed": false
+    },
+    {
+      "path": "data/acceptance/current-investigator-grant-status.json",
+      "sha256": "88d5408784624ac5263af3d2390772e6ee0baf87934270a4cd0d379993c4849f",
+      "artifact_worktree": "integration",
+      "contents_committed": false
+    },
+    {
+      "path": "data/acceptance/current-investigator-evidence-readback.json",
+      "sha256": "1026b97693c8fa7383c653c3eb1295823aae2a39dd507ec83c07977f4b2f826d",
+      "artifact_worktree": "integration",
+      "contents_committed": false
+    }
+  ],
+  "prior_service_check": {
+    "passed": 387,
+    "skipped": 1,
+    "deselected": 3,
+    "seconds": 4.18,
+    "log": "data/acceptance/investigator-service-final.log",
+    "source_scope": "Earlier service checkpoint before the final legacy-cache authorization correction."
+  },
+  "mustafa_live_report": {
+    "source_url": "https://github.com/Dhruvjain35/locki-airlock/issues/2#issuecomment-6719727896",
+    "reporter": "hasmus25 (Mustafa)",
+    "evidence_level": "attributed teammate report; not independently reproduced by this review",
+    "reported_investigator_verifier": {
+      "exit_code": 0,
+      "authorized_incidents": 1,
+      "memberships": 0,
+      "private_tables_denied": true,
+      "reducer_calls": 0
+    },
+    "reported_runs": [
+      {
+        "requester_path": "M4 tunnel API",
+        "status": "completed_with_warnings",
+        "evidence_mode": "live",
+        "simulated": false,
+        "model": "nemotron-3.5-bolt:e4b",
+        "seconds": 11.9,
+        "selected_read_tools": 7,
+        "finish_called": true
+      },
+      {
+        "requester_path": "M5 operator API",
+        "status": "completed",
+        "evidence_mode": "live",
+        "model": "nemotron-3.5-bolt:e4b",
+        "seconds": 12.1,
+        "selected_read_tools": 7,
+        "finish_called": true
+      }
+    ],
+    "reported_official_severity": "medium",
+    "reported_advisory_risk": "medium",
+    "reported_confidence": "low",
+    "warning": "Grounding flagged intent wording; warning retained.",
+    "actual_m4_runtime_wav_path_verified": false,
+    "native_relay_llm_trace_verified": false,
+    "original_private_verifier_and_model_artifacts_inspected_by_this_review": false,
+    "database_agent_step_trace_publication_verified": false,
+    "remaining": [
+      "Current incident grant freshness and least scope",
+      "Activation of the reviewed M4/M5 revisions",
+      "Actual recorded WAV through existing M4 NemotronService runtime and spoken result",
+      "Private verifier/model artifacts and native Relay/LLM trace",
+      "Shared database tool-step publication and terminal completion compatibility"
+    ]
+  },
+  "edge_handoff": {
+    "source_present": true,
+    "source_path": "edge/jetson/locki_edge/",
+    "snapshot_commit": "e1c1a7b",
+    "snapshot_origin": "feature/airlock-edge at 4d673db",
+    "included_in_upstream_pin": "afd008ede94ca66981faa2cee46bd44e0eab03c7",
+    "retained_adapter": "edge/jetson/airlock_camera.py",
+    "provider_capabilities": [
+      "explicit MobileNet-SSD/OpenCV DNN person detection",
+      "detectNet person detection",
+      "labelled motion-only alternative"
+    ],
+    "server_sequence_sync_in_source": true,
+    "presence_reassert_default_seconds": 5,
+    "actual_host_revision_verified": false,
+    "new_imported_edge_suite_executed_by_this_review": false,
+    "hardware_accuracy_verified": false,
+    "publisher_rule": "Choose one publisher per camera/device; sequence stores are separate."
+  },
+  "owner_access": {
+    "source_commit": "330530f675453af9e1426a5a56475b6154e9deda",
+    "software_included_in_frontend_135": true,
+    "actual_browser_recovery_verified": false,
+    "actual_arming_performed_by_this_review": false,
+    "actual_ui_investigator_grant_verified": false,
+    "grant_presence_independently_confirmed_separately": true
+  },
+  "hash_record_format": "Path and SHA-256 are separate fields in records; no credential-like path-to-secret assignment map is used."
 }
