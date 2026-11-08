@@ -191,6 +191,78 @@ def test_the_display_route_is_local_and_needs_the_investigator(settings, tmp_pat
         assert c.get("/api/security/investigation/inv_1").status_code == 503
         kf = tmp_path / "k.key"
         kf.write_text("test-key")
+        kf.chmod(0o600)
         runtime.nemotron_service = NemotronService(url="http://127.0.0.1:18787", key_file=str(kf), client=httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=FULL_RECORD))))
         body = c.get("/api/security/investigation/inv_1").json()
         assert body["evidence_badge"] == "LIVE" and body["observed_facts"][0]["evidence_ids"] == ["evt:1"]
+
+
+# ------------------------------------------------------------------ review fixes
+async def test_a_failed_run_never_shows_the_previous_runs_live_result(tmp_path):
+    good = service(tmp_path, api())
+    await good.investigate(REAL)
+    assert good.last["evidence_badge"] == "LIVE"
+    good._client = httpx.AsyncClient(transport=httpx.MockTransport(api(post_status=503)))
+    with pytest.raises(InvestigatorUnavailable):
+        await good.investigate(REAL)
+    assert good.last["status"] == "unavailable" and good.last["evidence_badge"] is None and "investigation_id" not in good.last
+
+
+async def test_the_key_only_goes_to_loopback_and_never_through_a_proxy(tmp_path):
+    kf = tmp_path / "k.key"
+    kf.write_text("k")
+    kf.chmod(0o600)
+    far = NemotronService(url="http://100.88.230.68:8787", key_file=str(kf))
+    assert not far.configured()
+    with pytest.raises(InvestigatorUnavailable, match="loopback"):
+        await far.investigate(REAL)
+    near = NemotronService(url="http://127.0.0.1:18787", key_file=str(kf))
+    assert near.configured()
+    import inspect
+
+    assert "trust_env=False" in inspect.getsource(NemotronService._new_client)
+
+
+def test_the_key_file_must_be_owner_only_and_not_a_link(tmp_path):
+    kf = tmp_path / "k.key"
+    kf.write_text("k")
+    kf.chmod(0o644)
+    assert not NemotronService(key_file=str(kf)).configured()
+    kf.chmod(0o600)
+    assert NemotronService(key_file=str(kf)).configured()
+    link = tmp_path / "link.key"
+    link.symlink_to(kf)
+    assert not NemotronService(key_file=str(link)).configured()
+
+
+async def test_an_unreadable_reply_is_reported_not_raised(tmp_path):
+    def junk(request):
+        return httpx.Response(202, text="<html>not json</html>")
+
+    with pytest.raises(InvestigatorUnavailable, match="could not be read"):
+        await service(tmp_path, junk).investigate(REAL)
+    with pytest.raises(InvestigatorUnavailable, match="could not be read"):
+        await service(tmp_path, api(), key="kéy-with-non-ascii").investigate(REAL)
+
+
+def test_incident_ids_must_match_exactly():
+    assert NemotronService.accepts(REAL) and not NemotronService.accepts(REAL + "\n") and not NemotronService.accepts(REAL.upper())
+
+
+async def test_asking_twice_while_nemotron_works_starts_one_run(rt):
+    release = asyncio.Event()
+
+    class Slow(StandIn):
+        async def investigate(self, incident_id, note=""):
+            self.calls.append(incident_id)
+            await release.wait()
+            return {"spoken_summary": SUMMARY, "status": "completed", "evidence_badge": "LIVE", "investigation_id": "inv_1", "total_ms": 1}
+
+    rt.nemotron_service = Slow()
+    real_incident(rt)
+    first = asyncio.ensure_future(rt.handle_utterance("what happened", source="recorded", stt_confidence=0.95))
+    await asyncio.sleep(0.05)
+    second = await rt.handle_utterance("what happened while I was gone", source="recorded", stt_confidence=0.95)
+    assert "already investigating" in second.message and rt.nemotron_service.calls == [REAL]
+    release.set()
+    assert (await first).reply == SUMMARY
