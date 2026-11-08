@@ -9,10 +9,12 @@ The PRD is a historical engineering plan, not a description of completed feature
 Its older repository references and proposed reducer/state names do not override
 the current `Dhruvjain35/locki-airlock` source and deployed contract.
 
-Source update: main `1bbbfbf8282d7430d8395a188dff2ea20776fe89` adds the M4 client
-for Mustafa's API and a question-driven runtime route. Independent client/runtime
-hardening is in progress. This source wiring does not verify activation on M4/M5,
-an actual evidence grant, a model response or a spoken result.
+Source update: the pinned upstream `afd008e` handoff includes the M4 API client,
+the recorded-turn investigation display, and Areeb's `e1c1a7b` edge snapshot with
+follow-ups. The incoming client/runtime changes are being reconciled with the
+reviewed `29d0dde` safeguards. The 1,852-pass backend checkpoint predates this merge;
+source wiring does not verify activation on M4/M5/Jetson, an actual evidence grant,
+a model response, physical accuracy or a spoken result.
 
 ## Product and success case
 
@@ -38,10 +40,10 @@ unrelated agents, motor movement or automatic emergency-services dispatch.
 |---|---|---|---|
 | COORDINATE / GUARD | `spacetime/src/index.ts`, `spacetime/src/policy.ts` | Sid | Authoritative identities, sessions, incident severity/lifecycle, approvals, lock requests and scoped views. Models cannot replace these decisions. |
 | WATCH: Mac | `backend/app/security/`, `backend/app/vision/airlock/` | Dhruv | IOKit USB, visible app launches, local camera/zone observations and transport. Local warnings continue without model inference. |
-| WATCH: edge | `edge/jetson/` | Areeb; current fallback adapter by Sid | Separate enrolled publisher, original capture time, sequence and sanitized metadata. Current checked-in adapter establishes presence, not identity or intent. Areeb's newer runtime needs its own integration record. |
+| WATCH: edge | `edge/jetson/locki_edge/`; retained `edge/jetson/airlock_camera.py` | Areeb; retained adapter by Sid | Separate enrolled publisher with capture timestamps, durable metadata outbox, server sequence synchronization and bounded presence reassertion. Explicit MobileNet-SSD/OpenCV DNN, detectNet and motion-only providers have distinct capabilities. Presence establishes neither identity nor interaction/intent; hardware acceptance remains open. |
 | SPEAK / runtime | `backend/app/runtime.py`, `backend/app/voice/` | Dhruv | Existing ASR, deterministic intents, conversation and priority speech. One backend, one voice consumer and one monitor per device. |
 | Retained local investigator | `backend/app/intelligence/airlock_agent.py`, `backend/app/security/tools.py` | Dhruv | In-process path for local cases, with gated tools and Ollama/fallback model selection. Its action-capable tools do not belong to the evidence-only M5 principal. |
-| M4 → M5 API client | `backend/app/intelligence/nemotron_service.py`, `backend/app/runtime.py` | Dhruv | Question-driven route for authoritative live incident IDs when the M4 API requester key is configured; client/runtime hardening and actual-host proof remain open. |
+| M4 → M5 API client | `backend/app/intelligence/nemotron_service.py`, `backend/app/runtime.py`, `backend/app/api/routes.py` | Dhruv | Question-driven route for authoritative live incident IDs when the M4 API requester key is configured; read-only record display for the console. Incoming changes must retain reviewed origin, authorization, report-binding and stale-result guards; actual-host proof remains open. |
 | Restricted M5 investigator | `services/nemotron-investigator/` | Mustafa | Separate authenticated API with evidence-only read tools, grounding and advisory risk. No membership, approvals, arm/disarm, acknowledgement, resolution or lock authority. |
 | Owner/reviewer interface | `frontend/src/airlock/`, `frontend/src/airlock-bindings/` | Sid | Reads actual server state, obtains owner consent, presents policy/evidence and submits permitted human actions. Human reviewers and the investigator have different permissions. |
 | Managed tool boundary | `backend/app/missions/`, `backend/app/security/tool_gate.py` | Dhruv | Limits the owned Code Quest workflow; native Relay evidence and actual allowed/denied callbacks require separate proof. |
@@ -80,9 +82,11 @@ unrelated agents, motor movement or automatic emergency-services dispatch.
 | Voice consume | Existing runtime → deterministic full-utterance intent → `SecurityService.request_arm_by_voice` → exact delegated reducer → fresh readback | No second voice service. Stopped/replaced/held/stale capture and uploaded recordings cannot consume a grant. |
 | Owner with CLI authentication only | Optional local consent window maintains the M4's persistent authenticated issuer connection | A short-lived CLI reducer connection cannot stand in for the persistent voice-grant issuer. No owner token enters voice. |
 | Authoritative live incident question | Existing runtime → `NemotronService` → M4 loopback `18787` → M5 API, with `evidence_mode: "live"`, when the requester key is configured | Source client exists; independent credential/origin/report/cancellation review and actual M4/M5 adoption remain separate gates. |
+| Investigation record display | Recorded-turn console → M4 read-only investigation route → authenticated M5 record API | Incoming record support is being reconciled with strict live provenance, exact incident/run binding and fresh scope checks. A previous turn's result cannot stand in for the current turn. |
 | Local case question | `SecurityService.agent()` builds `AirlockAgent(AirlockTools(...))`; `_agent_model()` selects raw Ollama/fallback | Retained local behavior, not an API response or evidence that Mustafa's model ran. |
 | M5 service | M5 loopback `8787`, M4 SSH forward `18787`, separate API bearer key | Raw Ollama `11434` / M4 forward `11435` is a different connection and permission surface. |
 | Camera reads | Enrolled `jetson` publisher sends observations | Empty `my_device_events` for the camera is expected under its publish-only role; use accepted receipts and authorized owner/Mac readback. |
+| Edge publisher | Areeb's `locki_edge.runtime` with explicit provider selection, outbox and local `:8765` health/metrics/receipts | Sid's retained adapter uses `:8787` and separate state. Run only one process per camera/device; source tests do not establish on-device performance. |
 
 ## Evidence-only investigator contract
 
@@ -109,7 +113,7 @@ is an owner credential. The owner grants incident evidence separately.
 1. Preserve the existing runtime and source ownership; agree contracts before shared
    edits. New repository only, no force pushes or database resets.
 2. Close the owner-local incident grant and M5 own-identity read/denial proof.
-3. Finish the independent M4 client/runtime review, then coordinate activation of
+3. Reconcile the pinned incoming M4 client/record changes with the reviewed safeguards, then coordinate activation of
    the reviewed M5 service and existing M4 runtime route. The source handoff exists;
    it needs actual-host receipts, not another backend or competing consumer.
 4. Execute real owner-consent → microphone → delegated ARM → server state → audible

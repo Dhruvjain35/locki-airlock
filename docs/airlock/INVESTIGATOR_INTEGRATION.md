@@ -3,8 +3,9 @@
 ## Current integration target (2026-11-08)
 
 The team integration repository is now `Dhruvjain35/locki-airlock`; the inspected
-source is `integration/sid-acceptance`, now including main client-wiring commit
-`1bbbfbf8282d7430d8395a188dff2ea20776fe89`. Independent client/runtime hardening is in progress.
+source includes the reviewed M4 client checkpoint `29d0dde` and the incoming
+pinned upstream `afd008e` client/recorded-turn handoff. The incoming changes are
+being reconciled with the reviewed credential, provenance and cancellation safeguards.
 Coordination and the exact missing artifacts are tracked in
 [issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2). Do not post new
 integration work to the retired `Dhruvjain35/locked-in` PR.
@@ -23,13 +24,18 @@ The M4 now also has `backend/app/intelligence/nemotron_service.py`. For a
 the existing runtime selects this HTTP client when its requester key is configured.
 It submits `evidence_mode: "live"` to the M4's loopback API tunnel on `18787` and
 polls the service's voice view; local cases retain the in-process investigator.
-The new route is present in source, not proof that either running host has adopted it.
+The route is present in source, not proof that either running host has adopted it.
+The incoming source also supplies `GET /api/security/investigation/{id}` on the M4
+and a recorded-turn console view of the headline, grounded facts/evidence IDs,
+tools and latency. Its merge must retain fresh live authorization, exact run/incident
+binding and per-turn isolation; an old answered run cannot describe a new failed turn.
 
 `LOCKI_INVESTIGATOR_KEY_FILE` holds the M4 **API requester key**; it is not
 `NI_STDB_TOKEN_FILE`, the M5's evidence-only database credential, and neither is
 the owner credential used to grant evidence. `LOCKI_INVESTIGATOR_URL` selects the
-API tunnel. Credential/origin validation, result-to-incident binding and stale or
-cancelled result handling are under independent review. A failed or unavailable
+API tunnel. The incoming client/record changes are being reconciled with the reviewed
+credential/origin validation, result-to-incident binding and stale or cancelled
+result handling. A failed or unavailable
 API review must not be credited as Nemotron output or silently replaced by fixtures.
 
 `backend/scripts/airlock_investigate.py` starts a local runtime, arms a local test
@@ -54,11 +60,12 @@ the final advisory result with server severity. Keep action/sandbox/review tools
 out of this principal. The actual host source is now present; no second investigator
 consumer, model process or service was started during integration.
 
-The prior full backend checkpoint (1,772 passed/20 skipped) and service checkpoint
-(387 passed/one skipped/three live-model tests deselected) retain their original
-source scope; they do not certify the newly added client/runtime branch or current
-M4/M5 operation. Fresh review checks and the source manifest must be updated after
-that review, while actual token/grant/model/spoken acceptance remains pending.
+The reviewed M4 client checkpoint passed 1,852 backend tests/20 skipped and 79
+focused client/runtime tests. The earlier 1,772-pass backend run and 387-pass
+service run (one skipped/three live-model tests deselected) retain their original
+source scope. None certify the incoming `afd008e` merge or current M4/M5 operation.
+Fresh merge checks and manifest binding remain separate, while actual
+token/grant/model/spoken acceptance stays pending.
 
 The investigator extension is deployed to maincloud `locki-w91bw`. Source is on
 `integration/sid-acceptance` in the new repository. It was first deployed separately, then preserved in the

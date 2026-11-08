@@ -2185,7 +2185,11 @@ class LockedInRuntime:
                 record["transcript"] = text
                 record["confidence"] = round(float(result.get("confidence", 0.0)), 3)
                 r = await self.handle_utterance(text, source="recorded", stt_confidence=record["confidence"], stt_ms=record["stt_ms"], heard_mono=time.monotonic())
-                record.update(ok=r.ok, message=r.message, reply=r.reply or (self.last_reply or {}).get("text"), intent=(self.last_utterance or {}).get("intent"),
+                # This turn's own intent and replies only: handle_utterance appends the turn and returns without yielding, so the newest
+                # turn is this one. Never the previous turn's reply or intent.
+                turn = self.voice_turns[-1] if self.voice_turns and self.voice_turns[-1].get("source") == "recorded" and self.voice_turns[-1].get("text") == text[:300] else None
+                own_reply = r.reply or (" ".join(x["text"] for x in (turn or {}).get("replies", []) if x.get("text")) or None)
+                record.update(ok=r.ok, message=r.message, reply=own_reply, intent=((turn or {}).get("intent") or {}).get("intent"),
                               nemotron=(r.data or {}).get("nemotron"),
                               handled_ms=round((time.monotonic() - t0) * 1000, 1))
         finally:
@@ -2288,6 +2292,14 @@ class LockedInRuntime:
         metadata = {key: view.get(key) for key in ("investigation_id", "incident_id", "status", "evidence_badge", "total_ms", "needs_review", "spoken_summary_source")}
         return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=metadata)
 
+    def _recorded_security_refusal(self, kind: str) -> CommandResult:
+        """A recording asked to arm or disarm. It never does either, and no grant is touched; LOCKI says so aloud and where the owner acts."""
+        turn = _TURN.get()
+        if turn is not None:
+            turn["intent"] = {"intent": f"{kind}_workstation", "refused": "recorded speech cannot arm or disarm"}
+        reply = self._say("security_recorded_cannot_disarm" if kind == "disarm" else "security_recorded_cannot_arm")
+        return self._result(False, "Recorded speech cannot arm or disarm. The owner arms and disarms in the authenticated LOCKI owner console.", reply)
+
     def stop_speaking(self) -> dict:
         """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
         self.speaker.interrupt("owner pressed stop speaking")
@@ -2355,7 +2367,7 @@ class LockedInRuntime:
 
         original_security_intent = security_voice_intent(text)
         if source == "recorded" and original_security_intent is not None:
-            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
+            return self._recorded_security_refusal(original_security_intent)
         text = (text or "").strip()[:300]
         exclude = frozenset() if self.missions.active else NEEDS_MISSION  # with no mission these mean what they always meant
         if not self.security.enabled:
@@ -2502,7 +2514,7 @@ class LockedInRuntime:
         n = intent.name
         s = intent.slots
         if origin == "recorded" and n in {IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION}:
-            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
+            return self._recorded_security_refusal("arm" if n == IntentName.ARM_WORKSTATION else "disarm")
         if n == IntentName.EMERGENCY_STOP:
             return await self.emergency_stop(origin=origin, reason=f"voice: {intent.text}")
         if n == IntentName.ARM_WORKSTATION:

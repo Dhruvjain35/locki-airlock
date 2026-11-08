@@ -175,9 +175,38 @@ retain `AirlockAgent` and its Ollama/fallback path. This closes the earlier
 missing-client source gap without adding another voice/backend consumer.
 
 The M4 API key and M5 SpacetimeDB investigator token remain separate; neither
-grants owner authority. Independent review is hardening the client and runtime's
-credential/origin, report/provenance and cancellation boundaries. The prior 1,772
-backend and 387 service results keep their checkpoint scope and do not certify
-this new route. Actual reviewed-host activation, incident evidence grant/receipt,
+grants owner authority. The reviewed `29d0dde` client/runtime checkpoint passed
+1,852 backend tests/20 skipped in 193.71s and 79 focused checks of credential/origin,
+report/provenance and cancellation boundaries. The prior 1,772 backend and 387
+service results keep their earlier checkpoint scope. Actual reviewed-host activation, incident evidence grant/receipt,
 own-token verification and a live model/spoken result remain unverified. The
 original PRD and its physical/native-model acceptance gates are unchanged.
+
+## Pinned edge and recorded-investigation handoff
+
+The next incoming main handoff is pinned at `afd008e`. It includes Areeb's
+`e1c1a7b` source snapshot of `feature/airlock-edge` (`4d673db`) and subsequent
+MobileNet-SSD/OpenCV DNN, person-area, server sequence, presence reassertion,
+clearing/camera event and notification-receipt changes. The runtime lives in
+`edge/jetson/locki_edge/`; deployment/source runbooks live in `docs/airlock/edge/`.
+This closes the earlier missing-edge-source statement. Sid's existing adapter
+is retained with its own state; the two are alternatives for a camera/device,
+not concurrent publishers. Motion-only observations retain their capability
+label, and periodic presence is neither interaction nor a new independent trial.
+Actual host adoption, capture/reducer receipts, soak/unplug recovery and consented
+accuracy/false-alert measurements are still required.
+
+The same incoming handoff adds a read-only investigation-record route and console
+display plus client/recorded-turn changes through `e383be5` and `afd008e`.
+The two client/runtime textual conflicts are being reconciled with `29d0dde`'s
+strict origin/key-file checks, exact live report/incident binding, cancellation
+and source isolation. New per-turn records must not reuse an earlier turn's
+intent, reply or live result. The source remains in the existing M4 runtime;
+there is no second backend or investigator consumer.
+
+The 1,852/20 backend and 387-service checkpoints predate this merge. They are
+source-scoped receipts, not a new whole-main pass. Fresh merged checks and manifest
+hash binding must be recorded separately; no resulting merge SHA, deployment,
+actual principal access, model trace or hardware accuracy is asserted here.
+The separate owner-recovery/evidence-consent delivery is not duplicated in this
+documentation batch. The supplied PRD is preserved unchanged.

@@ -2,7 +2,8 @@
 
 **Current integration reconciliation (2026-11-08):** the authoritative integration
 repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251` with
-the source handoffs now including main client-wiring commit `1bbbfbf8282d7430d8395a188dff2ea20776fe89`.
+the source handoffs now including pinned upstream `afd008e`: M4 client/recorded-turn
+changes and Areeb's `e1c1a7b` edge snapshot plus follow-ups.
 See [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the current P0 and named-test
 matrix, differences from the original PRD, and the distinction between inspected
 artifacts and teammate-reported hardware/model results. The older entries below
@@ -10,8 +11,10 @@ are historical evidence from Sid's original lane; their old repository links,
 test counts, hardware discovery and missing-branch statements are not current
 release certification. Full PRD acceptance remains incomplete.
 
-The prior full backend checkpoint passed **1,772 tests/20 skipped in 182.14s**,
-before the new M4 service-client merge; the investigator service baseline passed
+The reviewed M4 client checkpoint passed **1,852 backend tests/20 skipped in 193.71s**,
+with 79 focused client/runtime tests. It predates the incoming `afd008e` merge and
+does not certify the new edge/recorded-investigation source. The earlier full
+backend checkpoint passed **1,772 tests/20 skipped in 182.14s**; the investigator service baseline passed
 **387, one skipped and three live-model tests
 deselected in 4.18s**. The earlier frontend checkpoint records 54 tests and passing
 typecheck/build after the recorded-input copy/Send-enable correction. That build retains a
@@ -29,8 +32,9 @@ there is no current workflow-delivery credential blocker. Actions run
 [42464179187](https://github.com/Dhruvjain35/locki-airlock/actions/runs/42464179187)
 last reported `startup_failure` with zero jobs; its cause remains unverified.
 Checkpoint source/log hashes cover the earlier investigator hardening and docs;
-the new client/runtime route is under independent review and needs fresh checks
-and hash binding. No new delivery commit or M4/M5 restart is asserted. Backend modified
+the incoming client/runtime and record-display changes are being reconciled with
+the reviewed safeguards and need fresh checks and hash binding. No resulting
+merge commit or M4/M5/Jetson restart is asserted. Backend modified
 Python lint and investigator critical lint passed; pre-existing investigator
 style findings remain. The skipped/deselected tests close no acceptance gate.
 Mustafa's v0.3 service source is now present under `services/nemotron-investigator/`.
@@ -40,8 +44,17 @@ own-token authorization verification, model-selected multi-tool run and native L
 trace remain pending. Imported benchmark artifacts do not close those gates.
 The missing-M4-client gap is now closed in source: `nemotron_service.py` and the
 existing runtime select the API for configured authoritative live incident questions;
-local cases retain the in-process agent. Independent client/runtime hardening,
-current-host activation and an actual authorized model/spoken result remain open.
+local cases retain the in-process agent. The new read-only investigation-record
+route and per-recorded-turn display are now in source; their merge review and
+fresh checks remain separate from the earlier checkpoint. Current-host activation
+and an actual authorized model/spoken result remain open.
+Areeb's edge runtime is now present under `edge/jetson/locki_edge/`, alongside
+Sid's retained adapter. The incoming source includes explicit MobileNet-SSD/OpenCV
+DNN and detectNet person providers, a labelled motion-only alternative, durable
+outbox/sequence handling and bounded presence reassertion. It closes the earlier
+missing-source statement, not the physical inventory, soak/recovery, publisher
+provenance or 20–40 consenting volunteer accuracy/false-alert gates. Historical
+edge tests below remain scoped to the earlier adapter.
 Fresh cloud ARM authorization passed 12 checks; the production M4 service ARM path
 passed owner-consent HTTP/private fixture CLI issuance, session readback and replay
 denial without real M4 credentials or hardware/audio. Separate authorized stored-data

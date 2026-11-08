@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 state/
 *.private.json
+# Areeb's edge runtime (locki_edge): per-device config, tokens, local state, downloaded Caffe weights
+*.env
+!*.env.example
+*token*
+.locki-edge/
+.edge-state/
+*.caffemodel

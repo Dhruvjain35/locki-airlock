@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import re
 import stat
@@ -47,10 +48,16 @@ class NemotronService:
         self.last: dict | None = None  # the last run: ids, status, badge and timings (no evidence text)
 
     def configured(self) -> bool:
+        """A loopback URL and an owner-only, regular, non-empty key file (a symlink or a group/world-readable file is refused)."""
         try:
-            return self.key_file.is_file() and self.key_file.stat().st_size > 0
-        except OSError:
+            self._endpoint()
+            st = self.key_file.lstat()
+        except (OSError, InvestigatorUnavailable):
             return False
+        return stat.S_ISREG(st.st_mode) and st.st_uid == os.geteuid() and 0 < st.st_size <= MAX_KEY_BYTES and (st.st_mode & 0o077) == 0
+
+    def _new_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=8.0, trust_env=False, follow_redirects=False)  # never through a proxy from the environment
 
     @staticmethod
     def accepts(incident_id: str | None) -> bool:
@@ -103,7 +110,7 @@ class NemotronService:
         try:
             value = json.loads(raw)
         except (ValueError, UnicodeError, RecursionError):
-            raise InvestigatorUnavailable("the investigator returned malformed JSON") from None
+            raise InvestigatorUnavailable("the investigator's reply could not be read (malformed JSON)") from None
         if not isinstance(value, dict):
             raise InvestigatorUnavailable("the investigator returned an invalid response object")
         return value
@@ -112,12 +119,24 @@ class NemotronService:
         """Start a live investigation of one real incident and wait for its voice view. Returns the voice view plus timings."""
         self._call_id += 1
         call_id = self._call_id
-        self.last = None
+        self.last = {"incident_id": incident_id, "status": "starting", "evidence_badge": None}
+        try:
+            return await self._investigate(incident_id, note, call_id)
+        except InvestigatorUnavailable as exc:
+            if call_id == self._call_id:
+                self.last = {"incident_id": incident_id, "status": "unavailable", "error": str(exc), "evidence_badge": None}
+            raise
+        except asyncio.CancelledError:
+            if call_id == self._call_id:
+                self.last = {"incident_id": incident_id, "status": "cancelled", "evidence_badge": None}
+            raise
+
+    async def _investigate(self, incident_id: str, note: str, call_id: int) -> dict:
         if not self.accepts(incident_id):
             raise InvestigatorUnavailable("that incident isn't a live SpacetimeDB incident")
         base, headers = self._endpoint(), self._headers()
         t0 = time.monotonic()
-        client = self._client or httpx.AsyncClient(timeout=8.0, trust_env=False, follow_redirects=False)
+        client = self._client or self._new_client()
         try:
             async with asyncio.timeout(DEADLINE_S):
                 body = {"incident_id": incident_id, "evidence_mode": "live", "requester": {"identity": "dhruv-m4-backend", "display_name": "LOCKI voice"},
@@ -163,9 +182,90 @@ class NemotronService:
             raise InvestigatorUnavailable(f"no result within {DEADLINE_S:.0f} s") from None
         except httpx.HTTPError as exc:
             raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
+        except (ValueError, KeyError, TypeError, UnicodeError) as exc:
+            raise InvestigatorUnavailable("the investigator's reply could not be read") from exc
         finally:
             if self._client is None:
                 await client.aclose()
+
+
+    async def record(self, investigation_id: str) -> dict:
+        """Fetch an authorized record afresh through the same bounded private tunnel as voice."""
+        if not isinstance(investigation_id, str) or RUN_ID.fullmatch(investigation_id) is None:
+            raise InvestigatorUnavailable("that is not an investigation id")
+        base, headers = self._endpoint(), self._headers()
+        client = self._client or self._new_client()
+        try:
+            async with asyncio.timeout(DEADLINE_S):
+                record = await self._request(client, "GET", f"{base}/investigations/{investigation_id}", headers)
+                if (record.get("investigation_id") != investigation_id or not self.accepts(record.get("incident_id"))
+                        or record.get("evidence_mode") != "live"
+                        or record.get("status") not in (*TERMINAL, "queued", "running")):
+                    raise InvestigatorUnavailable("the display record does not match this live investigation")
+                result = record.get("result")
+                if result is not None and not isinstance(result, dict):
+                    raise InvestigatorUnavailable("the investigator returned an invalid result object")
+                if record["status"] in ANSWERED:
+                    result = result or {}
+                    provenance = result.get("evidence_provenance")
+                    official, effective = result.get("official_severity"), result.get("effective_severity")
+                    if (result.get("evidence_mode") != "live" or result.get("evidence_badge") != "LIVE"
+                            or result.get("incident_simulated") is not False
+                            or not isinstance(provenance, dict) or provenance.get("live") is not True
+                            or not isinstance(official, dict) or official.get("level") not in SEVERITIES
+                            or not isinstance(effective, dict) or effective.get("level") not in SEVERITIES
+                            or SEVERITIES.index(effective["level"]) < SEVERITIES.index(official["level"])):
+                        raise InvestigatorUnavailable("the display record lacks verified live severity provenance")
+                else:
+                    # Running/failed records are status only, regardless of any stale result fields.
+                    record = {**record, "result": {}}
+                return trim_record(record)
+        except TimeoutError:
+            raise InvestigatorUnavailable("the investigator record request timed out") from None
+        except httpx.HTTPError as exc:
+            raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
+        except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
+            raise InvestigatorUnavailable("the investigator's reply could not be read") from exc
+        finally:
+            if self._client is None:
+                await client.aclose()
+
+
+INVESTIGATION_ID = RUN_ID  # generated service IDs, never arbitrary URL paths
+
+
+def trim_record(record: dict) -> dict:
+    """The part of a full investigation record the owner console shows: badge, headline, status, the grounded facts with their evidence
+    ids, which tools ran and on what data, and the total latency. Never the model conversation or the untrusted text list."""
+    result = record.get("result") or {}
+    facts, tools = result.get("observed_facts", []), result.get("tool_execution_trace", [])
+    headline, latency = result.get("headline"), result.get("total_latency_ms")
+    if (not isinstance(facts, list) or not isinstance(tools, list)
+            or (headline is not None and (not isinstance(headline, str) or len(headline) > MAX_SUMMARY_CHARS))
+            or (latency is not None and (type(latency) not in (int, float) or not math.isfinite(latency) or latency < 0))):
+        raise InvestigatorUnavailable("the display record contains invalid fields")
+    for fact in facts:
+        if (not isinstance(fact, dict) or not isinstance(fact.get("fact"), str)
+                or not isinstance(fact.get("evidence_ids"), list)
+                or any(not isinstance(item, str) or len(item) > 256 for item in fact["evidence_ids"])):
+            raise InvestigatorUnavailable("the display record contains invalid evidence")
+    for tool in tools:
+        if (not isinstance(tool, dict) or not isinstance(tool.get("tool"), str)
+                or not isinstance(tool.get("status"), str)
+                or (tool.get("live_data") is not None and type(tool["live_data"]) is not bool)):
+            raise InvestigatorUnavailable("the display record contains invalid tool metadata")
+    return {
+        "investigation_id": record.get("investigation_id"), "incident_id": record.get("incident_id"), "status": record.get("status"),
+        "evidence_mode": result.get("evidence_mode") or record.get("evidence_mode"), "evidence_badge": result.get("evidence_badge") or record.get("evidence_badge"),
+        "headline": result.get("headline"),
+        "official_severity": (result.get("official_severity") or {}).get("level"),
+        "effective_severity": (result.get("effective_severity") or {}).get("level"),
+        "needs_review": record.get("status") != "completed" or bool(result.get("advisories")) or not isinstance(result.get("validation"), dict) or bool(result["validation"].get("flags")) or bool(result.get("untrusted_content_flags")),
+        "observed_facts": [{"fact": str(f.get("fact", ""))[:300], "evidence_ids": [str(i) for i in (f.get("evidence_ids") or [])][:12]}
+                           for f in (result.get("observed_facts") or [])[:12] if isinstance(f, dict)],
+        "tools": [{"tool": t.get("tool"), "status": t.get("status"), "live_data": t.get("live_data")} for t in (result.get("tool_execution_trace") or [])[:24] if isinstance(t, dict)],
+        "total_latency_ms": result.get("total_latency_ms"),
+    }
 
 
 def _refusal(r: httpx.Response) -> str:

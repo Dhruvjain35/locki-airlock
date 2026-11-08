@@ -293,3 +293,29 @@ async def test_recorded_upload_deadline_concurrency_and_size_fail_before_transcr
         await routes.recorded_command(request)
     assert oversized.value.status_code == 413 and state.recorded_upload_active is False
     assert rt._recorded_tr is None and not rt.recorded_turns
+
+
+async def test_a_recorded_arm_or_disarm_is_answered_aloud_and_touches_nothing(rt):
+    from .test_security_arm_delegation import delegating, grant
+    from .test_security_spacetime import remote
+
+    await delegating(rt)
+    rt.security.arm_grants.apply(grant())
+    rt._recorded_tr = SaysWhatItIsTold("LOCKI, secure my workstation.", "alright, we're good, stand down")
+    r = await rt.handle_recorded(wav(), "secure.wav")
+    assert not r["ok"] and r["reply"] == "I can't arm from a recording. The owner approves arming in the LOCKI owner console."
+    assert rt.security.transport.calls == [] and rt.security.arm_grants.usable() is not None  # the grant is still there, unused
+    rt.security.apply_remote_session(remote(session_id="owner-armed"))
+    r = await rt.handle_recorded(wav(), "standdown.wav")
+    assert not r["ok"] and "can't disarm from a recording" in r["reply"] and rt.security.session is not None
+    assert "live microphone" not in r["message"]
+
+
+async def test_a_refused_or_failed_turn_never_shows_the_previous_turns_reply_or_intent(rt):
+    rt._recorded_tr = SaysWhatItIsTold("is anyone near my desk", "LOCKI, secure my workstation.", "")
+    first = await rt.handle_recorded(wav(), "desk.wav")
+    refused = await rt.handle_recorded(wav(), "secure.wav")
+    assert refused["intent"] == "arm_workstation" and refused["intent"] != first.get("intent")
+    assert refused["reply"] == "I can't arm from a recording. The owner approves arming in the LOCKI owner console." and refused["reply"] != first.get("reply")
+    failed = await rt.handle_recorded(wav(), "silent-words.wav")
+    assert failed.get("reply") is None and failed.get("intent") is None  # nothing carried over from the turns before

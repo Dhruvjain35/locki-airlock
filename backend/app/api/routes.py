@@ -408,6 +408,22 @@ async def recorded_command(request: Request, name: str = "recording.wav"):
         request.app.state.recorded_upload_active = False
 
 
+@router.get("/security/investigation/{investigation_id}")
+async def nemotron_investigation(investigation_id: str, request: Request):
+    """Read-only, for the owner console: one Nemotron investigation, trimmed (badge, headline, facts with evidence ids, tools, latency).
+    The investigator key stays on this backend."""
+    _own_dashboard(request)
+    from ..intelligence.nemotron_service import InvestigatorUnavailable
+
+    rt = rt_of(request)
+    if not rt.nemotron_service.configured():
+        raise HTTPException(503, "the Nemotron investigator is not configured on this Mac")
+    try:
+        return await rt.nemotron_service.record(investigation_id)
+    except InvestigatorUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
 @router.post("/voice/stop-speaking")
 async def stop_speaking(request: Request):
     _own_dashboard(request)

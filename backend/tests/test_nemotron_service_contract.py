@@ -144,4 +144,65 @@ async def test_fullmatch_and_per_call_last_reset(tmp_path):
     assert s.last["status"] == "completed"
     with pytest.raises(InvestigatorUnavailable, match="live SpacetimeDB"):
         await s.investigate(REAL + "\n")
-    assert s.last is None
+    assert s.last["status"] == "unavailable" and s.last["evidence_badge"] is None
+    assert "investigation_id" not in s.last
+
+
+@pytest.mark.parametrize("problem", ["other-job", "fixture", "missing-live", "simulated", "no-official", "lower-effective", "malformed", "oversized", "external-url", "bad-headline", "bad-facts", "bad-latency", "numeric-live"])
+async def test_record_display_uses_the_same_strict_live_transport_boundary(tmp_path, problem):
+    from copy import deepcopy
+
+    from .test_nemotron_service import FULL_RECORD
+    record = deepcopy(FULL_RECORD)
+    if problem == "other-job":
+        record["investigation_id"] = "inv_other"
+    elif problem == "fixture":
+        record["evidence_mode"] = "fixture"
+    elif problem == "missing-live":
+        record["result"].pop("evidence_provenance")
+    elif problem == "simulated":
+        record["result"]["incident_simulated"] = True
+    elif problem == "no-official":
+        record["result"].pop("official_severity")
+    elif problem == "lower-effective":
+        record["result"]["effective_severity"]["level"] = "low"
+    if problem == "bad-headline":
+        record["result"]["headline"] = {"invalid": "not text"}
+    elif problem == "bad-facts":
+        record["result"]["observed_facts"] = "not a list"
+    elif problem == "bad-latency":
+        record["result"]["total_latency_ms"] = float("nan")
+    elif problem == "numeric-live":
+        record["result"]["tool_execution_trace"][0]["live_data"] = 1
+    def handler(request):
+        if problem == "external-url":
+            pytest.fail("credential sent outside tunnel")
+        if problem == "malformed":
+            return httpx.Response(200, content=b"not JSON")
+        if problem == "oversized":
+            return httpx.Response(200, content=b"x" * (ns.MAX_RESPONSE_BYTES + 1))
+        if problem == "bad-latency":
+            import json
+
+            return httpx.Response(200, content=json.dumps(record))
+        return httpx.Response(200, json=record)
+    s = service(tmp_path, handler)
+    if problem == "external-url":
+        s.url = "http://localhost.evil.test:8787"
+    with pytest.raises(InvestigatorUnavailable):
+        await s.record("inv_1")
+
+
+async def test_failed_record_has_no_stale_derived_fields_and_revocation_never_uses_cache(tmp_path):
+    from copy import deepcopy
+
+    from .test_nemotron_service import FULL_RECORD
+    record = deepcopy(FULL_RECORD)
+    s = service(tmp_path, lambda _: httpx.Response(200, json=record))
+    assert (await s.record("inv_1"))["observed_facts"]
+    record["status"] = "failed"
+    failed = await s.record("inv_1")
+    assert failed["observed_facts"] == [] and failed["headline"] is None and failed["tools"] == []
+    s._client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(404)))
+    with pytest.raises(InvestigatorUnavailable):
+        await s.record("inv_1")

@@ -3,7 +3,34 @@ import { FileAudio, Mic, MicOff, Send, Square, X } from "lucide-react";
 import { api } from "../services/api";
 import { Badge, Button, Panel } from "./ui";
 
-type Turn = { nemotron?: { investigation_id?: string; status?: string; evidence_badge?: string; total_ms?: number } | null; file: string; ok: boolean; transcript?: string | null; reply?: string | null; intent?: string | null; error?: string; message?: string; stt_ms?: number; handled_ms?: number; audio?: { seconds: number } };
+type Turn = { nemotron?: { investigation_id?: string; status?: string; evidence_badge?: string | null; total_ms?: number; error?: string } | null; file: string; ok: boolean; transcript?: string | null; reply?: string | null; intent?: string | null; error?: string; message?: string; stt_ms?: number; handled_ms?: number; audio?: { seconds: number } };
+
+/** Mustafa's investigation record for one turn, read-only through this Mac's backend (the key never reaches the browser): headline first,
+ *  then the grounded facts with their evidence ids, the tools that ran and on what data, and the total time. */
+function InvestigationRecord({ id }: { id: string }) {
+  const [rec, setRec] = useState<any>(null);
+  const [error, setError] = useState<{ id: string; message: string } | null>(null);
+  useEffect(() => {
+    let stop = false;
+    setRec(null); setError(null);
+    api.investigation(id).then(r => {
+      if (stop) return;
+      if (!r || r.investigation_id !== id) throw new Error("The returned record does not match this investigation.");
+      setRec(r);
+    }).catch(e => { if (!stop) setError({ id, message: e instanceof Error ? e.message : String(e) }); });
+    return () => { stop = true; };
+  }, [id]);
+  if (error?.id === id) return <p className="al-small al-text-amber">Investigation record unavailable: {error.message}</p>;
+  if (!rec || rec.investigation_id !== id) return <p className="al-small al-muted">Loading the investigation record…</p>;
+  return <div className="al-investigation-record">
+    {rec.official_severity && <p className="al-small"><strong>Official severity: {rec.official_severity}</strong> · Effective severity: {rec.effective_severity}</p>}
+    {rec.needs_review && <p className="al-small al-text-amber">This investigation needs human review.</p>}
+    {rec.headline && <p className="al-small"><strong>{rec.headline}</strong></p>}
+    {(rec.observed_facts ?? []).map((f: any, n: number) => <p key={n} className="al-small">• {f.fact} {(f.evidence_ids ?? []).map((e: string) => <code key={e}>{e}</code>)}</p>)}
+    {(rec.tools ?? []).length > 0 && <p className="al-small al-muted">Tools: {(rec.tools as any[]).map(t => `${t.tool} ${t.status}${t.live_data ? " (live)" : t.live_data === false ? " (not live)" : ""}`).join(" · ")}</p>}
+    {rec.total_latency_ms != null && <p className="al-small al-muted">Investigation time {Math.round(rec.total_latency_ms)} ms · {rec.status}</p>}
+  </div>;
+}
 
 /** Recorded Voice Input: the owner's own spoken commands, recorded somewhere quiet as WAV files, sent in any order. Each one is
  *  transcribed by LOCKI's own speech-to-text and answered fresh by the same conversation, security rules and voice as the microphone.
@@ -51,7 +78,9 @@ export function RecordedVoicePanel() {
     {turns.map((t, n) => <div key={n} className="al-recorded-turn">
       <div className="al-inline al-spread"><Badge tone={t.ok ? "cyan" : "amber"}>{t.file}</Badge><span className="al-small">{t.stt_ms != null ? `heard in ${Math.round(t.stt_ms)} ms` : ""}{t.handled_ms != null ? ` · answered in ${Math.round(t.handled_ms)} ms` : ""}</span></div>
       {t.transcript != null && <p className="al-small">Recognized: <strong>“{t.transcript}”</strong>{t.intent ? ` · ${t.intent}` : ""}</p>}
-      {t.nemotron?.investigation_id && <p className="al-small"><Badge tone={t.nemotron.evidence_badge === "LIVE" ? "cyan" : "amber"}>Nemotron {t.nemotron.evidence_badge ?? "?"}</Badge> {t.nemotron.status} · {t.nemotron.investigation_id}{t.nemotron.total_ms != null ? ` · ${Math.round(t.nemotron.total_ms)} ms` : ""}</p>}
+      {t.nemotron?.status === "unavailable" && <p className="al-small al-text-amber">Nemotron unavailable for this turn: {t.nemotron.error}</p>}
+      {t.nemotron?.investigation_id && t.nemotron.status !== "unavailable" && <p className="al-small"><Badge tone={t.nemotron.evidence_badge === "LIVE" ? "cyan" : "amber"}>Nemotron {t.nemotron.evidence_badge === "LIVE" ? "LIVE" : "not live"}</Badge> {t.nemotron.status} · {t.nemotron.investigation_id}{t.nemotron.total_ms != null ? ` · ${Math.round(t.nemotron.total_ms)} ms` : ""}</p>}
+      {t.nemotron?.investigation_id && t.nemotron.evidence_badge === "LIVE" && <InvestigationRecord key={t.nemotron.investigation_id} id={t.nemotron.investigation_id} />}
       {t.reply && <p className="al-small">LOCKI: {t.reply}</p>}
       {t.error && <p className="al-small al-text-amber">{t.error}</p>}
       {!t.error && !t.ok && t.message && <p className="al-small al-muted">{t.message}</p>}

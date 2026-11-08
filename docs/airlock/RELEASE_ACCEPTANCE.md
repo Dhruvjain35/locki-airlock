@@ -4,13 +4,16 @@ Latest integrated M4 client checkpoint: **1,852 backend tests passed, 20 skipped
 in 193.71s** after merging `1bbbfbf` and independently reviewing the client and
 runtime safeguards. The combined client/runtime focus passed 79 tests. The M4
 client is wired in source; actual M4/M5 activation and owner access remain live gates.
+This checkpoint predates the incoming pinned `afd008e` merge, which includes
+Areeb's edge runtime and new recorded-turn investigation records. It is not a
+whole-main test result for those additions; merge checks must be recorded separately.
 An earlier full attempt had one unchanged simulated-motion timing failure; all
 ten legacy mock tests passed on a targeted rerun and the subsequent full run passed.
 No actual motion, model, microphone, camera or lock was activated by these checks.
 
 Reviewed 2026-11-08 against the original supplied `LOCKI_AIRLOCK_PRD.md` §§0–16 and
 the `Dhruvjain35/locki-airlock` audited snapshot `2212251`, with the current source
-handoffs now including main client-wiring commit `1bbbfbf8282d7430d8395a188dff2ea20776fe89`. This is the current
+handoffs now including pinned upstream `afd008e` and edge snapshot `e1c1a7b`. This is the current
 integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane evidence.
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
@@ -39,8 +42,9 @@ Separately, [Actions run 42464179187](https://github.com/Dhruvjain35/locki-airlo
 last reported `startup_failure` with zero jobs. Its cause is not established by
 that status, and local test results are not a claim of passing GitHub CI. The
 earlier investigator hardening/docs are bound by their checkpoint hashes below.
-The newly added M4 client/runtime branch is under independent review and needs
-fresh checks/hash binding; no new delivery commit or host activation is invented here.
+The incoming M4 client/runtime/record changes are being reconciled with the reviewed
+`29d0dde` safeguards and need fresh checks/hash binding; no resulting merge commit
+or host activation is invented here. The existing manifest retains its checkpoint scope.
 Git delivery does not restart M4/M5.
 
 The production M4 service method was earlier exercised against cloud using isolated fixture identities,
@@ -73,12 +77,12 @@ Evidence levels used here:
 | P0 | Current integration evidence | Remaining release gate |
 |---|---|---|
 | 1 Authenticated arm/disarm and frozen baseline/app/camera/policy | Deployed owner-only reducers and narrow one-use ARM delegation; fresh cloud proof has 12 checks. Full owner-consent HTTP/private fixture CLI→production M4 service ARM/replay proof passed with zero locks and final fixture disarmed. Actual M4 owner ARM stored state was verified separately. | Actual running M4 owner-consent→voice→session-readback trial remains open; fixture credentials and direct owner ARM do not prove it. |
-| 2 Independent physical evidence and 20–40 consented trials | Sid's Jetson adapter plus Dhruv's distinct Mac CV code are present; two actual-session Jetson rows marked non-simulated were verified by authorized stored-data readback. Areeb's newer edge/Mission Control source remains absent. | Actual device inventory, capture/unplug recovery, publisher receipt/frame provenance and held-out volunteer activity/false-alert trials. Source face identification now defaults off; actual M4 privacy configuration remains unverified. |
+| 2 Independent physical evidence and 20–40 consented trials | Areeb's `e1c1a7b` edge snapshot and follow-ups are now present under `edge/jetson/locki_edge/`, with Sid's earlier adapter and Dhruv's distinct Mac CV retained. Two actual-session Jetson rows marked non-simulated were previously verified by authorized stored-data readback; this does not establish which new source revision produced them. | Actual device inventory, merged-source capture/unplug recovery, publisher receipt/frame provenance and held-out volunteer activity/false-alert trials. Source face identification defaults off; actual M4 privacy configuration remains unverified. |
 | 3 Real USB and visible app observations | M4 IOKit/NSWorkspace paths are present. Historical Sid app-launch proof is documented; README reports physical USB receipt/audio on M4. | Obtain original event/receipt/timing artifacts from the actual merged host, approved peripheral baseline and removal/insertion trial. App launch is not compromise. |
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
 | 6 Authoritative SpacetimeDB | Server owns enrollment/session/incident/review/approval; private scoped views and deployment manifests are present. | Validate the merged host and two physical clients against the same deployed module; preserve database authority in all local fallback UI. |
-| 7 Operational local Nemotron E4B | Mustafa's v0.3 service source and the new M4 `NemotronService` client/runtime route are present. Configured authoritative live incident questions use the API; local cases retain the in-process agent. Client/runtime hardening is under independent review. | Fresh bounded checks of the reviewed client/runtime, actual M4/M5 activation, owner scope grant/receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools. Source wiring is not host/model acceptance. |
+| 7 Operational local Nemotron E4B | Mustafa's v0.3 service and M4 client/runtime route are present. The prior reviewed client checkpoint passed 1,852 backend tests; incoming `e383be5`/`afd008e` client/recorded-turn changes are being reconciled with its safeguards. Configured authoritative live incident questions use the API; local cases retain the in-process agent. | Fresh checks of the merged client/runtime/record route, actual M4/M5 activation, owner scope grant/receipt, own-token verification, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools. Source wiring is not host/model acceptance. |
 | 8 Native Relay and protected Code Quest tools | Historical native Relay/managed boundary evidence and local gate source exist. | Actual merged-model LLM/tool spans, correlation IDs and pre-execution allowed/denied Code Quest callback proof; application logs do not substitute. |
 | 9 Existing live voice and safety priority | M4 speech stack and new turn/quiet/barge behavior are preserved. Fake tests cover microphone close/reopen failure, held/late ASR cancellation and immutable capture-epoch checks; no second voice service is needed. | Coordinated M4 restart, real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
 | 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. | Same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
@@ -168,8 +172,10 @@ contains exact views/reducers and prepared owner commands.
 
 Main `1bbbfbf` additionally supplies the M4 HTTP client and “what happened?” route
 for configured authoritative live incident IDs. This replaces the earlier missing-client
-gap. It is undergoing independent client/runtime hardening; the old full-suite
-totals and manifest hashes do not certify this new branch. Actual M4/M5 adoption,
+gap. Its reviewed checkpoint passed 1,852 backend tests, while the incoming
+`afd008e` merge adds client safeguards and the recorded-turn investigation record.
+Those changes are being reconciled with the strict reviewed boundaries; previous
+suite totals and manifest hashes do not certify this incoming merge. Actual M4/M5 adoption,
 evidence authorization and model/spoken receipts remain open.
 
 The service uses an evidence-only investigator identity, with no workstation
@@ -199,3 +205,25 @@ Investigator critical lint (`E9,F63,F7,F82`) passed; pre-existing full-style fin
 remain and are not claimed clean. The latest build retains a 980.06kB JavaScript chunk warning; backend reports one dependency
 deprecation warning. The 20 skipped backend tests are not passing acceptance proof.
 No aggregate software count closes the physical/model requirements above.
+
+## Edge source handoff
+
+Pinned upstream `afd008e` includes Areeb's `e1c1a7b` snapshot of
+`feature/airlock-edge` (`4d673db`) and follow-ups. The new runtime has configurable
+MobileNet-SSD/OpenCV DNN and detectNet person providers, a motion-only alternative,
+capture supervision, a durable metadata outbox, server `last_seq` synchronization
+and presence reassertion (default five seconds; zero disables, otherwise one to
+less than ten seconds). It includes clearing/camera event mappings compatible
+with the module source and sends optional presence pushes only for locally noted
+accepted presence events. Reassertions are ongoing presence, not independent
+visits or new incidents; neither provider code nor replay tests establish intent
+or physical detection accuracy.
+
+The [new edge runbook](edge/README.md) and [deployment guide](edge/DEPLOY.md) are
+source handoffs. Their device/deployment statements remain team reports until
+the original host receipts are collected. Sid's earlier adapter remains at
+`edge/jetson/airlock_camera.py`; it has separate sequence state and must not run
+alongside the new runtime for the same camera/device. The earlier 22-test adapter
+receipt does not certify the newly imported suite. No new camera, model download,
+edge process, notification or physical acceptance trial was started for this
+documentation reconciliation.
