@@ -8,7 +8,7 @@ type Turn = { key: string; nemotron?: { investigation_id?: string; status?: stri
 
 /** Mustafa's investigation record for one turn, read-only through this Mac's backend (the key never reaches the browser): headline first,
  *  then the grounded facts with their evidence ids, the tools that ran and on what data, and the total time. */
-function InvestigationRecord({ id }: { id: string }) {
+export function InvestigationRecord({ id }: { id: string }) {
   const [rec, setRec] = useState<any>(null);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
   useEffect(() => {

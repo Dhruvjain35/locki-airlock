@@ -1,0 +1,135 @@
+/* LOCKI AIRLOCK command center: the judge-facing layout on top of the AIRLOCK tokens in airlock.css. */
+.cc-app {
+  --al-bg: #070d11; --al-panel: #0d161c; --al-well: #0a1217; --al-raised: #14222a;
+  --al-line: #1f323c; --al-soft-line: #18272f; --al-text: #eaf4f7; --al-muted: #8da3ae;
+  --al-cyan: #7fe7f5; --cc-ice: #bff6ff; --cc-glow: rgba(127, 231, 245, .16);
+  --cc-watch: #f1c46d; --cc-def: #ff9b5c; --cc-crit: #ff5d7a; --cc-ok: #6ee7a8;
+  background:
+    radial-gradient(1200px 520px at 18% -10%, rgba(64, 196, 222, .10), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(110, 140, 255, .06), transparent 60%),
+    var(--al-bg);
+}
+.cc-header { height: 64px; background: rgba(7, 13, 17, .82); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 20; }
+.cc-header .al-header-actions { gap: 18px; }
+.cc-header .al-text-button { font-size: 11px !important; }
+.cc-main { max-width: 1760px; padding: 0 24px 24px; }
+
+.cc-recovery-banner { margin-top: 16px; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #3c6670; border-radius: 8px; background: linear-gradient(90deg, rgba(127, 231, 245, .12), rgba(127, 231, 245, .03)); color: var(--cc-ice); }
+.cc-recovery-banner > div { flex: 1; }
+.cc-recovery-banner strong { font-size: 13px; color: var(--al-text); }
+.cc-recovery-banner p { color: var(--al-muted); font-size: 11px; margin-top: 2px; }
+
+/* Top band: what's true right now, and the owner's controls. */
+.cc-band { display: grid; grid-template-columns: minmax(360px, 5fr) minmax(520px, 7fr); gap: 22px; align-items: stretch; padding: 18px 0 16px; }
+.cc-band-status { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cc-band-status h1 { font: 600 30px/1.1 "Chakra Petch", sans-serif; letter-spacing: -.6px; color: var(--al-text); }
+.cc-session { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: 4px 20px; margin: 0; }
+.cc-session div { min-width: 0; }
+.cc-session dt { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--al-muted); }
+.cc-session dd { margin: 2px 0 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-session code { color: var(--al-cyan); }
+.cc-actions { justify-content: flex-start; max-width: none; margin-top: 2px; }
+.cc-actions > .al-small { flex-basis: auto; text-align: left; }
+.cc-actions .al-button { min-height: 38px; padding: 8px 14px; font-size: 12px !important; }
+.cc-actions .al-button-primary { box-shadow: 0 0 0 1px rgba(127, 231, 245, .4), 0 8px 28px -10px rgba(127, 231, 245, .55); }
+
+/* Stage track: only the stage the backend reports is lit. */
+.cc-stage { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cc-stage-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; flex: 1; }
+.cc-stage-step { --tone: var(--al-cyan); position: relative; display: flex; flex-direction: column; gap: 3px; padding: 12px 12px 11px; border: 1px solid var(--al-line); border-radius: 8px; background: var(--al-well); color: #5f7782; transition: background 200ms, border-color 200ms, color 200ms, box-shadow 200ms; min-width: 0; }
+.cc-stage-step::before { content: ""; position: absolute; left: 10px; right: 10px; top: 0; height: 2px; border-radius: 2px; background: currentColor; opacity: .35; }
+.cc-stage-index { font: 500 10px "Martian Mono Variable", monospace; opacity: .8; }
+.cc-stage-step strong { font: 600 15px/1.15 "Chakra Petch", sans-serif; letter-spacing: .02em; text-transform: uppercase; }
+.cc-stage-step small { font-size: 10px; line-height: 1.35; opacity: .9; }
+.cc-stage-watchful { --tone: var(--cc-watch); }
+.cc-stage-defensive { --tone: var(--cc-def); }
+.cc-stage-critical { --tone: var(--cc-crit); }
+.cc-stage-owner_returned { --tone: var(--cc-ok); }
+.cc-stage-step.is-current { color: var(--tone); border-color: color-mix(in oklab, var(--tone) 70%, transparent); background: color-mix(in oklab, var(--tone) 12%, var(--al-well)); box-shadow: 0 0 0 1px color-mix(in oklab, var(--tone) 35%, transparent), 0 14px 40px -18px var(--tone); }
+.cc-stage-step.is-current::before { opacity: 1; box-shadow: 0 0 12px var(--tone); }
+.cc-stage-step.is-current strong { color: var(--al-text); }
+.cc-stage-critical.is-current { animation: cc-pulse 1.6s ease-in-out infinite; }
+@keyframes cc-pulse { 50% { box-shadow: 0 0 0 1px var(--cc-crit), 0 0 44px -10px var(--cc-crit); } }
+.cc-stage-reason { font-size: 11px; color: var(--al-muted); }
+
+/* Main grid. */
+.cc-grid { display: grid; grid-template-columns: minmax(0, 5.2fr) minmax(0, 3.6fr) minmax(0, 3.2fr); gap: 16px; align-items: start; margin-top: 4px; }
+.cc-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cc-app .al-panel { border-radius: 10px; background: linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 120px), var(--al-panel); }
+.cc-app .al-panel-heading { min-height: 46px; padding: 12px 15px; }
+.cc-app .al-panel-heading h2 { font: 600 12px "Chakra Petch", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+
+/* Live camera. */
+.cc-live { border: 1px solid var(--al-line); border-radius: 12px; background: var(--al-panel); overflow: hidden; }
+.cc-live-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; border-bottom: 1px solid var(--al-soft-line); }
+.cc-live-head > span { display: flex; align-items: center; gap: 8px; font: 600 12px "Chakra Petch", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.cc-live-frame { position: relative; aspect-ratio: 16 / 9; max-height: 420px; width: 100%; background: #04080b; display: grid; place-items: center; }
+.cc-live-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.cc-live-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #56707b; text-align: center; padding: 20px; max-width: 46ch; }
+.cc-live-empty strong { color: var(--al-text); font: 600 16px "Chakra Petch", sans-serif; letter-spacing: .04em; }
+.cc-live-empty p { font-size: 11px; color: var(--al-muted); }
+.cc-live-frame::after { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(127, 231, 245, .12); border-radius: 6px; pointer-events: none; }
+.cc-live-overlay { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 6px; flex-wrap: wrap; }
+.cc-live-overlay span { background: rgba(4, 8, 11, .78); border: 1px solid rgba(127, 231, 245, .25); color: var(--cc-ice); font-size: 10px; padding: 3px 8px; border-radius: 4px; }
+.cc-jetson { border-top: 1px solid var(--al-soft-line); padding: 12px 15px 13px; display: grid; gap: 8px; }
+.cc-jetson-head { display: flex; justify-content: space-between; align-items: center; }
+.cc-jetson-head > span { display: flex; align-items: center; gap: 7px; font-weight: 650; font-size: 12px; }
+.cc-jetson-facts, .cc-facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 14px; margin: 0; }
+.cc-facts { grid-template-columns: 1fr; padding: 12px 15px 4px; }
+.cc-facts > div { display: flex; justify-content: space-between; gap: 10px; }
+.cc-jetson-facts dt, .cc-facts dt { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--al-muted); }
+.cc-jetson-facts dd, .cc-facts dd { margin: 2px 0 0; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-footnote { font-size: 10px; color: var(--al-muted); padding: 0; }
+.cc-footnote a { color: var(--al-cyan); }
+.cc-app .al-panel > .cc-footnote { padding: 4px 15px 12px; }
+.cc-muted-line { font-size: 11px; color: var(--al-muted); }
+
+/* Lists. */
+.cc-mini-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cc-mini-list li { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 5px 8px; border-radius: 5px; background: var(--al-well); border: 1px solid var(--al-soft-line); min-width: 0; }
+.cc-mini-list li > svg { color: var(--al-cyan); flex: none; }
+.cc-mini-list time { margin-left: auto; color: var(--al-muted); flex: none; }
+.cc-mini-list code { color: var(--al-muted); }
+.cc-response, .cc-nemotron { padding: 12px 15px 14px; display: grid; gap: 8px; }
+.cc-response h4, .cc-activity h4, .cc-published h4 { display: flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--al-muted); margin: 4px 0 0; }
+.cc-activity { padding: 0 15px 14px; display: grid; gap: 6px; }
+.cc-nemotron-meta { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--cc-ice); }
+.cc-nemotron-meta time { color: var(--al-muted); flex: none; }
+.cc-nemotron .al-investigation-record { color: var(--al-cyan); border-left-width: 2px; }
+.cc-nemotron .al-investigation-record p { color: var(--al-text); }
+
+/* Health. */
+.cc-health-list { list-style: none; margin: 0; padding: 6px 8px 8px; display: grid; gap: 2px; }
+.cc-health { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 7px; border-radius: 6px; }
+.cc-health:hover { background: var(--al-well); }
+.cc-health-icon { color: var(--al-cyan); display: grid; place-items: center; }
+.cc-health-degraded .cc-health-icon { color: var(--cc-watch); }
+.cc-health-offline .cc-health-icon { color: var(--cc-crit); }
+.cc-health-name { display: grid; min-width: 0; }
+.cc-health-name strong { font-size: 11px; }
+.cc-health-name small { font-size: 9.5px; color: var(--al-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-published { border-top: 1px solid var(--al-soft-line); padding: 8px 0 4px; }
+.cc-published h4 { padding: 0 15px; }
+
+/* Synthetic rehearsal, kept apart and labelled. */
+.cc-rehearsal { margin-top: 22px; border: 1px dashed #5b4e37; border-radius: 10px; padding: 12px 14px; background: rgba(230, 189, 121, .03); }
+.cc-rehearsal > header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--al-amber); margin-bottom: 10px; }
+.cc-rehearsal > header span { color: var(--al-muted); font-size: 11px; }
+
+.cc-app .al-stop-speaking { border-radius: 10px; font-family: "Chakra Petch", sans-serif; box-shadow: 0 10px 30px -12px #d6334a; }
+
+@media (max-width: 1360px) {
+  .cc-band { grid-template-columns: 1fr; }
+  .cc-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .cc-col-side { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 860px) {
+  .cc-grid, .cc-col-side { display: flex; flex-direction: column; }
+  .cc-stage-track { grid-template-columns: repeat(5, minmax(96px, 1fr)); overflow-x: auto; }
+  .cc-session { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-jetson-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cc-header .al-text-button span, .cc-header .al-connection-pill > span { display: none; }
+}
+.cc-select { background: var(--al-well); color: var(--al-text); border: 1px solid var(--al-line); border-radius: 4px; padding: 2px 6px; font-size: 11px; max-width: 100%; }
+.cc-app .al-badge { font-size: 10px; padding: 2px 7px; }
+.cc-live-frame:has(.cc-live-empty) { aspect-ratio: auto; height: 250px; }
