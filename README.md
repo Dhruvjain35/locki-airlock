@@ -7,11 +7,28 @@
 [![React 18.3](https://img.shields.io/badge/React-18.3-149ECA?logo=react&logoColor=white)](frontend/package.json)
 [![SpacetimeDB 2.14.1](https://img.shields.io/badge/SpacetimeDB-2.14.1-7855FA)](spacetime/package.json)
 
-[Workflow](#workflow) · [Architecture](#architecture) · [Quick start](#quick-start) · [Boundaries](#boundaries) · [Development](#development)
+[Preview](#product-preview) · [Workflow](#workflow) · [Architecture](#architecture) · [Quick start](#quick-start) · [Development](#development)
 
 Airlock combines Mac USB changes, visible app launches and desk-camera observations in a shared incident timeline. Owners configure the response; authorized reviewers inspect the evidence. Local warnings run independently of the investigation model, and automatic screen locking requires owner policy and local consent.
 
 **Integration prototype.** Mac, dashboard, database, Jetson and investigator source are present. Physical accuracy, deployed configuration, actual lock/unlock behavior and model integration remain subject to [release acceptance](docs/airlock/RELEASE_ACCEPTANCE.md).
+
+[![Interactive Airlock product preview with illustrative workspace data](docs/assets/airlock-preview.png)](#product-preview)
+
+## Product preview
+
+Explore the MacBook and desktop views, rotate the device, switch between Overview,
+Activity and Review, or change the background. **Expand screen** opens a readable
+view on smaller displays. The preview uses sample data and runs independently of
+the live console.
+
+```sh
+npm ci --prefix frontend
+npm run dev --prefix frontend
+```
+
+Open the printed URL with `?product=landing`. The normal URL still opens the console;
+`?product=legacy` and `#demo` retain the Mac diagnostic views.
 
 ## Workflow
 
@@ -65,7 +82,7 @@ Open the URL printed by the launcher. This path uses labelled synthetic observat
 - **Observation is limited.** Already-open apps can be misused without a new launch event. Airlock does not establish malware, theft, copied data or who caused a temporally correlated event.
 - **Face identification defaults off.** The Jetson presence adapter does not establish identity or permission. Robot motion is outside this product's operating scope.
 
-[108 scenarios](docs/airlock/SCENARIOS.md) and the [test plan](docs/airlock/TEST_PLAN.md) cover ordinary collaboration, failures and recovery. These are planned acceptance cases, not passing results.
+[Workspace scenarios](docs/airlock/SCENARIOS.md) and the [test plan](docs/airlock/TEST_PLAN.md) cover ordinary collaboration, failures and recovery. These are planned acceptance cases, not passing results.
 
 ## Development
 
