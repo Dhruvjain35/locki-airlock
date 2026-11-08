@@ -1,6 +1,6 @@
 # CONTEXT: LOCKI AIRLOCK Nemotron investigator
 
-Last updated: 2026-11-08 ~01:05Z (M5, Mustafa)
+Last updated: 2026-11-08 ~13:55Z (M5, Mustafa)
 
 ## What this is
 This is Mustafa's part of LOCKI AIRLOCK (HackUTD 2026, NVIDIA and SpacetimeDB tracks): an independent, read-only, multi-step security investigation service. NVIDIA Nemotron chooses and sequences approved evidence tools, and deterministic code grounds its assessment.
@@ -11,8 +11,18 @@ Teammates and their areas (do not edit their modules):
 - Sid: the SpacetimeDB module `locki-w91bw`, rules and dashboard
 
 ## Repo state
-- `~/locki-airlock-nemotron` is a standalone local git repo on branch `feature/airlock-nemotron`. **Nothing has been pushed or merged.**
-- The shared team repo was not present on the M5. It was also not visible to GitHub account `hasmus25`: no collaborator access and no pending invitation as of 2026-11-07. The package is self-contained, so it can be copied into the shared repo's `services/` once access and a baseline are agreed.
+- The service is on the monorepo `Dhruvjain35/locki-airlock` main at `services/nemotron-investigator/` (8ea2fc0 snapshot import, 4039a92 Sid's views, 37a3b97 contract v0.3, e38b38d CODEOWNERS). The clone is at `~/locki-airlock`.
+- **Sid's reviewed revision of this lane is on main** (`9107d8d`, `835d1d6`; integration published at `2d026e2`):
+  - Live preflight and finalization authenticate the expected investigator principal and reject any enabled membership.
+  - Every event must be in the incident's current approved set, and the official severity is re-read before the headline is built.
+  - A revoked, changed or stale grant withholds the report (`live_report_withheld`).
+  - A cached live record with missing or fixture provenance returns 404.
+  - Sid reports 425 investigator tests passing.
+- **The M5 does not run that revision yet.** pid 35055 (started 2026-11-08 01:58 CST) runs the lane code from before Sid's revision: no source file has changed since it started, and it does not include `9107d8d` or `835d1d6`.
+  - Activating the revision needs a restart, the test suite and one live check on a granted incident.
+  - Sid asked for it in issue #2 comment 6720437650. The decision is Mustafa's.
+- `~/locki-airlock-nemotron` (branch `feature/airlock-nemotron`) keeps the full history, the venv, `.secrets/` and the running service. Its history was never pushed; only this file is synced to main. The monorepo copy omits the v1–v3 bench results this file cites.
+- Team coordination: issue #2 for this lane, and issue #3 for the M4 recovery runbook.
 - Secrets live in `.secrets/` (gitignored, mode 0600): the API key hashes and the investigator SpacetimeDB token. Runtime records go to `var/` (gitignored).
 
 ## Environment facts (verified 2026-11-07)
@@ -38,7 +48,7 @@ Teammates and their areas (do not edit their modules):
 5. **Citable query results.** Every successful tool result gets a citable `result_id` (`res:<step>.<idx>:<tool>`), so absence of evidence ("no vision events in the window") can be grounded.
 6. **Overclaim rules.** These demote unhedged malware claims, actor attribution and intent claims in observed facts, and flag the agent claiming it performed actions. Passive evidence statements such as "session was disarmed" are allowed.
 7. **Advisories never override the model.** They include `risk_below_rule_severity`, `high_confidence_with_evidence_gaps` and `untrusted_instruction_like_content`.
-8. **Live DB path.** The investigator has its own identity, `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883`, and reads only through `my_*` views. Probed live: 0 memberships, 0 visible incidents, and a direct private-table read is refused. Blocked on Sid granting read-only membership (see INTEGRATION.md §5).
+8. **Live DB path.** The investigator has its own identity, `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883`, and reads only through `my_*` views. Probed live: 0 memberships, 0 visible incidents, and a direct private-table read is refused. Superseded on 2026-11-08: there is no membership at all. Access is the owner's per-incident `grant_incident_evidence`, and the identity reads only through the `my_investigator_*` views (INTEGRATION.md §7).
 
 ## Adversarial review (2026-11-08, 5 lenses + 5 skeptic verifiers, workflow wf_9c7369d5-ef8)
 40 findings came back. All 40 were CONFIRMED or PLAUSIBLE; none were refuted. Fixes by area:
@@ -296,12 +306,90 @@ Teammates and their areas (do not edit their modules):
 - **Dhruv's API key reissued** for exactly `dhruv-m4-air` plus the six `ws:fixture-*` workstations. The old `*` key was never handed out and is revoked. The plaintext exists only as the one-time handoff file, deleted when the M4 reads it with `ssh <m5> investigator-key > ~/.locki/investigator.key`.
 - **Docs.** INTEGRATION.md v0.3: 18787 tunnel, key fetch, alerts never wait on Nemotron, §7 = Sid's grant. No fixed private IPs (CONTRIBUTING), and `tests/test_api.py` uses a documentation address.
 
+## LIVE M4 VOICE-CLIENT RUN ON A FRESH INCIDENT (2026-11-08 13:23Z) — latest
+- **`inv_1581caaf36cf4101bb68`:** requester `dhruv-m4-backend` with the label "LOCKI voice", which is Dhruv's `NemotronService` client through the 18787 tunnel. It polled `?view=voice` and then read the full record twice, which is the owner console's read-only record route.
+- **Incident:** a fresh, owner-granted, correlated incident `incident:193f2c67…` on `dhruv-m4-air`, with official severity **high** and simulated=false.
+  - `/health` at 13:45Z: service ok, 2 authorized incidents (this one and `23000b77…`), memberships 0, least privilege ok.
+- **Result:** `completed_with_warnings`, LIVE, real `nemotron-3.5-bolt:e4b`.
+  - Nemotron chose the same 7 read-only tools, then `finish_investigation` with its own reason (`model_finished`). `get_session_status` returned out of scope.
+  - 4/4 facts grounded (3 observed, 1 observed absence), 8/8 citations valid (accuracy 1.0), 0 unsupported claims.
+  - The official high severity stands. Nemotron rated medium risk, low confidence, so the effective severity is high.
+  - Advisories: `model_risk_below_official_severity` and `summary_replaced_by_grounding`.
+  - The model's spoken summary was flagged `unsupported_attribution`, so the voice text is the deterministic one (`deterministic_due_to_flags`).
+  - Headline: "Official severity high. Nemotron's evidence review: medium risk, low confidence. The official high severity stands."
+- **Timing:** 15.31 s total, including a cold model load: the model had idle-unloaded, so the first tool decision took 4.37 s. Max prompt 4,290 tokens, above the nominal 4,096 and within the verified 9.8k retention.
+- **Not visible from the M5:** whether LOCKI spoke the result after the recorded WAV. That has to be confirmed on the M4.
+- **Sid's correction (issue #2, 10:24Z):**
+  - `record_agent_step` requires an enabled *service* membership and a matching service device. Neither the Mac publisher nor the investigator can call it, and neither identity should be relabelled.
+  - The dashboard shows the investigation through the owner-local read-only record route instead (Dhruv's `9a7e189`, on main).
+  - The earlier `_agent_step` / `AgentStepStatus.COMPLETE` ask is withdrawn.
+- **Sid's request (issue #2, 10:37Z):**
+  - Activate the reviewed revision on the M5.
+  - Keep a sanitized verifier receipt that includes the known-other-workstation check.
+
+## LIVE END-TO-END VERIFIED (2026-11-08 09:14–09:15Z), first runs
+- **Grant:** the owner's grant became visible at 09:14:29Z for `incident:23000b77…` (real USB event, simulated=false), with authorized_incidents=1 and memberships=0. Sid's verifier exited 0: private tables denied, 0 reducer calls. Report: `var/live/grant_chain_20261108T084755Z.verifier.json`.
+- **`inv_b18cf295b6a141a8b1b7`** (mustafa-operator, `bench/live_e2e.py`):
+  - `completed`, LIVE (X-Evidence-Mode live), real `nemotron-3.5-bolt:e4b`.
+  - Nemotron chose 7 read-only tools (window_s 1800, chosen by the model) and then `finish_investigation`, with its own reason. `get_session_status` returned out of scope.
+  - 5/5 facts grounded, citation accuracy 1.0, 0 flags.
+  - Official severity medium; Nemotron medium risk, low confidence; effective medium.
+  - Total 12.06 s, first tool decision 1.11 s, max prompt 3,935 tokens.
+- **`inv_2f45b8730b5548c48fe9`** (requester **dhruv-m4-backend**, the M4 key through the 18787 tunnel):
+  - `completed_with_warnings`, LIVE; same tool sequence and grounding.
+  - The warning is `unsupported_intent_claim` on the rationale's "malicious intent" wording.
+  - Total 11.86 s.
+  - The M4 fetched the full record and `?view=voice`. This proves the authenticated M4→M5 API path.
+- **M4 consumer:** Dhruv's `1bbbfbf` adds `backend/app/intelligence/nemotron_service.py` plus `runtime._what_happened_from_nemotron`.
+  - It runs on the "what happened" intent for an authoritative `incident:<32 hex>`, posts live, polls `?view=voice` (45 s deadline) and speaks only `spoken_summary`.
+  - It refuses anything that isn't LIVE, and bypasses the old local AirlockAgent.
+  - The Recorded Voice panel shows "Nemotron LIVE · status · inv_ · ms".
+- **Open at 09:20Z**, with the status at 13:55Z in brackets:
+  - The recorded-WAV path had not run against a granted current incident. The 03:15 run polled the full record, so it wasn't the `NemotronService` client. [The voice client ran live at 13:23Z (section above). Whether LOCKI spoke it still has to be confirmed on the M4.]
+  - Fresh demo incidents need their own owner grant. The recipe is in issue #2 comment 6719727896. [A fresh incident was granted. The owner approval UI is on main (`330530f`).]
+  - The tool trace isn't published to the dashboard's Nemotron panel. [Withdrawn: `record_agent_step` is service-only, and the read-only record route is used instead.]
+  - Keep the 23000b77 grant until the WAV test passes, then revoke it. [Still granted at 13:45Z.]
+
+## Live end-to-end status before the grant (2026-11-08 ~08:50Z)
+- **M5:**
+  - `serve` is running (pid 35055) on 127.0.0.1:8787, and authenticated `/health` returns 200.
+  - The model `nemotron-3.5-bolt:e4b` is installed (digest fe4af3f5907b) but was idle-unloaded at the time of the check.
+  - Health is `degraded: live_evidence_has_no_incident_grant` only. The live backend is reachable with 0 memberships, least privilege ok and authorized_incidents 0.
+- **M4 tunnel:**
+  - The one-time key handoff (`.secrets/handoff/dhruv-m4-backend.once`) was collected at 02:37 CT.
+  - A no-shell SSH session from the M4 has been up since then, and authenticated `/health` 200s that were not ours appear in `var/server_8787.log`.
+  - Not yet seen: a `POST /investigations` from requester `dhruv-m4-backend`.
+- **Grant:** Sid's command (docs/airlock/INVESTIGATOR_INTEGRATION.md, issue #2 07:55Z) is not yet run by the owner. A background watcher (`bench/wait_for_grant.py` 15 s) then runs Sid's `scripts/airlock_investigator_verify.mjs` and `bench/live_e2e.py`. Output goes to `var/live/grant_chain_*`.
+- **M4 consumer:** specified in issue #2 (comment 6719457971); implementation is Dhruv's.
+  - Swap the local `AirlockAgent` in `security/service.py:what_happened()` for POST, poll and `?view=voice`, so no competing report is made.
+  - Publish the trace with `_agent_step` (`record_agent_step`), plus a final `investigation_summary` step whose text starts with LIVE.
+  - Add `AgentStepStatus.COMPLETE`, because the reducer only accepts running, succeeded, failed or complete, and the first failed step makes a run terminal.
+- **Demo order:** incident → immediate warning → owner grants → recorded WAV "LOCKI, what happened while I was gone?" → "Checking" → ~10–13 s → spoken live report + dashboard steps.
+
 ## Next steps
-- Dhruv (owner): run Sid's prepared `grant_incident_evidence` for the USB incident. Then the M5 runs Sid's verifier and `bench/live_e2e.py`, and Dhruv revokes the grant afterwards.
-- Dhruv: separate SSH forward `-L 8787:127.0.0.1:8787` (INTEGRATION.md §0), receive the key out of band, poll `?view=voice` and speak `spoken_summary`; render `evidence_badge` and `headline`.
-- Repo: after the invitation is accepted, clone `Dhruvjain35/locki-airlock`, branch `feature/nemotron-investigator`, copy `~/locki-airlock-export/services/nemotron-investigator/` in as ONE fresh commit, push the branch and open a draft PR. No standalone history, nothing on main, no merge without approval. Re-run `scripts/export_snapshot.sh` first if anything changed.
+1. **Mustafa: decide whether to activate Sid's reviewed revision on the M5.**
+   - Sync the lane code from main into the standalone, run `pytest -q`, and restart with `scripts/serve.sh --daemon`.
+   - Then run one live investigation on a granted incident.
+   - Agree the time with Dhruv so the restart doesn't cut off a demo run.
+2. **Mustafa: keep a sanitized verifier receipt** (INTEGRATION.md §7).
+   - Sid's verifier now needs a private JSON token wrapper and `--outside-workstation` set to a known other workstation.
+   - The detailed report stays private.
+3. **Dhruv: confirm on the M4** that LOCKI spoke the 13:23Z result after the recorded WAV ("LOCKI, what happened while I was gone?").
+4. **Owner (Dhruv): manage the grants.**
+   - Grant each fresh demo incident with the owner approval UI on main (`330530f`).
+   - Revoke the `23000b77…` and `193f2c67…` grants after the agreed trial.
 
 ## Change log
+- 2026-11-08 ~13:55Z:
+  - Recorded the 13:23Z live run from the M4 voice client on a fresh high-severity incident.
+  - Recorded Sid's `record_agent_step` correction, and that his reviewed revision of this lane is on main but not active on the M5.
+  - Pushed this file to monorepo main, its first update there since the import. No code changes.
+- 2026-11-08 ~09:20Z:
+  - Live end-to-end verified: owner grant, Sid's verifier passing, and live investigations from the M5 operator and from the M4 (dhruv-m4-backend through 18787).
+  - Reviewed Dhruv's consumer `1bbbfbf`: its contract matches.
+  - Posted the remaining actions in issue #2 (comment 6719727896). No code changes.
+- 2026-11-08 ~08:50Z: live integration push. M5 status verified (service, model, live backend, M4 key collected). Posted the M4 consumer contract and the grant ask on issue #2. Started the grant watcher, verifier and live E2E chain. No code changes.
+- 2026-11-08 ~08:00Z: product integration pass (section above): monorepo main import, Sid's investigator views, M4 tunnel.
 - 2026-11-08 ~07:00Z: final integration pass (section above): evidence modes and disjoint id spaces, official/effective severity, voice view rewrite, context verification + probe, live E2E/grant-wait/probe-redaction scripts, operator listing on the live adapter, CLI `run --live`, `scripts/serve.sh`, snapshot export + audit, INTEGRATION.md v0.2, benchmark v4, cold start measured.
 - 2026-11-08 ~01:05Z:
   - Applied all 40 verified review fixes. The core was done in this session. The API and adapter fixes were made in parallel by two file-disjoint agents, then integrated and re-tested.
