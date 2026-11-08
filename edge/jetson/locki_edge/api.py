@@ -9,6 +9,8 @@ import socket
 import threading
 import time
 
+from . import preview as preview_mod
+
 try:
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from socketserver import ThreadingMixIn
@@ -191,9 +193,36 @@ def make_handler(state):
                 return self._send(200, state.health())
             if self.path == "/metrics":
                 return self._send(200, state.metrics_payload())
+            if self.path.split("?")[0] == "/stream.mjpg" and hasattr(state, "preview_jpeg"):
+                return self._stream()
             if self.path == "/receipts" and hasattr(state, "receipts_payload"):
                 return self._send(200, state.receipts_payload())
             return self._send(404, {"error": "not found"})
+
+        def _stream(self):
+            """MJPEG of the owner preview (preview.py), about 8 frames a second, only while a viewer is connected."""
+            if not getattr(getattr(state, "cfg", None), "preview_stream", False):
+                return self._send(404, {"error": "preview off (AIRLOCK_PREVIEW_STREAM)"})
+            slots = getattr(state, "preview_slots", None)
+            if slots is not None and not slots.acquire(False):
+                return self._send(429, {"error": "two preview streams are already open"})
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=" + preview_mod.BOUNDARY.decode("ascii"))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
+                while getattr(state, "running", True):
+                    jpeg = state.preview_jpeg()
+                    if jpeg:
+                        self.wfile.write(preview_mod.part(jpeg))
+                        self.wfile.flush()
+                    time.sleep(0.125)
+            except (IOError, OSError):
+                pass  # the viewer went away
+            finally:
+                if slots is not None:
+                    slots.release()
 
         def do_POST(self):
             if not self._authorized():

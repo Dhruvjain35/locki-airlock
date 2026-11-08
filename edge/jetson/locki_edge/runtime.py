@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 
+from . import preview
 from . import __version__
 from .alert import LocalAlarm
 from .api import SystemStats, percentile, start_api
@@ -104,6 +105,8 @@ class EdgeRuntime(object):
                                           cfg.exit_s, cooldown_s=cfg.cooldown_s,
                                           reassert_s=cfg.presence_reassert_s)
         self.norm_lock = threading.Lock()
+        self._preview_obs = (None, ())                 # (monotonic time, the newest frame's observations), for preview.py only
+        self.preview_slots = threading.BoundedSemaphore(2)  # at most two owner preview streams at once
         self.emit_lock = threading.Lock()
         self.capture = capture or CaptureSource(cfg.camera_source, cfg.runtime, cfg.width, cfg.height, cfg.fps,
                                                 stall_after_s=min(2.0, cfg.unavailable_after_s))
@@ -400,6 +403,7 @@ class EdgeRuntime(object):
         t0 = time.monotonic()
         observations = self.provider.observe(frame.image, utc_iso_ms(frame.captured_utc_ms))
         self._push(self.infer_ms, round((time.monotonic() - t0) * 1000.0, 2))
+        self._preview_obs = (time.monotonic(), observations)
         self.frames_processed += 1
         if self.capture.state != STATE_STREAMING:
             return True
@@ -408,6 +412,16 @@ class EdgeRuntime(object):
         for pe in pending:
             self.emit(pe.kind, pe.confidence, pe.observed_at_ms, pe.captured_mono, pe.metadata, reassert=pe.reassert)
         return True
+
+    def preview_jpeg(self):
+        """The newest frame as JPEG with the desk zones drawn, for GET /stream.mjpg. None while preview is off or no frame exists."""
+        if not getattr(self.cfg, "preview_stream", False):
+            return None
+        frame = self.capture.last_frame
+        if frame is None:
+            return None
+        at, obs = self._preview_obs
+        return preview.render_preview(frame.image, self.cfg.zones, obs, fresh=preview.is_fresh(at))
 
     def run(self, run_seconds=0):
         deadline = time.monotonic() + run_seconds if run_seconds else None

@@ -44,6 +44,7 @@ DEFAULTS = {
     "AIRLOCK_API_HOST": "127.0.0.1",
     "AIRLOCK_API_PORT": "8765",
     "AIRLOCK_API_TOKEN": "",
+    "AIRLOCK_PREVIEW_STREAM": "off",   # on: GET /stream.mjpg on the loopback API, for the owner's own dashboard (preview.py)
     "AIRLOCK_PUBLISH": "auto",
     "AIRLOCK_FORBIDDEN_IDENTITIES": "",
     "AIRLOCK_HEALTH_INTERVAL_S": "5",   # module marks a device offline after 15 s without a heartbeat
@@ -165,6 +166,7 @@ class EdgeConfig(object):
         self.api_host = v["AIRLOCK_API_HOST"].strip()
         self.api_port = int(v["AIRLOCK_API_PORT"])
         self.api_token = v["AIRLOCK_API_TOKEN"].strip() or None
+        self.preview_stream = v["AIRLOCK_PREVIEW_STREAM"].strip().lower() == "on"
         self.health_interval_s = float(v["AIRLOCK_HEALTH_INTERVAL_S"])
         self.width, self.height = int(v["AIRLOCK_WIDTH"]), int(v["AIRLOCK_HEIGHT"])
         self.fps = float(v["AIRLOCK_FPS"]) if v["AIRLOCK_FPS"].strip() else None

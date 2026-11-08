@@ -84,6 +84,7 @@ function ControlRoom() {
   // Containment views the owner dismissed stay dismissed across reloads in this tab, so a reconnect never replays a takeover.
   const [dismissed, setDismissed] = useState<Set<string>>(() => { try { return new Set(JSON.parse(sessionStorage.getItem("lk.containment.dismissed") || "[]")); } catch { return new Set(); } });
   const [present, setPresent] = useState(new URLSearchParams(location.search).get("present") === "1");
+  const [demoOpen, setDemoOpen] = useState(new URLSearchParams(location.search).get("demo") === "1");
   const [recovered, setRecovered] = useState(false);
   const [voiceOutput, setVoiceOutput] = useState<string | null>(null);
   const [voiceWarning, setVoiceWarning] = useState<string | null>(null);
@@ -264,14 +265,15 @@ function ControlRoom() {
     owner, role, profile: config.profile, identity: live.identity, station, stationLabel: station ? String(station.name || station.id) : targetUnavailable ? `${stationId} · unverified` : "No workstation",
     live: liveS, lastSession: sessions[0], state: protectionState({ connected, owner, armed: Boolean(liveS), incidentOpen: Boolean(incident), investigating }),
     incident, incidents: incSplit.current, events: evSplit.current, scope, grant, grantAt, explainBlocked, run, jetsonHealth, voiceOutput, voiceWarning,
-    history: { sessions: past.length, open: historyOpen }, openGrants: openGrants.length, revoking, pending, containment, present, recovered,
+    history: { sessions: past.length, open: historyOpen }, openGrants: openGrants.length, revoking, pending, containment, present, recovered, demoOpen,
   };
+  const showDemo = (open: boolean) => { setDemoOpen(open); if (open) setCview("protection"); const url = new URL(location.href); if (open) url.searchParams.set("demo", "1"); else url.searchParams.delete("demo"); history.replaceState(null, "", url); };
   const actions: ConsoleActions = {
     setView: v => { setCview(v); if (v === "history") setIncidentId(""); }, start: () => setDialog("start"), stop: () => setStop({ phase: "confirm", grants: openGrants.length, earlier: earlierGrants.length }),
     explain, approve: () => void approve(), cancelConsent: () => setRun({ phase: "idle" }), retry: explain,
     stopSpeaking: () => { void api.stopSpeaking().catch(() => undefined); }, revokeOpenGrants: () => void revokeOpenGrants(),
     dismissContainment, viewEvidence,
-    togglePresent: () => { const next = !present; setPresent(next); const url = new URL(location.href); if (next) url.searchParams.set("present", "1"); else url.searchParams.delete("present"); history.replaceState(null, "", url); }, openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
+    togglePresent: () => { const next = !present; setPresent(next); const url = new URL(location.href); if (next) url.searchParams.set("present", "1"); else url.searchParams.delete("present"); history.replaceState(null, "", url); }, openDemo: () => showDemo(true), closeDemo: () => showDemo(false), openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
     copyIdentity: () => void copyIdentity(), reconnect: live.reconnect,
   };
 
