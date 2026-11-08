@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { acknowledged, alertText, incidentsToAlert } from "./alerts";
+import { acknowledged, alertText, incidentsToAlert, isHighSeverity } from "./alerts";
 
 const now = 1_800_000_000_000;
 const inc = (id: string, severity: string, ageMs = 1000, state = "open") => ({ id, severity, state, createdAtMs: BigInt(now - ageMs), updatedAtMs: BigInt(now - ageMs), summary: "Unknown USB device", ruleId: "unknown_usb" });
 
 describe("incident alerts", () => {
+  it("requires high-priority presentation only for exact high and critical severities", () => {
+    expect(["high", "critical"].every(isHighSeverity)).toBe(true);
+    expect(["info", "low", "medium", "unknown", "HIGH", undefined, null].some(isHighSeverity)).toBe(false);
+  });
   it("alerts once per incident, again only when its severity rises", () => {
     expect(incidentsToAlert([inc("a", "medium")], {}, now).map(i => i.id)).toEqual(["a"]);
     expect(incidentsToAlert([inc("a", "medium")], { a: 2 }, now)).toEqual([]);

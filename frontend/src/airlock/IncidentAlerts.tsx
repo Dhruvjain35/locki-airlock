@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { type Row, ago } from "./format";
-import { acknowledged, alertText, incidentsToAlert, SEVERITY_RANK } from "./alerts";
+import { acknowledged, alertText, incidentsToAlert, isHighSeverity, SEVERITY_RANK } from "./alerts";
 import { Badge, Button } from "./ui";
 
 const storeKey = (profile: string) => `airlock.alerted.v1:${profile}`;
@@ -23,7 +23,7 @@ export function IncidentAlerts({ incidents, acknowledgements, workstation, profi
       if (permission === "granted") {
         const { title, body } = alertText(incident, workstation);
         try {
-          const n = new Notification(title, { body, tag: String(incident.id), requireInteraction: incident.severity === "high" || incident.severity === "critical" });
+          const n = new Notification(title, { body, tag: String(incident.id), requireInteraction: isHighSeverity(incident.severity) });
           n.onclick = () => { window.focus(); onSelect(String(incident.id)); n.close(); };
         } catch { /* the in-page banner still shows it */ }
       }
@@ -37,7 +37,7 @@ export function IncidentAlerts({ incidents, acknowledgements, workstation, profi
     {permission === "default" && <Button onClick={async () => setPermission(await Notification.requestPermission())}><Bell size={15} />Enable incident alerts</Button>}
     {permission === "denied" && <span className="al-small al-muted">Desktop alerts are blocked in this browser; alerts still show here.</span>}
     {current && current.state !== "resolved" && <button className="al-text-button" onClick={() => onSelect(String(current.id))}>
-      <Badge tone={current.severity === "high" || current.severity === "critical" ? "magenta" : "amber"} dot><BellRing size={12} />{alertText(current, workstation).title}</Badge>
+      <Badge tone={isHighSeverity(current.severity) ? "magenta" : "amber"} dot><BellRing size={12} />{alertText(current, workstation).title}</Badge>
       <span className="al-small">{current.summary} · {ago(current.updatedAtMs, now)} · {acknowledged(current, acknowledgements) ? "acknowledged" : "not acknowledged"}</span>
     </button>}
   </div>;

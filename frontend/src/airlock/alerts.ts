@@ -4,6 +4,10 @@ import { type Row, milliseconds } from "./format";
 export const SEVERITY_RANK: Record<string, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 export const ALERT_MAX_AGE_MS = 10 * 60_000;
 
+export function isHighSeverity(severity: unknown): boolean {
+  return severity === "high" || severity === "critical";
+}
+
 /** The incidents to alert on now: open, recent (created or escalated within ALERT_MAX_AGE_MS, so loading the console never replays
  *  history), and either never alerted or more severe than when they were. One alert per incident otherwise. */
 export function incidentsToAlert(incidents: Row[], alerted: Record<string, number>, now: number, maxAgeMs = ALERT_MAX_AGE_MS): Row[] {

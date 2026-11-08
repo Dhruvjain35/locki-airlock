@@ -14,6 +14,7 @@ import { IncidentAlerts } from "./IncidentAlerts";
 import { DispatchPanel } from "./DispatchPanel";
 import { RecordedVoicePanel } from "./RecordedVoicePanel";
 import { detectionCoverage, healthStatus, latestHealth } from "./coverage";
+import { controlRoomPresentation } from "./presentation";
 import "./airlock.css";
 
 type Dialog = "connect" | "register" | "arm" | "access" | "policy" | "action" | null;
@@ -99,8 +100,7 @@ function ControlRoom() {
   const coverage = detectionCoverage(scoped.health, scoped.devices, now, connected);
   const degraded = coverage !== "available";
   const visibleGate = ["owner", "reviewer", "service"].includes(role);
-  const title = !connected ? "Console disconnected" : !station ? "Your desk. Your boundary." : currentLock?.status === "confirmed" ? currentLock.simulated ? "Synthetic lock confirmation" : "Screen lock confirmed" : currentLock ? currentLock.simulated ? "Synthetic lock request committed" : "Screen lock requested" : ownerPanic ? "Owner security alert" : currentIncident ? "Activity needs your review" : armed ? "Your workstation is armed" : "Your workstation is disarmed";
-  const status = !connected ? "Disconnected" : currentLock?.status === "confirmed" ? currentLock.simulated ? "Synthetic lock confirmation" : "Screen lock confirmed" : currentLock ? currentLock.simulated ? "Synthetic lock request committed" : "Screen lock requested" : ownerPanic ? "Panic requested" : currentIncident ? "Suspected intrusion" : armed ? "Armed" : "Disarmed";
+  const { title, status } = controlRoomPresentation({ connected, hasStation: Boolean(station), armed: Boolean(armed), lock: currentLock, incident: currentIncident });
   const perform: Perform = async (reducer, args, success) => {
     try { await live.call(reducer, args); if (success) setNotice({ text: success, error: false }); return true; }
     catch (e) { setNotice({ text: e instanceof Error ? e.message : String(e), error: true }); return false; }

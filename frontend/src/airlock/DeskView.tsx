@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, Copy, Headset, ShieldAlert } from "lucide-react";
 import { type Row, ago, clock, shortId, words } from "./format";
 import type { Perform } from "./forms";
-import { acknowledged } from "./alerts";
+import { acknowledged, isHighSeverity } from "./alerts";
 import { Investigation, ReviewPanel } from "./Investigation";
 import { IncidentSummary, Timeline } from "./Timeline";
 import { Badge, Empty, Panel } from "./ui";
@@ -34,7 +34,7 @@ export function DeskView({ station, role, identity, connected, pending, perform,
     <div className="al-control-grid">
       <aside className="al-left-column"><Panel title="Incidents" icon={<ShieldAlert size={16} />}>
         {sorted.length ? sorted.map(i => <button key={String(i.id)} className={`al-desk-incident ${incident?.id === i.id ? "selected" : ""}`} onClick={() => setSelected(String(i.id))}>
-          <div className="al-inline al-spread"><Badge tone={i.state === "resolved" ? "quiet" : i.severity === "high" || i.severity === "critical" ? "magenta" : "amber"}>{words(i.severity)}</Badge><span className="al-small">{clock(i.createdAtMs)} · {ago(i.updatedAtMs, now)}</span></div>
+          <div className="al-inline al-spread"><Badge tone={i.state === "resolved" ? "quiet" : isHighSeverity(i.severity) ? "magenta" : "amber"}>{words(i.severity)}</Badge><span className="al-small">{clock(i.createdAtMs)} · {ago(i.updatedAtMs, now)}</span></div>
           <strong>{words(i.ruleId)}</strong><span className="al-small">{words(i.state)} · {acknowledged(i, acknowledgements) ? "acknowledged" : "not acknowledged"}{i.simulated ? " · synthetic" : ""}</span>
         </button>) : <Empty icon={<ShieldAlert size={22} />} title="Nothing to review">Incidents for this workstation appear here as the module opens them.</Empty>}
       </Panel></aside>

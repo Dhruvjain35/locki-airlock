@@ -1,6 +1,6 @@
 # Product behavior
 
-Source review: `4524d4d` (8 November 2026). Physical acceptance remains open.
+Behavior below describes repository source. Physical acceptance remains open.
 
 ## Problem
 
@@ -31,6 +31,8 @@ That timing does not establish who connected the device. Local speech can run
 before a server response. Nemotron reviews evidence through scoped, read-only
 tools; its explanation does not authorize an action.
 
+The dashboard asks for review of an incident without labeling it an intrusion.
+
 Screen locks default to dry runs. Actual locking requires the configured owner
 policy and local consent; a request is not confirmation. See the
 [implementation contract](CONTRACTS.md) and [release record](RELEASE_ACCEPTANCE.md).
@@ -51,8 +53,6 @@ These are acceptance requirements, including changes still needed below.
 
 - [Local presence handling](../../backend/app/security/service.py) can still speak
   when someone reaches the desk. Server soft-evidence rules do not make this path quiet.
-- The [dashboard](../../frontend/src/airlock/AirlockApp.tsx) labels an incident
-  **“Suspected intrusion.”** Replace unsupported intent claims across the UI and speech.
 - An unlocked, authenticated owner console lets its current operator use owner
   controls. Decide which actions need fresh authentication or a separate trusted device.
 - Existing terminals and browser sessions can be misused without launching an app
