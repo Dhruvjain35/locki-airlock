@@ -133,3 +133,28 @@
 .cc-select { background: var(--al-well); color: var(--al-text); border: 1px solid var(--al-line); border-radius: 4px; padding: 2px 6px; font-size: 11px; max-width: 100%; }
 .cc-app .al-badge { font-size: 10px; padding: 2px 7px; }
 .cc-live-frame:has(.cc-live-empty) { aspect-ratio: auto; height: 250px; }
+
+/* Live session vs history. */
+.cc-session { grid-template-columns: repeat(auto-fit, minmax(110px, auto)); }
+.cc-viewbar { display: flex; gap: 6px; padding: 4px; border: 1px solid var(--al-line); border-radius: 10px; background: var(--al-well); }
+.cc-viewbar button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--al-muted); padding: 9px 12px; font-size: 12px; font-weight: 650; }
+.cc-viewbar button[aria-selected="true"] { background: var(--al-raised); border-color: #335560; color: var(--al-text); }
+.cc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--al-cyan); box-shadow: 0 0 10px var(--al-cyan); }
+.cc-session-card { display: flex; gap: 14px; align-items: flex-start; padding: 22px 20px; border: 1px solid var(--al-line); border-radius: 10px; background: var(--al-panel); color: var(--al-muted); }
+.cc-session-card strong { display: block; font: 600 17px/1.3 "Chakra Petch", sans-serif; color: var(--al-text); margin-bottom: 4px; }
+.cc-session-card p { font-size: 12px; line-height: 1.6; }
+.cc-tone-cyan { border-color: #2f5964; background: linear-gradient(90deg, rgba(127, 231, 245, .07), transparent 70%), var(--al-panel); color: var(--al-cyan); }
+.cc-tone-amber { border-color: #5b4e37; color: var(--al-amber); }
+.cc-history { display: grid; gap: 12px; padding: 14px; border: 1px dashed #3a4f59; border-radius: 10px; background: rgba(255, 255, 255, .012); }
+.cc-history > header { display: grid; gap: 2px; }
+.cc-history > header strong { font: 600 14px "Chakra Petch", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.cc-history > header span { font-size: 11px; color: var(--al-muted); }
+.cc-past-list { display: grid; gap: 4px; max-height: 210px; overflow: auto; }
+.cc-past-list button { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto auto; gap: 10px; align-items: center; text-align: left; padding: 7px 10px; border: 1px solid var(--al-soft-line); border-radius: 6px; background: var(--al-well); color: var(--al-text); font-size: 11px; }
+.cc-past-list button:first-child { grid-template-columns: 1fr; }
+.cc-past-list button[aria-pressed="true"] { border-color: #335560; background: var(--al-raised); }
+.cc-past-list span { color: var(--al-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-history-note { justify-self: start; align-self: flex-start; border: 0; background: transparent; color: var(--al-muted); font-size: 11px; text-decoration: underline dotted; padding: 0; }
+.cc-stage-label { color: var(--al-text); font-weight: 650; margin-right: 4px; }
+.cc-older summary { font-size: 10px; color: var(--al-muted); cursor: pointer; }
+.cc-older p { font-size: 10px; color: var(--al-muted); margin-top: 4px; }

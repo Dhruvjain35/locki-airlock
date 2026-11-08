@@ -4,7 +4,8 @@ import { api } from "../services/api";
 import { type Row, ago, clock, shortId, words } from "./format";
 import { Badge, Panel } from "./ui";
 import { InvestigationRecord } from "./RecordedVoicePanel";
-import { type MacLink, type Stage, STAGES, latestInvestigationId, remoteFreshness, reportedStage } from "./macSecurity";
+import { type MacLink, type Stage, STAGES, remoteFreshness, reportedStage } from "./macSecurity";
+import { remoteInSession, sinceArmed, turnForIncidents } from "./liveScope";
 
 const STAGE_INFO: Record<Stage, { label: string; note: string }> = {
   NORMAL: { label: "Normal", note: "No one unmatched at the desk." },
@@ -24,12 +25,12 @@ export function StageTrack({ link }: { link: MacLink }) {
     <ol className="cc-stage-track">{STAGES.map((s, i) => <li key={s} className={`cc-stage-step cc-stage-${s.toLowerCase()} ${stage === s ? "is-current" : ""}`} aria-current={stage === s ? "step" : undefined}>
       <span className="cc-stage-index">{String(i + 1).padStart(2, "0")}</span><strong>{STAGE_INFO[s].label}</strong><small>{STAGE_INFO[s].note}</small>
     </li>)}</ol>
-    <p className="cc-stage-reason">{stage ? <>Reported by the Mac backend · {words(vs?.mode_reason) || "no reason given"} · since {clock(vs?.mode_since)}</> : link.status === "offline" ? "Stage unavailable: the Mac security backend is not responding." : "Waiting for the Mac security backend…"}</p>
+    <p className="cc-stage-reason"><strong className="cc-stage-label">Local security mode (M4)</strong> {stage ? <>Reported by the Mac backend now · {words(vs?.mode_reason) || "no reason given"} · since {clock(vs?.mode_since)}</> : link.status === "offline" ? "Stage unavailable: the Mac security backend is not responding." : "Waiting for the Mac security backend…"}</p>
   </div>;
 }
 
 /** The real camera picture when the Mac's camera pipeline is running. Otherwise it says the camera is off; it never shows a placeholder frame. */
-export function LiveView({ link, now }: { link: MacLink; now: number }) {
+export function LiveView({ link, now, armedAtMs }: { link: MacLink; now: number; armedAtMs?: number }) {
   const demo = link.data?.demo;
   const running = link.status === "live" && demo?.camera_running === true;
   const vs = link.data?.visual_state;
@@ -43,23 +44,25 @@ export function LiveView({ link, now }: { link: MacLink; now: number }) {
           <p>{link.status !== "live" ? "No camera state can be shown until the backend responds." : "No frames are displayed. Jetson presence below comes from its own detector; the Jetson does not stream video here."}</p></div>}
       {running && !broken && vs && <div className="cc-live-overlay"><span>{vs.person_present ? vs.at_desk ? "Person at desk" : "Person near desk" : "No person detected"}</span>{vs.face_identity_state && <span>Face: {words(vs.face_identity_state)}</span>}<span>Camera {words(vs.camera_health)}</span></div>}
     </div>
-    <JetsonPresence remote={link.data?.remote_camera} events={link.data?.camera_events} now={now} live={link.status === "live"} />
+    <JetsonPresence remote={link.data?.remote_camera} events={link.data?.camera_events} now={now} live={link.status === "live"} armedAtMs={armedAtMs} />
   </section>;
 }
 
-function JetsonPresence({ remote, events, now, live }: { remote: any; events: any[] | undefined; now: number; live: boolean }) {
-  const fresh = live ? remoteFreshness(remote, now) : "none";
-  const remoteEvents = (events ?? []).filter(e => e?.device_id && e.device_id !== "local" && !String(e.device_id).startsWith("mac")).slice(-4).reverse();
+function JetsonPresence({ remote, events, now, live, armedAtMs }: { remote: any; events: any[] | undefined; now: number; live: boolean; armedAtMs?: number }) {
+  const inSession = live && remoteInSession(remote, armedAtMs);
+  const fresh = inSession ? remoteFreshness(remote, now) : "none";
+  const remoteEvents = sinceArmed((events ?? []).filter(e => e?.device_id && e.device_id !== "local" && !String(e.device_id).startsWith("mac")), armedAtMs, e => Number(e.observed_at)).slice(-4).reverse();
   return <div className="cc-jetson">
-    <div className="cc-jetson-head"><span><Radar size={14} />Jetson presence detector</span><Badge tone={fresh === "fresh" ? "cyan" : "amber"} dot>{!live ? "Unverified" : fresh === "fresh" ? "Fresh" : fresh === "stale" ? "Stale" : "No receipt"}</Badge></div>
-    {remote ? <dl className="cc-jetson-facts">
+    <div className="cc-jetson-head"><span><Radar size={14} />Jetson presence detector</span><Badge tone={fresh === "fresh" ? "cyan" : "quiet"} dot>{!live ? "Unverified" : !armedAtMs ? "Not armed" : fresh === "fresh" ? "Fresh this session" : inSession ? "Earlier this session" : "Nothing this session"}</Badge></div>
+    {inSession ? <dl className="cc-jetson-facts">
       <div><dt>Last observation</dt><dd>{words(remote.kind)}</dd></div>
       <div><dt>Device</dt><dd><code>{remote.device_id}</code></dd></div>
       <div><dt>Server received</dt><dd>{ago(remote.server_received_at_ms, now)}</dd></div>
       <div><dt>Camera → server</dt><dd>{fmtMs(remote.camera_to_server_ms)}</dd></div>
       <div><dt>Acted on</dt><dd>{remote.acted_on ? "Yes" : `No${remote.why_not ? ` · ${words(remote.why_not)}` : ""}`}</dd></div>
-    </dl> : <p className="cc-muted-line">No Jetson observation has reached this Mac yet.</p>}
+    </dl> : <p className="cc-muted-line">{!armedAtMs ? "Presence observations are shown for the live armed session." : "No Jetson observation has arrived in this session yet."}</p>}
     {remoteEvents.length > 0 && <ul className="cc-mini-list">{remoteEvents.map(e => <li key={e.event_id}><UserRound size={12} />{words(e.kind)}<time>{clock(e.observed_at)}</time></li>)}</ul>}
+    {!inSession && remote && <details className="cc-older"><summary>Last receipt before this session</summary><p>{words(remote.kind)} from <code>{remote.device_id}</code>, server received {clock(remote.server_received_at_ms)}. Historical, not current.</p></details>}
     <p className="cc-footnote">Presence only. The Jetson does not identify anyone.</p>
   </div>;
 }
@@ -81,16 +84,16 @@ export function FaceIdCard({ link }: { link: MacLink }) {
 }
 
 /** What the system actually did: spoken warnings, owner notifications and lock requests, with dry_run stated plainly. */
-export function ResponsePanel({ link, dbLocks, sessionId, children }: { link: MacLink; dbLocks: Row[]; sessionId?: string; children?: ReactNode }) {
+export function ResponsePanel({ link, dbLocks, sessionId, macSession, children }: { link: MacLink; dbLocks: Row[]; sessionId?: string; macSession: { id: string; armedAtMs: number } | null; children?: ReactNode }) {
   const live = link.status === "live";
-  const warnings = live ? [...(link.data?.warnings ?? [])].reverse().slice(0, 4) : [];
-  const macLocks = live ? [...(link.data?.locks ?? [])].reverse().slice(0, 3) : [];
-  const locks = [...dbLocks].filter(l => !sessionId || l.sessionId === sessionId).sort((a, b) => Number(b.issuedAtMs) - Number(a.issuedAtMs)).slice(0, 3);
+  const warnings = live ? sinceArmed(link.data?.warnings, macSession?.armedAtMs, (w: any) => Number(w.at) * 1000).reverse().slice(0, 4) : [];
+  const macLocks = live && macSession ? (link.data?.locks ?? []).filter((l: any) => l.session_id === macSession.id).reverse().slice(0, 3) : [];
+  const locks = [...dbLocks].filter(l => Boolean(sessionId) && l.sessionId === sessionId).sort((a, b) => Number(b.issuedAtMs) - Number(a.issuedAtMs)).slice(0, 3);
   const lockMode = live ? link.data?.lock_mode : null;
   return <Panel title="Security response" icon={<BellRing size={16} />} aside={<Badge tone={lockMode === "dry_run" ? "amber" : lockMode ? "magenta" : "quiet"}>{lockMode ? lockMode === "dry_run" ? "Screen lock: dry run" : `Screen lock: ${words(lockMode)}` : "Lock mode unverified"}</Badge>}>
     <div className="cc-response">
       <h4><Volume2 size={13} />Audio warnings</h4>
-      {warnings.length ? <ul className="cc-mini-list">{warnings.map((w: any, i: number) => <li key={`${w.event_id}-${i}`}><Speaker size={12} />{w.label || words(w.reason)}<span className={w.spoken ? "al-text-cyan" : "al-muted"}>{w.spoken ? "spoken" : w.skipped ? "not repeated" : "not spoken"}</span><time>{clock(Number(w.at) * 1000)}</time></li>)}</ul> : <p className="cc-muted-line">{live ? "No warnings spoken this session." : "Unavailable while the Mac backend is offline."}</p>}
+      {warnings.length ? <ul className="cc-mini-list">{warnings.map((w: any, i: number) => <li key={`${w.event_id}-${i}`}><Speaker size={12} />{w.label || words(w.reason)}<span className={w.spoken ? "al-text-cyan" : "al-muted"}>{w.spoken ? "spoken" : w.skipped ? "not repeated" : "not spoken"}</span><time>{clock(Number(w.at) * 1000)}</time></li>)}</ul> : <p className="cc-muted-line">{live ? macSession ? "No warnings spoken this session." : "Not armed." : "Unavailable while the Mac backend is offline."}</p>}
       <h4><LockKeyhole size={13} />Lock requests</h4>
       {locks.length || macLocks.length ? <ul className="cc-mini-list">
         {locks.map(l => <li key={String(l.id)}><Database size={12} />{words(l.status)}{l.simulated && <Badge tone="amber">Synthetic</Badge>}<time>{clock(l.issuedAtMs)}</time></li>)}
@@ -102,7 +105,7 @@ export function ResponsePanel({ link, dbLocks, sessionId, children }: { link: Ma
 }
 
 /** The latest Nemotron investigation LOCKI ran for a voice question, read from the Mac backend (the investigator key never reaches the browser). */
-export function NemotronPanel({ now }: { now: number }) {
+export function NemotronPanel({ now, incidentIds, scope }: { now: number; incidentIds: Set<string>; scope: "live" | "history" }) {
   const [turns, setTurns] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -112,20 +115,21 @@ export function NemotronPanel({ now }: { now: number }) {
     const id = window.setInterval(load, 3000);
     return () => { stop = true; window.clearInterval(id); };
   }, []);
-  const latest = latestInvestigationId(turns ?? undefined);
-  const lastAsk = (turns ?? []).find(t => t?.nemotron);
+  const lastAsk = turnForIncidents(turns ?? undefined, incidentIds);
   const n = lastAsk?.nemotron;
+  const id = typeof n?.investigation_id === "string" && /^inv_[A-Za-z0-9_-]{1,80}$/.test(n.investigation_id) ? n.investigation_id : null;
   const live = n?.evidence_badge === "LIVE";
-  return <Panel title="Nemotron investigation" icon={<Brain size={16} />} aside={n ? <Badge tone={live ? "cyan" : "amber"} dot>{live ? "LIVE evidence" : words(n.status) || "Unavailable"}</Badge> : <Badge tone="quiet">No investigation yet</Badge>}>
+  return <Panel title="Nemotron investigation" icon={<Brain size={16} />} aside={n ? <Badge tone={live ? "cyan" : "amber"} dot>{live ? "LIVE evidence" : words(n.status) || "Unavailable"}</Badge> : <Badge tone="quiet">{scope === "live" ? "This session" : "History"}</Badge>}>
     <div className="cc-nemotron">
       {error ? <p className="cc-muted-line">Unavailable: {error}</p>
-        : !n ? <p className="cc-muted-line">Ask "LOCKI, what happened while I was gone?" about a live incident. The answer and its evidence appear here.</p>
+        : !incidentIds.size ? <p className="cc-muted-line">{scope === "live" ? "No incident to investigate in this session." : "Select a historical incident to see its investigation."}</p>
+        : !n ? <p className="cc-muted-line">{scope === "live" ? "No investigation yet for this session's incident. Ask “LOCKI, what happened while I was gone?” once you've granted its evidence." : "No voice investigation was run for this incident."}</p>
         : <>
           <div className="cc-nemotron-meta"><span>{lastAsk.transcript ? `“${lastAsk.transcript}”` : lastAsk.file}</span><time>{ago(Number(lastAsk.at) * 1000, now)}</time></div>
           {n.status === "unavailable" ? <p className="al-text-amber al-small">Nemotron couldn't review this one: {n.error}. LOCKI answered from the local record only.</p>
             : <p className="al-small">Status {words(n.status)} · {fmtMs(n.total_ms)}{n.needs_review ? " · needs human review" : ""}</p>}
-          {latest && latest.turn === lastAsk && <InvestigationRecord id={latest.id} />}
-          {latest && <p className="cc-footnote">Investigation <code>{latest.id}</code></p>}
+          {id && <InvestigationRecord id={id} />}
+          {id && <p className="cc-footnote">Investigation <code>{id}</code> · incident <code>{shortId(n.incident_id)}</code></p>}
         </>}
     </div>
   </Panel>;
@@ -166,14 +170,14 @@ export function SensorHealth({ link, dbConnected, now, children }: { link: MacLi
 }
 
 /** A plain, newest-first feed of what the Mac received and did: camera and Jetson observations, stage changes and spoken warnings. */
-export function MacActivity({ link }: { link: MacLink }) {
-  if (link.status !== "live") return null;
+export function MacActivity({ link, armedAtMs }: { link: MacLink; armedAtMs?: number }) {
+  if (link.status !== "live" || !armedAtMs) return null;
   const d = link.data ?? {};
   const items: { at: number; icon: ReactNode; text: string; tag?: string }[] = [
     ...(d.camera_events ?? []).map((e: any) => ({ at: Number(e.observed_at), icon: <UserRound size={13} />, text: `${words(e.kind)}${e.zone ? ` · ${e.zone}` : ""}`, tag: e.device_id })),
     ...(d.mode_transitions ?? []).map((t: any) => ({ at: Number(t.at), icon: <Activity size={13} />, text: `Stage ${words(t.from)} → ${words(t.to)}${t.reason ? ` · ${words(t.reason)}` : ""}`, tag: "stage" })),
     ...(d.warnings ?? []).map((w: any) => ({ at: Number(w.at) * 1000, icon: <AudioLines size={13} />, text: `Warning: ${w.label || words(w.reason)}`, tag: w.spoken ? "spoken" : "silent" })),
-  ].filter(x => Number.isFinite(x.at)).sort((a, b) => b.at - a.at).slice(0, 10);
+  ].filter(x => Number.isFinite(x.at) && x.at >= armedAtMs).sort((a, b) => b.at - a.at).slice(0, 10);
   if (!items.length) return null;
-  return <div className="cc-activity"><h4>Mac receipts</h4><ul className="cc-mini-list">{items.map((x, i) => <li key={i}>{x.icon}{x.text}{x.tag && <code>{shortId(x.tag)}</code>}<time>{clock(x.at)}</time></li>)}</ul></div>;
+  return <div className="cc-activity"><h4>This session on the Mac</h4><ul className="cc-mini-list">{items.map((x, i) => <li key={i}>{x.icon}{x.text}{x.tag && <code>{shortId(x.tag)}</code>}<time>{clock(x.at)}</time></li>)}</ul></div>;
 }
