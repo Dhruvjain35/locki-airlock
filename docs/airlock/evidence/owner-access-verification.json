@@ -1,0 +1,75 @@
+{
+  "recorded_at_utc": "2026-11-08T09:53:41.314014+00:00",
+  "repository": "Dhruvjain35/locki-airlock",
+  "source_base": "afd008ede94ca66981faa2cee46bd44e0eab03c7",
+  "scope": "Urgent frontend owner recovery and exact investigator consent; cofounder backend and edge source untouched.",
+  "frontend_tests": {
+    "passed": 135,
+    "failed": 0,
+    "files": 8
+  },
+  "typecheck": "passed",
+  "production_build": {
+    "status": "passed",
+    "warning": "JavaScript chunk above900kB"
+  },
+  "independent_security_review": "cleared source and mocked SDK/policy tests",
+  "application_reducer_calls_during_recovery": 0,
+  "live_owner_login_verified": false,
+  "actual_owner_arm_verified": false,
+  "actual_investigator_grant_verified": false,
+  "mustafa_actual_identity_readback_verified": false,
+  "proof_boundary": "Unit/mock transport and source checks only; deployment of code is not actual M4 authentication or live acceptance.",
+  "source_files": [
+    {
+      "sha256": "545f1405bd0ffa3d64ef27526e16dc1aa3f26b2f69020a65c58e8b177085e7f2",
+      "file": "README.md"
+    },
+    {
+      "sha256": "eaefb150ed6cb250d00064a50dd599235f65c28d93459d431c52b7d52d49f470",
+      "file": "docs/airlock/OWNER_ACCESS.md"
+    },
+    {
+      "sha256": "0d9eec257910e6a47dcee3555bde1b5935674de9e23f4361d4745b3488b3b1fd",
+      "file": "frontend/src/airlock/AirlockApp.tsx"
+    },
+    {
+      "sha256": "1db41cc87e6e14d5cca7b238f5e615a2df798339b83da0c6874a11195e4f9eed",
+      "file": "frontend/src/airlock/client.ts"
+    },
+    {
+      "sha256": "6af6d07e38003546df67421d3316f6741da8c68dd929c27cc0db641fa0f520a4",
+      "file": "frontend/src/airlock/OwnerRecovery.tsx"
+    },
+    {
+      "sha256": "1045df007dc85decec2b2b250d01b201e06113e1a8cfa7566a9cebd4af701709",
+      "file": "frontend/src/airlock/ownerRecoveryPolicy.ts"
+    },
+    {
+      "sha256": "4674d05e62897ea6f5c4c94a32c7e06266acf754824d372952d4354c8b5d38a5",
+      "file": "frontend/src/airlock/ownerRecovery.test.ts"
+    },
+    {
+      "sha256": "0765e82a9b3d805e15148ba9103549105249bba3151e8782391b421db8a2fd38",
+      "file": "frontend/src/airlock/InvestigatorAccess.tsx"
+    },
+    {
+      "sha256": "e02f54edf2c9a232463120f600f2bda5a0f5109c33d615faba3cadf582f3c70b",
+      "file": "frontend/src/airlock/investigatorAccessPolicy.ts"
+    },
+    {
+      "sha256": "9500509d6ece7e30b273f51945c781c521b06ccc0b478645c680ed8346c97026",
+      "file": "frontend/src/airlock/investigatorAccess.test.ts"
+    }
+  ],
+  "test_logs": [
+    {
+      "sha256": "da3b0439c6e30af2443b3068dbaeff31cbc19169ade30b61cfec98ad95277bde",
+      "file": "owner-access-release-tests.log"
+    },
+    {
+      "sha256": "08d7ce521881f444328a5301bf64d13fefb83a0b8fa31c9c729b0e02c73b44bf",
+      "file": "owner-access-release-build.log"
+    }
+  ]
+}

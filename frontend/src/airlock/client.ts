@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DbConnection } from "../airlock-bindings";
 import type { Row } from "./format";
+import { credentialKey } from "./ownerRecoveryPolicy";
 
 export interface ConnectionConfig { uri: string; database: string; profile: string }
 export const DEFAULT_CONFIG: ConnectionConfig = {
@@ -12,7 +13,8 @@ export const DEFAULT_CONFIG: ConnectionConfig = {
 export function readConfig(): ConnectionConfig {
   try {
     const saved = JSON.parse(localStorage.getItem("airlock.connection.v1") || "{}");
-    return { ...DEFAULT_CONFIG, ...saved, profile: DEFAULT_CONFIG.profile };
+    const params = new URLSearchParams(location.search);
+    return { ...DEFAULT_CONFIG, ...saved, uri: params.get("airlockUri") || saved.uri || DEFAULT_CONFIG.uri, database: params.get("airlockDatabase") || saved.database || DEFAULT_CONFIG.database, profile: DEFAULT_CONFIG.profile };
   } catch { return DEFAULT_CONFIG; }
 }
 
@@ -29,7 +31,13 @@ export type TableName = keyof typeof VIEWS;
 export type AirlockData = Record<TableName, Row[]>;
 const emptyData = (): AirlockData => Object.fromEntries(Object.keys(VIEWS).map(k => [k, [] as Row[]])) as unknown as AirlockData;
 const sqlName = (s: string) => s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
-const tokenKey = (c: ConnectionConfig) => `airlock.token.v1:${c.uri}:${c.database}:${c.profile}`;
+const tokenKey = credentialKey;
+export function storedConnectionToken(config: ConnectionConfig, storage: Storage): string | undefined {
+  const token = storage.getItem(tokenKey(config));
+  if (config.profile.startsWith("owner-recovered-") && !token?.trim())
+    throw new Error("Recovered owner credential is missing. Recover existing owner access in this browser.");
+  return token || undefined;
+}
 
 export type ConnectionStatus = "connecting" | "subscribing" | "connected" | "reconnecting" | "offline";
 
@@ -84,10 +92,11 @@ export function useAirlock(config: ConnectionConfig) {
     };
 
     try {
+      const savedToken = storedConnectionToken(config, localStorage);
       const conn = DbConnection.builder()
         .withUri(config.uri)
         .withDatabaseName(config.database)
-        .withToken(localStorage.getItem(tokenKey(config)) || undefined)
+        .withToken(savedToken || undefined)
         .onConnect((ctx, id, token) => {
           if (stopped) { ctx.disconnect(); return; }
           localStorage.setItem(tokenKey(config), token);

@@ -9,6 +9,17 @@ Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mus
 > **Status: integration snapshot, not a finished release.** Areeb's edge runtime and Mission Control, and Mustafa's Nemotron investigator
 > service, could not be reached when this repository was created. See [What is not in this snapshot](#what-is-not-in-this-snapshot).
 
+
+## Existing M4 owner access
+
+For an **Unenrolled** console at `http://127.0.0.1:5174/?client=operator`, use
+**Recover existing owner access**. It validates an existing saved/local owner
+credential against the requested workstation before connecting, preserves the
+operator slot, and never creates a workstation or grants a role. Follow the
+[exact M4 recovery, live arming and evidence-approval steps](docs/airlock/OWNER_ACCESS.md).
+The workstation panel shows the committed session ID and explicit real/synthetic
+provenance. Owner evidence grants use the dedicated incident-scoped contract.
+
 ## How it works
 
 ```
