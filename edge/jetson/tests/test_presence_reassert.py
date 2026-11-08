@@ -132,10 +132,11 @@ class ReassertNormalizerTest(unittest.TestCase):
         self.assertEqual(norm.counters["reasserts"], 0)
 
     def test_constructor_rejects_out_of_range_intervals(self):
-        for bad in (10, 10.0, 12, -1, -0.5, float("nan"), float("inf")):
+        for bad in (10, 10.0, 12, -1, -0.5, 0.01, 0.5, 0.99, float("nan"), float("inf")):
             with self.assertRaises(ValueError, msg=repr(bad)):
                 normalizer(reassert_s=bad)
         self.assertEqual(normalizer(reassert_s=9.99).reassert_s, 9.99)
+        self.assertEqual(normalizer(reassert_s=1).reassert_s, 1.0)            # the floor itself is allowed
         self.assertEqual(normalizer().reassert_s, 5.0)          # on by default, same as the config default
 
 
@@ -152,7 +153,7 @@ class ReassertConfigTest(unittest.TestCase):
         self.assertEqual(self.cfg().public()["presence_reassert_s"], 5.0)
 
     def test_rejects_ten_or_more_and_negative(self):
-        for bad in ("10", "10.0", "15", "-1", "-0.01", "nan", "inf", "abc", ""):
+        for bad in ("10", "10.0", "15", "-1", "-0.01", "0.01", "0.5", "nan", "inf", "abc", ""):
             with self.assertRaises(ConfigError, msg=bad):
                 self.cfg(AIRLOCK_PRESENCE_REASSERT_S=bad)
 

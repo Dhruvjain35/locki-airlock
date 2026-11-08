@@ -47,12 +47,16 @@ CORRELATION_WINDOW_S = 10.0   # Sid's module: CORRELATION_WINDOW_MS = 10_000 (sp
 DEFAULT_REASSERT_S = 5.0
 
 
+MIN_REASSERT_S = 1.0
+
+
 def check_reassert_s(value):
-    """0 = off; otherwise strictly between 0 and the module's 10 s correlation window."""
+    """0 = off; otherwise at least 1 s (a re-assert per frame would flood the module's 64 events/s per device
+    limit) and below the module's 10 s correlation window."""
     v = float(value)
-    if not (v == 0.0 or 0.0 < v < CORRELATION_WINDOW_S):
-        raise ValueError("presence re-assert interval must be 0 (off) or > 0 and < %g s, got %r"
-                         % (CORRELATION_WINDOW_S, value))
+    if not (v == 0.0 or MIN_REASSERT_S <= v < CORRELATION_WINDOW_S):
+        raise ValueError("presence re-assert interval must be 0 (off) or at least %g s and below %g s, got %r"
+                         % (MIN_REASSERT_S, CORRELATION_WINDOW_S, value))
     return v
 
 

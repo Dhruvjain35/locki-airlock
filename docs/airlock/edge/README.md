@@ -73,7 +73,7 @@ Security Desk was told anything.
 **Jetson** (`airlock.env`): `AIRLOCK_PUSH_URL_FILE` (chmod 600 file with `https://ntfy.sh/<presence-topic>`) or
 `AIRLOCK_PUSH_URL` (never both; push is off while both are empty), `AIRLOCK_PUSH_PRIORITY=3` (clamped to 1..3),
 `AIRLOCK_PUSH_MIN_INTERVAL_S=600` per workstation+zone, plus at most one push per visit. A visit ends when the zone
-clears locally (`person_left_zone`, which the module refuses for role jetson, so it never waits for the DB). The
+clears locally (`person_cleared`; the visit ends whether or not the database takes that event). The
 URL and topic are never logged; `/health` shows `ntfy …<last4>`. There is no test push from the edge any more:
 `POST /local-test-alert` plays the local alarm only.
 
