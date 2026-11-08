@@ -142,7 +142,8 @@ class VisionMetadata(_Metadata):
     """What the camera pipeline saw. Never who someone is, a picture, a face template or what anyone meant."""
 
     camera: str = Field(max_length=60, description="A label such as mac_webcam or logitech_usb, never a device serial")
-    inference: Literal["mac_mediapipe", "opencv_dnn", "tensorrt", "fixture"]
+    inference: Literal["mac_mediapipe", "opencv_dnn", "tensorrt", "fixture", "unreported"] = Field(
+        description="unreported: a remote camera's row from SpacetimeDB, which does not say which detector ran")
     detector: str | None = Field(None, max_length=80)
     zone: VisionZone | None = None
     started_at: EpochMs | None = Field(None, description="The first frame of this observation")

@@ -52,6 +52,7 @@ WARNING_REPEAT_S = 15.0  # the same kind of warning, spoken again this soon, onl
 # An incident the server last changed longer ago than this is shown, never spoken: a restart or reconnect re-delivers every row, and the spoken-once set is
 # only in memory. 120 s is the module's own window for admitting an observation, and the Mac's clock agreed with maincloud's to within ~0.2 s on 2026-11-07.
 INCIDENT_VOICE_MAX_AGE_MS = 120_000
+REMOTE_CAMERA_MAX_AGE_MS = 30_000  # a remote camera row the server received longer ago than this (a replay after reconnecting) is never a new warning
 LOCAL_LOCK_TTL_MS = 30_000
 MAX_EVIDENCE = 200
 # The desk camera. These only choose which true sentence LOCKI says; SpacetimeDB's module decides incidents.
@@ -118,6 +119,8 @@ class SecurityService:
         self._last_beat = 0.0
         self._server_actions: set[str] = set()
         self._voiced_incidents: set[str] = set()
+        self._remote_camera_seen: dict[str, None] = {}  # insertion-ordered, bounded
+        self.remote_camera: dict | None = None  # the last remote camera row and what was done with it
         self.camera = None  # CameraWatch, built on the first arm when settings.airlock_vision is on
         self.physical: deque[tuple[float, SecurityEventV1]] = deque(maxlen=300)  # (monotonic time, camera event)
         self._presence_pending: tuple[float, SecurityEventV1] | None = None
@@ -178,7 +181,8 @@ class SecurityService:
         if not all(merged.values()):
             return None
         # Which views to follow, if Sid's device-scoped ones have other names: incidents_view, lock_view, sessions_view in spacetime.json.
-        return {**merged, **{k: stored[k] for k in ("incidents_view", "lock_view", "sessions_view") if isinstance(stored.get(k), str) and stored[k]}}
+        cameras = [c.strip() for c in (s.spacetime_remote_cameras or "").split(",") if c.strip()] or [c for c in stored.get("remote_cameras") or [] if isinstance(c, str) and c]
+        return {**merged, "remote_cameras": tuple(cameras), **{k: stored[k] for k in ("incidents_view", "lock_view", "sessions_view") if isinstance(stored.get(k), str) and stored[k]}}
 
     def _connect_spacetime(self) -> None:
         """Only when configured. A problem here is reported, and local detection and warnings carry on without it."""
@@ -194,7 +198,8 @@ class SecurityService:
 
         url = settings["url"].rstrip("/")
         views = {k: v for k, v in settings.items() if k in ("incidents_view", "lock_view", "sessions_view") and v}
-        config = SpacetimeConfig(url=url, database=settings["database"], workstation_id=settings["workstation_id"], device_id=self.identity.device_id, **views)
+        config = SpacetimeConfig(url=url, database=settings["database"], workstation_id=settings["workstation_id"], device_id=self.identity.device_id,
+                                 remote_cameras=tuple(settings.get("remote_cameras") or ()), **views)
         try:
             config.token = load_or_create_token(url, self.dir)
         except Exception as exc:
@@ -205,7 +210,8 @@ class SecurityService:
         if problems:
             self.spacetime_error = "the database's reducers no longer match this adapter: " + "; ".join(problems)[:200]
             log.warning("SpacetimeDB: %s", self.spacetime_error)
-        self.subscriber = SpacetimeSubscriber(config, on_incident=self.apply_incident_update, on_lock_request=self.handle_lock_request, on_session=self.apply_remote_session)
+        self.subscriber = SpacetimeSubscriber(config, on_incident=self.apply_incident_update, on_lock_request=self.handle_lock_request, on_session=self.apply_remote_session,
+                                              on_camera_event=self.apply_remote_camera_event)
         self.subscriber.start()
 
     async def start_monitoring(self) -> dict:
@@ -705,7 +711,8 @@ class SecurityService:
         so to_audio_ms is frame to audio start. started_at_ms is the observation's first frame: arrival to audio is that plus the settle time."""
         now_m, now_w = time.monotonic(), time.time()
         t0 = now_m - max(0.0, now_w - event.observed_at / 1000)
-        return {"kind": "security", "id": event.event_id, "t0": t0, "frame_at_ms": event.observed_at, "started_at_ms": event.metadata.get("started_at"), "trigger": event.kind.value}
+        return {"kind": "security", "id": event.event_id, "t0": t0, "frame_at_ms": event.observed_at, "started_at_ms": event.metadata.get("started_at"), "trigger": event.kind.value,
+                "frame_clock": "this mac" if event.source == SecuritySource.MAC_VISION else f"{event.device_id} (another clock)"}
 
     def _owner_enrolled(self) -> bool:
         faces = getattr(getattr(self.camera, "vision", None), "faces", None) if self.camera is not None else None
@@ -814,7 +821,9 @@ class SecurityService:
         self._presence_quiet = True
         event = pending[1]
         trace = self._frame_trace(event)
-        self.warnings.append({"event_id": event.event_id, "reason": "person_at_desk", "label": why, "at": time.time(), "queued_ms": 0.0, "spoken": True, "audio": None})
+        remote = self.remote_camera if self.remote_camera and self.remote_camera.get("event_id") == event.event_id else None
+        self.warnings.append({"event_id": event.event_id, "reason": "person_at_desk", "label": why, "at": time.time(), "queued_ms": 0.0, "spoken": True, "audio": None,
+                              **({"device_id": event.device_id, "remote_timing": dict(remote)} if remote else {})})
         self.rt._say("security_warning_presence", force=True, trace=trace)
 
     def _physical_alert(self, event: SecurityEventV1) -> None:
@@ -937,6 +946,28 @@ class SecurityService:
         return "security_warning_usb", context
 
     # ------------------------------------------------------------------ from SpacetimeDB
+    def apply_remote_camera_event(self, event: SecurityEventV1, session_id: str, server_received_ms: int = 0) -> None:
+        """A real person or camera-health row from a listed remote camera (remote_cameras, e.g. jetson-01), through my_device_events. It feeds the
+        same mode engine and warnings as this Mac's camera. Each row counts once. A row for another session, or one the server received longer
+        ago than REMOTE_CAMERA_MAX_AGE_MS (a replay), is never spoken. Age is judged on the server's clock (received_at_ms), which this Mac
+        agrees with, never the camera's (observed_at_ms), which may be skewed. A row first seen before its session row arrives is not
+        reconsidered later (dedupe runs first); the next observation from the camera is."""
+        if event.event_id in self._remote_camera_seen:
+            return
+        self._remote_camera_seen[event.event_id] = None
+        while len(self._remote_camera_seen) > 2048:
+            self._remote_camera_seen.pop(next(iter(self._remote_camera_seen)))
+        received_ms = int(time.time() * 1000)
+        stale = not server_received_ms or received_ms - server_received_ms > REMOTE_CAMERA_MAX_AGE_MS
+        current = self.session is not None and session_id == self.session.session_id
+        self.remote_camera = {"device_id": event.device_id, "kind": event.kind.value, "event_id": event.event_id,
+                              "observed_at_ms": event.observed_at, "server_received_at_ms": server_received_ms or None, "m4_received_at_ms": received_ms,
+                              "camera_to_server_ms": (server_received_ms - event.observed_at) if server_received_ms else None,  # across two clocks
+                              "server_to_m4_ms": (received_ms - server_received_ms) if server_received_ms else None,
+                              "acted_on": current and not stale, "why_not": None if current and not stale else ("stale" if stale else "not the armed session")}
+        if current and not stale:
+            self.on_camera_event(event)
+
     def apply_incident_update(self, update: IncidentUpdateV1) -> None:
         """SpacetimeDB's incident is the real one. LOCKI warns at once for one it has not already warned about: for example the camera seeing someone as a device
         was connected, which this Mac cannot see by itself. A fixture is shown and never spoken or acted on."""
@@ -1126,7 +1157,8 @@ class SecurityService:
             "demo": None if self.demo is None else self.demo.snapshot(),
             "visual_state": self.modes.state.to_dict(),
             "mode_transitions": self.modes.transitions[-10:],
-            "camera_events": [{"kind": e.kind.value, "event_id": e.event_id, "observed_at": e.observed_at, "confidence": e.confidence, "zone": e.metadata.get("zone")} for _t, e in list(self.physical)[-12:]],
+            "remote_camera": self.remote_camera,
+            "camera_events": [{"device_id": e.device_id, "kind": e.kind.value, "event_id": e.event_id, "observed_at": e.observed_at, "confidence": e.confidence, "zone": e.metadata.get("zone")} for _t, e in list(self.physical)[-12:]],
             "arming": "SpacetimeDB dashboard" if self.database_arms else "this Mac, with the owner code",
             "limits": "Detects and responds. It does not stop a device or a program that has already acted. A locked screen does not stop background processes.",
         }

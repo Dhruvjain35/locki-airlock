@@ -536,3 +536,106 @@ def test_camera_events_go_to_the_module_under_the_prd_names_with_only_the_zone()
     renamed = SpacetimeConfig(url="http://x", database="d", workstation_id="ws", device_id="cam-1", camera_kinds={"usb_zone_interaction": "hand_near_usb"})
     assert reducer_call(cam("usb_zone_interaction", zone="usb_port_zone"), renamed)[1][4] == "hand_near_usb"
     assert reducer_call(cam("person_in_zone"), renamed) == ("", [])  # an override replaces the whole map
+
+
+# ------------------------------------------------------------------ a remote camera (jetson-01) through my_device_events
+DEVICE_EVENT_COLUMNS = ["id", "workstation_id", "session_id", "device_id", "source", "kind", "observed_at_ms", "received_at_ms", "seq", "confidence", "metadata_json", "simulated", "schema_version", "classification"]
+CAMERA_CONFIG = CONFIG.model_copy(update={"remote_cameras": ("jetson-01",)})
+
+
+def jetson_row(kind="person_in_zone", observed_at_ms=None, session_id="s1", device_id="jetson-01", source="jetson", simulated=False, event_id=None, received_at_ms=None):
+    """A my_device_events row in the column order maincloud sends (read from the live view on 2026-11-08), with jetson-01's metadata keys.
+    observed_at_ms is the camera's clock; received_at_ms is the server's."""
+    now = int(time.time() * 1000)
+    at = observed_at_ms if observed_at_ms is not None else now
+    got = received_at_ms if received_at_ms is not None else now
+    meta = {"label": "desk", "captureMode": "jetson_usb_camera", "detail": "state=streaming fps=15.47"}
+    return [event_id or f"jetson-01:{kind}:{at}", "dhruv-m4-air", session_id, device_id, source, kind, at, got, 7, 0.82, json.dumps(meta), simulated, 1, "soft_observation"]
+
+
+def device_event_message(rows, initial=False):
+    tables = [{"table_name": "my_device_events", "updates": [{"deletes": [], "inserts": [json.dumps(r) for r in rows]}]}]
+    return json.dumps({"InitialSubscription": {"database_update": {"tables": tables}, "request_id": 1}} if initial else {"TransactionUpdateLight": {"request_id": 0, "update": {"tables": tables}}})
+
+
+def test_a_listed_remote_camera_row_becomes_a_local_observation_and_everything_else_is_ignored():
+    from app.security.spacetime_adapter import remote_camera_event
+
+    allowed = ("jetson-01",)
+    row = dict(zip(DEVICE_EVENT_COLUMNS, jetson_row(received_at_ms=1794120000040)))
+    event, session, server_ms = remote_camera_event(row, "mac-test", allowed)
+    assert event.kind == SecurityKind.PERSON_IN_ZONE and event.source == SecuritySource.JETSON_VISION and event.device_id == "jetson-01" and session == "s1" and server_ms == 1794120000040
+    assert event.metadata["inference"] == "unreported" and event.metadata["zone"] == "desk" and event.metadata["camera"] == "jetson_usb_camera" and not event.is_fixture
+    cleared, _, _ = remote_camera_event(dict(zip(DEVICE_EVENT_COLUMNS, jetson_row("person_cleared"))), "mac-test", allowed)
+    assert cleared.kind == SecurityKind.PERSON_LEFT_ZONE
+    for bad in (jetson_row(device_id="mac-test"), jetson_row(device_id="mac-dev-cam-01"), jetson_row(simulated=True), jetson_row(source="fixture"),
+                jetson_row(source="mac"), jetson_row("usb_added"), jetson_row("heartbeat")):
+        assert remote_camera_event(dict(zip(DEVICE_EVENT_COLUMNS, bad)), "mac-test", allowed) is None
+    assert remote_camera_event(row, "mac-test", ()) is None  # nobody listed: no remote camera drives this Mac
+
+
+def test_the_mac_follows_device_events_only_for_listed_cameras():
+    assert "my_device_events" not in SpacetimeSubscriber(CAMERA_CONFIG, on_incident=print, on_lock_request=print, on_session=print)._views()
+    assert "my_device_events" not in SpacetimeSubscriber(CONFIG, on_incident=print, on_lock_request=print, on_session=print, on_camera_event=print)._views()
+    assert "my_device_events" in SpacetimeSubscriber(CAMERA_CONFIG, on_incident=print, on_lock_request=print, on_session=print, on_camera_event=print)._views()
+
+
+async def camera_subscribed(rt):
+    h = await following(rt)
+    rt.security.apply_remote_session(remote())
+    sub = SpacetimeSubscriber(CAMERA_CONFIG, on_incident=print, on_lock_request=print, on_session=print, on_camera_event=rt.security.apply_remote_camera_event)
+    sub._columns = {"my_device_events": (DEVICE_EVENT_COLUMNS, [False] * len(DEVICE_EVENT_COLUMNS))}
+    return h, sub
+
+
+async def test_a_real_jetson_person_while_armed_makes_locki_watchful_and_warn_once(rt):
+    h, sub = await camera_subscribed(rt)
+    row = jetson_row()
+    await sub._message(device_event_message([row]))
+    assert rt.security.mode.value == "WATCHFUL" and rt.security.visual_state()["at_desk"]
+    await wait_for(lambda: any(w["reason"] == "person_at_desk" for w in rt.security.warnings), timeout=4.0)
+    warning = next(w for w in rt.security.warnings if w["reason"] == "person_at_desk")
+    timing = warning["remote_timing"]
+    assert warning["device_id"] == "jetson-01" and timing["server_to_m4_ms"] is not None and timing["camera_to_server_ms"] is not None and timing["acted_on"]
+    await sub._message(device_event_message([row], initial=True))  # a reconnect re-delivers the same row
+    await asyncio.sleep(0.1)
+    assert sum(w["reason"] == "person_at_desk" for w in rt.security.warnings) == 1 and sub.camera_rows == 2 and sub.rows_rejected == 0
+
+
+async def test_a_camera_clock_minutes_behind_still_warns_because_age_is_the_servers(rt):
+    h, sub = await camera_subscribed(rt)
+    await sub._message(device_event_message([jetson_row(observed_at_ms=int(time.time() * 1000) - 95_000)]))  # Jetson clock 95 s behind, received just now
+    assert rt.security.remote_camera["acted_on"] and rt.security.mode.value == "WATCHFUL"
+
+
+async def test_another_enrolled_camera_never_drives_this_desk(rt):
+    h, sub = await camera_subscribed(rt)
+    await sub._message(device_event_message([jetson_row(device_id="mac-dev-cam-01")]))
+    await asyncio.sleep(1.8)
+    assert rt.security.remote_camera is None and rt.security.mode.value == "NORMAL" and sub.rows_ignored == 1
+
+
+async def test_old_or_other_session_or_disarmed_camera_rows_are_never_spoken(rt):
+    from app.security.service import REMOTE_CAMERA_MAX_AGE_MS
+
+    h, sub = await camera_subscribed(rt)
+    old = int(time.time() * 1000) - REMOTE_CAMERA_MAX_AGE_MS - 1_000
+    await sub._message(device_event_message([jetson_row(received_at_ms=old, event_id="replayed")], initial=True))  # the server got it long ago: a replay
+    assert rt.security.remote_camera["why_not"] == "stale"
+    await sub._message(device_event_message([jetson_row(session_id="an-older-session", event_id="other-session")]))
+    assert rt.security.remote_camera["why_not"] == "not the armed session"
+    rt.security.apply_remote_session(remote(state="DISARMED"))
+    await sub._message(device_event_message([jetson_row(event_id="after-disarm")]))
+    await asyncio.sleep(1.8)
+    assert rt.security.mode.value == "NORMAL" and not any(w["reason"] == "person_at_desk" for w in rt.security.warnings)
+
+
+async def test_a_bug_in_the_camera_handler_is_not_counted_as_a_bad_row():
+    def broken(*_):
+        raise RuntimeError("handler bug")
+
+    sub = SpacetimeSubscriber(CAMERA_CONFIG, on_incident=print, on_lock_request=print, on_session=print, on_camera_event=broken)
+    sub._columns = {"my_device_events": (DEVICE_EVENT_COLUMNS, [False] * len(DEVICE_EVENT_COLUMNS))}
+    await sub._message(device_event_message([jetson_row()]))
+    assert sub.rows_rejected == 0 and sub.camera_rows == 1 and "camera handler failed" in sub.last_error
+

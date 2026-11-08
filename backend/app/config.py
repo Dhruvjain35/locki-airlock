@@ -160,6 +160,8 @@ class Settings(BaseSettings):
     spacetime_url: str | None = None
     spacetime_database: str | None = None
     spacetime_workstation: str | None = None
+    # Remote cameras whose person events may drive this Mac's mode and warnings (comma-separated device ids, e.g. jetson-01). Empty: none.
+    spacetime_remote_cameras: str = ""
     # The investigator's model. Never downloaded from here. May be on another of the team's Macs (the M5 Pro): loopback or a private address only.
     airlock_model: str = "nemotron-3.5-bolt:e4b"
     airlock_ollama_url: str = "http://127.0.0.1:11434"

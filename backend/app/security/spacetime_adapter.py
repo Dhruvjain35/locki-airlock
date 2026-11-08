@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-from .contracts import AgentStepV1, IncidentUpdateV1, LockRequestV1, SecurityEventV1, SecurityKind
+from .contracts import AgentStepV1, IncidentUpdateV1, LockRequestV1, SecurityEventV1, SecurityKind, SecuritySource
 from .publisher import Delivery
 
 log = logging.getLogger(__name__)
@@ -66,6 +66,8 @@ class SpacetimeConfig(BaseModel):
     incidents_view: str = "my_incidents"
     lock_view: str = "my_lock_requests"
     sessions_view: str = "my_sessions"
+    device_events_view: str = "my_device_events"
+    remote_cameras: tuple[str, ...] = ()  # the only other devices whose camera rows this Mac acts on; none unless the owner lists them
     camera_kinds: dict[str, str] | None = None  # our camera kind -> the module's, for the camera device
 
 
@@ -326,13 +328,47 @@ def session_from_row(row: dict) -> RemoteSession:
                          str(row.get("approved_apps_json") or ""), bool(row.get("auto_lock_enabled")), str(row.get("owner_policy_hash") or ""), bool(row.get("simulated")))
 
 
+# A camera enrolled at this workstation (Areeb's jetson-01) publishes these to the module. A person alone is a soft observation there and
+# opens no incident, so the Mac follows my_device_events itself: these four kinds, from another device, never simulated, become local
+# camera observations. They drive LOCKI's mode and spoken warning exactly as the Mac's own camera does, and are never published again.
+REMOTE_CAMERA_KINDS = {"person_in_zone": "person_in_zone", "person_cleared": "person_left_zone", "camera_offline": "camera_offline", "camera_online": "camera_restored"}
+
+
+def remote_camera_event(row: dict, own_device_id: str, allowed: tuple[str, ...] | frozenset[str]) -> tuple[SecurityEventV1, str, int] | None:
+    """A camera row from my_device_events as (event, session id, the server's received_at_ms), or None unless it is a real, non-simulated
+    observation published as role jetson by a device the owner listed in remote_cameras. Every other camera enrolled at the workstation
+    (Areeb's mac-dev-cam-01, wherever it points) is ignored."""
+    kind = REMOTE_CAMERA_KINDS.get(str(row.get("kind") or ""))
+    device = str(row.get("device_id") or "")
+    if kind is None or not device or device == own_device_id or device not in allowed or row.get("simulated") or str(row.get("source") or "") != "jetson":
+        return None
+    try:
+        meta = json.loads(row.get("metadata_json") or "{}")
+    except (TypeError, ValueError):
+        meta = {}
+    meta = meta if isinstance(meta, dict) else {}
+    label = str(meta.get("label") or "")
+    capture = str(meta.get("captureMode") or "")
+    session = str(row.get("session_id") or "")
+    metadata = {"camera": (capture.split(":")[0] or device)[:60], "inference": "unreported", "armed": bool(session), "session_id": session[:128] or None,
+                "zone": label if label in ("desk", "keyboard_zone", "laptop_zone", "usb_port_zone", "protected_device_zone") else ("desk" if kind == "person_in_zone" else None),
+                "detail": (f"{device}: {meta.get('detail') or capture or 'remote camera'}")[:240]}
+    confidence = row.get("confidence")
+    event = SecurityEventV1(event_id=str(row["id"]), device_id=device, source=SecuritySource.JETSON_VISION, kind=SecurityKind(kind), observed_at=int(row["observed_at_ms"]),
+                            seq=int(row.get("seq") or 0), confidence=float(confidence) if isinstance(confidence, (int, float)) and 0 <= confidence <= 1 else None,
+                            metadata={k: v for k, v in metadata.items() if v is not None})
+    return event, session, int(row.get("received_at_ms") or 0)
+
+
 class SpacetimeSubscriber:
     """Follows this workstation's sessions, incidents and lock requests through Sid's views. If the server goes away it keeps trying, and local warnings
     carry on regardless. A row that does not fit the contract, or is for another workstation or device, is counted and never acted on."""
 
-    def __init__(self, config: SpacetimeConfig, *, on_incident: Callable[[IncidentUpdateV1], None], on_lock_request: Callable[[LockRequestV1], object], on_session: Callable[[RemoteSession], None]):
+    def __init__(self, config: SpacetimeConfig, *, on_incident: Callable[[IncidentUpdateV1], None], on_lock_request: Callable[[LockRequestV1], object], on_session: Callable[[RemoteSession], None],
+                 on_camera_event: Callable[[SecurityEventV1, str, int], None] | None = None):
         self.config = config
-        self.on_incident, self.on_lock_request, self.on_session = on_incident, on_lock_request, on_session
+        self.on_incident, self.on_lock_request, self.on_session, self.on_camera_event = on_incident, on_lock_request, on_session, on_camera_event
+        self.camera_rows = 0
         self.connected = False
         self.connections = 0
         self.reconnects = 0
@@ -357,7 +393,8 @@ class SpacetimeSubscriber:
         self.connected = False
 
     def _views(self) -> list[str]:
-        return [self.config.sessions_view, self.config.incidents_view, self.config.lock_view]
+        views = [self.config.sessions_view, self.config.incidents_view, self.config.lock_view]
+        return views + [self.config.device_events_view] if self.on_camera_event is not None and self.config.remote_cameras else views
 
     def _ws_url(self) -> str:
         parts = urlsplit(self.config.url)
@@ -420,11 +457,19 @@ class SpacetimeSubscriber:
         if row.get("workstation_id") not in (None, self.config.workstation_id):
             self.rows_ignored += 1
             return
+        camera_event = None
         try:
             if view == self.config.sessions_view:
                 self.on_session(session_from_row(row))
             elif view == self.config.incidents_view:
                 self.on_incident(incident_from_row(row))
+            elif view == self.config.device_events_view:
+                found = remote_camera_event(row, self.config.device_id, self.config.remote_cameras) if self.on_camera_event is not None else None
+                if found is None:
+                    self.rows_ignored += 1
+                    return
+                self.camera_rows += 1
+                camera_event = found
             else:
                 if (row.get("target_device_id") or "") not in ("", self.config.device_id) or str(row.get("status") or "").lower() in _DONE_LOCK:
                     self.rows_ignored += 1
@@ -436,7 +481,14 @@ class SpacetimeSubscriber:
             self.rows_rejected += 1
             self.last_error = f"a {view} row did not fit the contract: {str(exc)[:120]}"
             log.warning(self.last_error)
+            return
+        if camera_event is not None:
+            try:  # called outside the parse: a bug in the service is not a malformed row
+                self.on_camera_event(*camera_event)
+            except Exception as exc:
+                self.last_error = f"the camera handler failed: {type(exc).__name__}: {str(exc)[:120]}"
+                log.exception("remote camera row")
 
     def snapshot(self) -> dict:
         return {"connected": self.connected, "connections": self.connections, "reconnects": self.reconnects, "rows_received": self.rows_received, "rows_rejected": self.rows_rejected, "rows_ignored": self.rows_ignored,
-                "last_error": self.last_error, "url": self.config.url, "database": self.config.database, "workstation_id": self.config.workstation_id, "device_id": self.config.device_id}
+                "camera_rows": self.camera_rows, "last_error": self.last_error, "url": self.config.url, "database": self.config.database, "workstation_id": self.config.workstation_id, "device_id": self.config.device_id}
