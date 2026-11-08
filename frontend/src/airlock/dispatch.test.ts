@@ -7,6 +7,10 @@ describe("dispatch status wording", () => {
     expect(l.text).toBe("owner · phone: accepted by provider (attempt 2)");
     expect(l.text).not.toMatch(/delivered|seen|read/);
   });
+  it("a console row is published, not displayed", () => {
+    const l = deliveryLabel({ recipient: "desk", channel: "console", status: "published" });
+    expect(l.text).toBe("desk · console: published to its console (not proof it was displayed)");
+  });
   it("says why a delivery failed and how often it tried", () => {
     expect(deliveryLabel({ recipient: "owner", channel: "phone", status: "failed", error: "timeout", attempts: 3 }).text).toBe("owner · phone: failed (timeout), 3 attempts");
   });

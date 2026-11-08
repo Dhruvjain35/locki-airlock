@@ -28,6 +28,7 @@ export function DispatchPanel({ incidentId }: { incidentId?: string }) {
       : !entry ? <p className="al-small al-muted">{incidentId ? "No notification recorded for this incident." : "Select an incident."}</p>
       : <div className="al-dispatch">
           <p className="al-small">Rule {words(entry.rule_id)} → {routeFor(data.policy as Row, String(entry.rule_id))} · notified at {words(entry.notified_for_severity)} severity · <code>{shortId(entry.incident_id)}</code></p>
+          {entry.skipped ? <p className="al-small al-muted">Nothing sent: {String(entry.skipped)}</p> : null}
           {((entry.deliveries as Row[]) ?? []).map((d, n) => { const l = deliveryLabel(d); return <div key={n} className="al-inline"><Badge tone={l.tone} dot>{l.text}</Badge>{d.accepted_at_ms ? <span className="al-small">{clock(d.accepted_at_ms)}</span> : null}</div>; })}
           {entry.acknowledged_by ? <p className="al-small">Acknowledged by {shortId(entry.acknowledged_by)} at {clock(entry.acknowledged_at_ms)}</p> : null}
           {phone?.last_error ? <p className="al-small al-text-amber">Phone channel: {String(phone.last_error)}</p> : null}

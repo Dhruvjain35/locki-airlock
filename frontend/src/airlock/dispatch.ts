@@ -1,10 +1,12 @@
 import { type Row } from "./format";
 
-/** How a delivery is described: the provider's receipt is "accepted by provider", never "delivered" or "seen". */
+/** How a delivery is described: a phone provider's receipt is "accepted by provider" and a console row is "published", never "delivered"
+ *  or "seen"; only an acknowledgement says a person acted on it. */
 export function deliveryLabel(d: Row): { text: string; tone: "cyan" | "amber" | "magenta" | "quiet" } {
   const who = `${d.recipient ?? "?"} · ${d.channel ?? "?"}`;
   switch (d.status) {
     case "acknowledged": return { text: `${who}: acknowledged`, tone: "cyan" };
+    case "published": return { text: `${who}: published to its console (not proof it was displayed)`, tone: "amber" };
     case "accepted": return { text: `${who}: accepted by provider${d.attempts > 1 ? ` (attempt ${d.attempts})` : ""}`, tone: "cyan" };
     case "failed": return { text: `${who}: failed${d.error ? ` (${d.error})` : ""}${d.attempts ? `, ${d.attempts} attempt${d.attempts > 1 ? "s" : ""}` : ""}`, tone: "magenta" };
     case "sending": return { text: `${who}: sending`, tone: "amber" };
