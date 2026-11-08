@@ -61,6 +61,14 @@ export const api = {
   voiceStart: () => post("/voice/start"),
   voiceStop: () => post("/voice/stop"),
   securityNotifications: () => request<any>("GET", "/security/notifications"),
+  recordedStatus: () => request<any>("GET", "/voice/recorded"),
+  stopSpeaking: () => request<{ ok: boolean; message: string }>("POST", "/voice/stop-speaking", {}),
+  sendRecorded: async (file: File): Promise<any> => {
+    const res = await fetch(`/api/voice/recorded?name=${encodeURIComponent(file.name)}`, { method: "POST", headers: { "content-type": "audio/wav" }, body: file });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : `${res.status} ${res.statusText}`);
+    return body;
+  },
   voiceDevices: () => request<{ available: boolean; inputs: any[]; outputs: any[]; reason?: string }>("GET", "/voice/devices"),
   testMic: (seconds = 2) => post<{ ok: boolean; message?: string; rms_db?: number; peak_db?: number; speech_detected?: boolean }>("/voice/test-mic", { seconds }),
   ttsTest: () => post<{ ok: boolean; engine: string }>("/tts/test", {}),
