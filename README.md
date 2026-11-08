@@ -2,7 +2,7 @@
 
 **Workspace security for shared engineering desks.**
 
-[![AIRLOCK software checks](https://github.com/Dhruvjain35/locki-airlock/actions/workflows/airlock.yml/badge.svg)](https://github.com/Dhruvjain35/locki-airlock/actions/workflows/airlock.yml)
+[![GitHub Actions: software checks](https://img.shields.io/badge/GitHub_Actions-Software_checks-2088FF?logo=githubactions&logoColor=white)](https://github.com/Dhruvjain35/locki-airlock/actions/workflows/airlock.yml)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React 18.3](https://img.shields.io/badge/React-18.3-149ECA?logo=react&logoColor=white)](frontend/package.json)
 [![SpacetimeDB 2.14.1](https://img.shields.io/badge/SpacetimeDB-2.14.1-7855FA)](spacetime/package.json)
