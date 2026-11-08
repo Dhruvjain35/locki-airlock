@@ -1,8 +1,8 @@
 # Owner-authorized one-use ARM contract
 
 Status: deployed to maincloud `locki-w91bw` on 2026-11-08 and verified with
-independent identities on an isolated cloud test workstation. **The actual M4
-voice/CV adapter and a physical spoken demonstration are not yet verified**. No existing
+independent identities on an isolated cloud test workstation. The existing M4 voice/CV adapter is now integrated and software-verified in the
+new repository; **the physical spoken delegation demonstration remains unverified**. No existing
 owner-only reducer is relaxed. This is a demo integration contract, not a production
 readiness or speaker-authentication claim.
 
@@ -130,12 +130,28 @@ Eleven cloud runtime checks passed using independent fixture identities and a un
 owner-only disarm, actual expiry, policy/app/enrollment changes, owner connection
 lifecycle, and zero lock requests. Test station was disarmed afterward. See
 [evidence/voice-arm-verification.json](evidence/voice-arm-verification.json).
-The actual `dhruv-m4-air` remained disarmed; this deployment did not authorize it.
+The deployment itself did not arm `dhruv-m4-air`. A later direct owner ARM was
+independently read back while this integration was reviewed, with auto-lock off.
+This is distinct from the single-use delegated voice flow.
 
-Remaining demo gates: run the owner consent flow with the real existing M4 owner
-credential, integrate the actual voice/CV branch after conflict review, and verify a
-real utterance causes the enrolled Mac to consume that grant and confirm committed
-state aloud. No owner token is transferred to the voice process or another machine.
+Current integration adds a 30-second reviewed owner control, exact target/socket
+consent, fresh authenticated Mac selection, one fixed delegated reducer, and five
+separate fresh scoped SQL reads before spoken confirmation. The reads are not
+claimed to be an atomic snapshot; authorization remains atomic inside the reducer.
+See [M4_VOICE_ARM.md](M4_VOICE_ARM.md) and [OWNER_CONSENT.md](OWNER_CONSENT.md).
+
+A current-cloud fixture exercised private fixture CLI loading, local owner consent
+HTTP/SDK, the production M4 service method/transport, exact committed readback and
+replay denial. Its unique test workstation was disarmed with zero lock requests.
+[evidence/m4-integrated-arm-verification.json](evidence/m4-integrated-arm-verification.json)
+contains the sanitized fixture result. It used no microphone, camera, model or
+audio playback and did not use the actual M4 owner credential.
+
+Remaining demo gates: M4 Claude reviews/pulls the integration, verifies the existing
+M4 owner credential configuration locally, coordinates its controlled restart on
+port 8077, and runs a real spoken request with audible committed-state confirmation.
+Do not start a second voice service or USB watcher. No owner token is transferred
+to the voice process or another machine.
 
 Runtime behavior references: [SpacetimeDB lifecycle reducers](https://spacetimedb.com/docs/functions/reducers/lifecycle/)
 and [TypeScript client connections](https://spacetimedb.com/docs/clients/typescript/).

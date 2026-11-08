@@ -402,6 +402,18 @@ class IntentClassifier:
 
         if not text:
             return Intent(IntentName.UNKNOWN, 0.0, text, raw, {}, addressed, stop_word, "empty")
+        # Security delegation must match the complete original transcript, not
+        # a substring after punctuation/quotes or an ASR display truncation.
+        import math
+
+        from ..security.arm_delegation import security_voice_intent
+
+        security = security_voice_intent(raw)
+        if security is not None:
+            valid_confidence = isinstance(stt_confidence, (int, float)) and not isinstance(stt_confidence, bool) and math.isfinite(stt_confidence) and 0 <= stt_confidence <= 1
+            name = IntentName.ARM_WORKSTATION if security == "arm" else IntentName.DISARM_WORKSTATION
+            if name not in exclude:
+                return Intent(name, min(0.95, conf_cap) if valid_confidence else 0.0, text, raw, {}, addressed, stop_word, "explicit_security_command")
         if addressed and re.fullmatch(r"(now|please|go|again|let us go|time|right now)", text):
             return Intent(IntentName.START_SESSION, min(0.9, conf_cap), text, raw, {}, addressed, False, "wake_word_go")
 
@@ -414,6 +426,8 @@ class IntentClassifier:
             return Intent(IntentName.PROGRESS, min(0.9, conf_cap), text, raw, slots, addressed, stop_word, "progress")
 
         for rule in RULES:
+            if rule.name in (IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION):
+                continue
             if rule.name not in exclude and rule.pattern.search(text):
                 slots: dict = {}
                 if rule.name == IntentName.START_SESSION:

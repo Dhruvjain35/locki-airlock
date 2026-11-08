@@ -14,10 +14,10 @@ Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mus
 ```
 Mac (M4)                                                SpacetimeDB module locki-w91bw (maincloud)
  IOKit USB / NSWorkspace apps ─SecurityEventV1─▶ SecurityService ─HTTP reducers─▶ ingest_device_event, report_health, record_baseline
- desk camera (MediaPipe) ─▶ person, zones, owner face  │  ▲                         │ decides: sessions, incidents, lock requests
+ desk camera (MediaPipe) ─▶ person, zones, interaction │  ▲                         │ decides: sessions, incidents, lock requests
         │                                              │  └── WebSocket my_* views ◀┘ (scoped to this Mac's identity)
         ▼                                              ▼
- modes.py: NORMAL → WATCHFUL → DEFENSIVE → CRITICAL, OWNER_RETURNED ─▶ voice (one Kokoro voice, delivery by mode, P0 queue)
+ modes.py: NORMAL → WATCHFUL → DEFENSIVE → CRITICAL ─▶ voice (one Kokoro voice, delivery by mode, P0 queue)
                                                        │
  Nemotron Bolt E4B (Ollama on the M5 over Tailscale+SSH) ◀─ investigator: gated read-only tools, structured report
 Jetson / second camera ──ingest_device_event (role jetson)──▶ module (correlates USB + person_in_zone within 10 s)
@@ -36,7 +36,7 @@ Browser ──▶ Sid's security dashboard (default route) · Mac backend view a
 | Path | What | Owner |
 |---|---|---|
 | `backend/app/security/` | Mac watchers, security service, SpacetimeDB adapter, security modes, demo mode, lock adapter (dry run) | Dhruv |
-| `backend/app/vision/airlock/` | Desk camera: person tracking, interaction zones, voluntary owner face enrollment and matching | Dhruv |
+| `backend/app/vision/airlock/` | Desk camera: person tracking and interaction zones; legacy face code is disabled by default | Dhruv |
 | `backend/app/voice/` | Speech queue, Kokoro / Fish Audio, Bluetooth tail fix, per-mode delivery (`delivery.py`), personality lines | Dhruv |
 | `backend/app/intelligence/` | Conversation, AIRLOCK investigator (`airlock_agent.py`), Sid's Nemotron transport (`nemotron_transport.py`) | Dhruv, Sid |
 | `backend/app/` (other) | FastAPI runtime kept from LOCKED IN: API, bus, telemetry, voice input, and the robot and focus modules it still imports | Dhruv |
@@ -110,11 +110,11 @@ cd ~/locki-airlock/frontend && npm run dev
 
 Then follow "Each demo" in [docs/airlock/DEMO.md](docs/airlock/DEMO.md):
 
-1. Start the demo and enroll the owner's face, with their consent.
+1. Start the demo and review camera and monitoring readiness. Face enrollment is not required.
 2. Arm on Sid's dashboard, and leave the desk.
 3. Bring in a volunteer to sit down, type, and plug in a harmless USB stick.
 4. Ask "LOCKI, what happened?"
-5. Come back. The mode becomes OWNER_RETURNED, and the workstation stays armed.
+5. Come back and review the observations. The workstation stays armed until authenticated disarm.
 6. Disarm on the dashboard.
 
 **Security desk on a second Mac (Areeb's).** On that Mac, after cloning: `npm ci --prefix frontend && make desk`, then open
@@ -123,8 +123,12 @@ listens on 127.0.0.1 only. The desk creates its own identity. The owner enrolls 
 approval unchecked. It can view this workstation's incidents, evidence and investigation, and acknowledge them. Never make the M4's Vite server
 listen beyond 127.0.0.1: its `/api` proxy reaches the backend's routes.
 
-**Arming and disarming.** Only the owner arms and disarms. Use Sid's dashboard, or the `spacetime call ... arm_session` line that
-`scripts/airlock.py owner-commands` prints. A spoken "secure my workstation" asks for that confirmation, and a spoken "disarm" never disarms.
+**Arming and disarming.** The authenticated owner may arm directly or choose **Authorize next voice ARM** on the dashboard. The owner reviews
+one enrolled Mac, its fresh baseline/app, approved apps and duration, then keeps the console connected. The Mac can consume that one-use
+permission within 30 seconds when told “LOCKI, watch my setup.” It confirms only after fresh database readback. Disarming requires the owner.
+See [existing M4 integration](docs/airlock/M4_VOICE_ARM.md). If only the M4 CLI is authenticated, the optional
+[local owner consent window](docs/airlock/OWNER_CONSENT.md) keeps that credential on the M4; no token enters voice and no second voice service is needed.
+
 
 ## Offline and degraded behaviour
 
@@ -138,10 +142,10 @@ listen beyond 127.0.0.1: its `/api` proxy reaches the backend's routes.
 ## Safety limits
 
 - **Screen locks are dry runs** unless the owner starts the backend with `LOCK=real`, after agreeing to a test with someone there to unlock.
-- **A face match never disarms.** It never unlocks and never clears a USB warning. OWNER_RETURNED only changes the tone.
+- **Face identification is disabled by default.** The primary camera uses person and zone observations, preserving the PRD's no-biometric-recognition scope.
 - **Voice never authorizes.** Arming and disarming need the owner's authenticated action.
 - **Fixtures stay labelled.** Demo fixtures and simulated events are marked as such, and the live demo refuses them.
-- **No biometrics leave the Mac.** The owner's face template stays in `data/airlock/` (git-ignored). Camera events carry no images,
+- **Existing face templates stay unused by default.** Legacy face code is retained outside P0, behind a separate optional setting. Camera events carry no images,
   identities or embeddings, and USB serials leave the Mac only as salted hashes.
 - **One consumer per device.** Locks on the camera and the USB monitor stop a second watcher. Sid's standalone `app.security.voice_service`
   is a second voice path, and `mac_observer.py` is a second USB poller. Don't run them beside `make airlock-mac`
@@ -165,10 +169,10 @@ Camera numbers are in [docs/airlock/VISION.md](docs/airlock/VISION.md) and [docs
 | Check | Status |
 |---|---|
 | Unit and contract tests | Counts at this snapshot are in [docs/MIGRATION.md](docs/MIGRATION.md) |
-| Real M4 hardware | Verified: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. Not yet: owner face on a real enrollment |
-| Live SpacetimeDB | Verified: the Mac subscription and a real USB incident spoken. Pending: the owner command that enrolls the camera device |
-| Real Nemotron inference | One real investigation from the M4 through the M5 (above). Not re-run for this snapshot |
-| Real Jetson hardware | **Not verified** |
+| Real M4 hardware | Team reports: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. The new face-disabled default has not been activated or verified on the running M4 |
+| Live SpacetimeDB | Current owner-armed session and committed non-simulated Jetson person rows independently read back; Mac USB/audio timings remain team reports. Separate M4 camera enrollment is still an owner action |
+| Real Nemotron inference | Team reports one investigation from the M4 through the M5 (above); current host artifacts and scoped Mustafa access remain unverified |
+| Real Jetson hardware | Team reports operation; stored non-simulated person events verified. Hardware inventory, soak, unplug recovery and accuracy trials remain open |
 | Real screen lock | **Not run** (dry run only, by design) |
 
 ## What is not in this snapshot
@@ -183,8 +187,21 @@ To add a missing lane, follow "Adding your lane" in [CONTRIBUTING.md](CONTRIBUTI
 
 ## Tests
 
+Run from the repository root with Python 3.12, uv and Node.js 24. Install the locked
+software test dependencies first:
+
 ```sh
-cd backend && LOCKEDIN_MODELS_DIR=$PWD/models .venv/bin/python -m pytest -q        # full backend suite
+uv sync --project backend --frozen --group dev --extra vision
+npm ci --prefix frontend --no-fund
+npm ci --prefix spacetime --no-fund
+```
+
+The vision extra supplies the locked OpenCV package used to decode synthetic
+frames and verify markers in the tests. Model weights are separate and are not
+downloaded by this setup; tests requiring them skip when the files are absent.
+
+```sh
+LOCKEDIN_MODELS_DIR="$PWD/backend/models" backend/.venv/bin/python -m pytest -q backend/tests   # full backend suite
 npm run check --prefix spacetime && npm test --prefix spacetime                     # module types and transactional tests
 npm test --prefix frontend && npm run build --prefix frontend                       # dashboard
 node frontend/node_modules/tsx/dist/cli.mjs --test scripts/*.test.ts scripts/tests/*.test.ts   # bridges and adapters

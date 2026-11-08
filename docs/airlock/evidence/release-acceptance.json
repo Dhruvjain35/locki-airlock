@@ -1,0 +1,162 @@
+{
+  "recorded_at_utc": "2026-11-08T07:37:54.544581+00:00",
+  "repository": "Dhruvjain35/locki-airlock",
+  "base_commit": "221225129b77f773e5ed54792db84fcc0f4ce7b7",
+  "review_scope": "Original PRD sections 0-16, ten P0 requirements, all 22 named acceptance criteria, additional EDGE-06",
+  "full_prd_acceptance": false,
+  "fresh_checks": [
+    {
+      "command": "node --test scripts/airlock_investigator_verify.test.mjs",
+      "passed": 16,
+      "failed": 0
+    },
+    {
+      "command": "node frontend/node_modules/tsx/dist/cli.mjs --test scripts/airlock_investigator_report.test.ts",
+      "passed": 24,
+      "failed": 0
+    },
+    {
+      "cwd": "spacetime",
+      "command": "node node_modules/vitest/vitest.mjs run tests/investigator-evidence.test.ts --maxWorkers=1",
+      "passed": 38,
+      "failed": 0
+    }
+  ],
+  "runtime": "Pinned local Node executable; existing dependencies; one Vitest worker",
+  "test_provenance": "Fixture transports, deterministic report inputs and in-memory transactional module harness; not live physical or real model evidence",
+  "model_runs": 0,
+  "hardware_activated": false,
+  "mustafa_actual_token_verified": false,
+  "coordination_issue": "https://github.com/Dhruvjain35/locki-airlock/issues/2",
+  "files_sha256": {
+    "scripts/airlock_investigator_verify.mjs": "59924434279cca306f7030993aefd499f1fd059837c47217b9183bf26e0424ef",
+    "scripts/airlock_investigator_verify.test.mjs": "7cb683397756775fb8327479e7b42feeba45ee3a2760195bb20c42e9288075ef",
+    "scripts/airlock_investigator_report.mjs": "3e9ad56e24c60341092d8c9752b3b9f8ee3d88aac2473f4285209419149cddac",
+    "scripts/airlock_investigator_report.test.ts": "00b2ee2b9d425ad6075c0a80ad23ecdc5537dee7c439ca37b91b4b25c4605a84",
+    "spacetime/src/index.ts": "2e5b7bde07ba3bfeb96eb8308a6b8cc6d8f175bc4d50fb7188c6999085ef1751",
+    "spacetime/tests/investigator-evidence.test.ts": "9b6e4f3894f9219e641f3a9c4ae43478dbd598244b99a45fdab3c79020f4f83a",
+    "docs/airlock/evidence/investigator-verification.json": "adea9c34e9f462a670b501804c5f6a8ee5236a0b18730d348b7cc95a1cf66347",
+    "docs/airlock/evidence/voice-arm-verification.json": "e007efde157fa08f5f1df369bd69b39c625817cbf158290cece465d206949d8b",
+    "backend/app/security/arm_delegation.py": "e3c3ca7917cf8834636f916739565c4e0d7dbc9a88f21effc5de8b00d6557f93",
+    "backend/app/security/spacetime_adapter.py": "3e3b0d22bf67e345c29534b55e118dcecce5db4c18e5b28cb825d9df8ac93616",
+    "backend/app/security/service.py": "87b1a8692d002e199b637f56d211f9ba236dc12ea6727d760d74d98363375dbb",
+    "backend/app/security/demo.py": "1b71b2543f2774b49f91f991b101080e2081d858e77c762b48e20d56f80a4ea3",
+    "frontend/src/airlock/VoiceArm.tsx": "15e3edde71dc7e4bedb7118e47b717e79ee5e29f3ceb467acc8d6c8f3d68b87f",
+    "frontend/src/airlock/voiceArmConsent.ts": "bb11ea47a41efec5397cc3a8c6af1b97cf53041f8d9c0ee4fc98d7e8c310cb3a"
+  },
+  "final_integration_checks": [
+    {
+      "suite": "backend",
+      "passed": 1562,
+      "skipped": 20,
+      "failed": 0
+    },
+    {
+      "suite": "frontend",
+      "passed": 46,
+      "build": "passed"
+    },
+    {
+      "suite": "module transactional",
+      "passed": 149
+    },
+    {
+      "suite": "module policy",
+      "passed": 28
+    },
+    {
+      "suite": "Node adapters",
+      "passed": 151
+    },
+    {
+      "suite": "read-only and owner HTTP boundaries",
+      "passed": 31
+    },
+    {
+      "suite": "owner consent policy",
+      "passed": 28
+    },
+    {
+      "suite": "camera-free edge",
+      "passed": 22
+    },
+    {
+      "suite": "Nemotron transport",
+      "passed": 10
+    },
+    {
+      "suite": "face identification default-off focused",
+      "passed": 97,
+      "skipped": 1
+    }
+  ],
+  "validation": {
+    "module_typecheck": "passed",
+    "integration_script_typecheck": "passed",
+    "changed_python_lint": "passed",
+    "npm_audits_reported_vulnerabilities": 0,
+    "frontend_build_warning": "965 KB JavaScript chunk",
+    "backend_warning": "one dependency deprecation",
+    "counts_overlap": true
+  },
+  "cloud_verification": {
+    "arm_authorization": {
+      "passed": true,
+      "checks": 12,
+      "synthetic_fixture": true,
+      "final_fixture_disarmed": true,
+      "lock_requests": 0
+    },
+    "production_m4_service": {
+      "passed": true,
+      "owner_consent_http": true,
+      "private_fixture_cli_read": true,
+      "committed_session_readback": true,
+      "replay_denied": true,
+      "actual_m4_credential_used": false,
+      "actual_dhruv_workstation_mutated": false,
+      "final_fixture_disarmed": true,
+      "lock_requests": 0,
+      "audio_playback": false
+    },
+    "real_data_readback": {
+      "authorized_admin_read": true,
+      "owner_armed_m4_session_confirmed": true,
+      "auto_lock_enabled": false,
+      "jetson_person_rows_confirmed": 2,
+      "stored_simulated": false,
+      "stored_classification": "soft_observation",
+      "distinct_capture_and_receipt_times": true,
+      "actual_camera_self_view_verified": false,
+      "camera_role_event_read_unavailable_expected": true,
+      "publisher_receipts_verified": false,
+      "independent_frame_provenance_verified": false,
+      "raw_identifiers_and_incident_evidence_committed": false
+    }
+  },
+  "privacy": {
+    "face_identification_default_off_in_source": true,
+    "actual_running_m4_configuration_verified": false,
+    "no_biometrics_prd_scope_unchanged": true
+  },
+  "test_log_sha256": {
+    "data/acceptance/backend-face-default-off-focused.log": "5f51619911dec1874d554f3622d4728945db89d83b5d55396226b7a26a026fdb",
+    "data/acceptance/backend-final.log": "daa2c5d7ecc2f4b766fa06a263a6052f74922c3aaa47f4469cc084df2af0c702",
+    "data/acceptance/changed-python-lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "data/acceptance/edge-tests.log": "6e7d985804350b1c47c15a9cf6a5eba4d8b2fb9a4b0052375dd520f2c9ec7372",
+    "data/acceptance/frontend-audit.log": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3",
+    "data/acceptance/frontend-build.log": "ad1b24ea818271fc4d5a6bf0bf8f22adb895beed1df817b344b6a25c1e62da11",
+    "data/acceptance/frontend-tests.log": "3618e857ceac6ea0554ca067ddba85ff0645f9036048666da7fa62f55b5ae7f4",
+    "data/acceptance/integration-scripts-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "data/acceptance/module-tests.log": "3c3baa00604833f03d412aab283f9edd240fa96d50105245eccd9c8cbcbba5e7",
+    "data/acceptance/module-typecheck.log": "ac907af526ae939d8cd2d9b478c6e5ac3dda8ae5c5c64fb0d414bdb20fb5ceb5",
+    "data/acceptance/nemotron-transport-tests.log": "643c7cfc3921e5830e047bed28578bc933677c101c9c5a9f6610b6207052d03c",
+    "data/acceptance/node-http-tests.log": "1582ed3425955f175170b693b5910b822448a6f77a2b8a9d6cae68d75f43f519",
+    "data/acceptance/node-tests.log": "633af3cfebf653455554ca9d719d0efc6e11b960423d2408125e2b37ceb1d230",
+    "data/acceptance/owner-policy-tests.log": "5a05aed641d1698fafdaac151c8e28c832b59ca3a9f313dc06f91d8eb63bea18",
+    "data/acceptance/policy-tests.log": "df182d358ff7985368b16b4a5a595cac702592ac71398d74c7b4d7dc9c269a36",
+    "data/acceptance/spacetime-audit.log": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3"
+  },
+  "merged_upstream_commit": "b8cb49c5f571ffb282ff2467be6fe626cb36729e",
+  "reviewed_source_merge": "893b709"
+}

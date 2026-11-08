@@ -22,7 +22,14 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-from .contracts import AgentStepV1, IncidentUpdateV1, LockRequestV1, SecurityEventV1, SecurityKind, SecuritySource
+from .contracts import (
+    AgentStepV1,
+    IncidentUpdateV1,
+    LockRequestV1,
+    SecurityEventV1,
+    SecurityKind,
+    SecuritySource,
+)
 from .publisher import Delivery
 
 log = logging.getLogger(__name__)
@@ -219,7 +226,7 @@ class SpacetimeTransport:
     def call_reducer(self, reducer: str, args: list) -> Delivery:
         """One reducer call with this Mac's own identity, judged like every message: delivered, refused (final) or failed (retry later)."""
         try:
-            response = self._client.post(f"{self.config.url}/v1/database/{self.config.database}/call/{reducer}", headers=self._headers(), content=json.dumps(args))
+            response = self._client.post(f"{self.config.url}/v1/database/{self.config.database}/call/{reducer}", params={"confirmed": "true"}, headers=self._headers(), content=json.dumps(args))
         except httpx.HTTPError as exc:
             self.connected = False
             return Delivery("failed", self.name, f"{type(exc).__name__}: {exc}"[:200])
@@ -237,6 +244,34 @@ class SpacetimeTransport:
             return Delivery("refused", self.name, f"{reducer}: {code} {text}")
         self.connected = False
         return Delivery("failed", self.name, f"{reducer}: {code} {text}")
+
+    def read_arm_snapshot(self) -> dict:
+        """Fresh authenticated server reads, never the subscription cache.
+
+        The server accepts one SQL statement per request. Read fixed scoped
+        views in order, with the active-workstation pointer last; this is fresh
+        readback, not a claimed atomic multi-view snapshot. The reducer itself
+        performs atomic authorization. No transcript contributes SQL or scope.
+        """
+        if not self.config.token or not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,128}", self.config.workstation_id):
+            raise ValueError("Configured Mac token and fixed workstation are required")
+        views = {"memberships": "my_memberships", "devices": "my_devices", "grants": "my_arm_authorizations", "sessions": "my_sessions", "workstations": "my_workstations"}
+        snapshot = {}
+        for name, view in views.items():
+            query = f"SELECT * FROM {view} WHERE {'id' if name == 'workstations' else 'workstation_id'} = '{self.config.workstation_id}'"
+            response = self._client.post(f"{self.config.url}/v1/database/{self.config.database}/sql", headers=self._headers("text/plain"), content=query)
+            response.raise_for_status()
+            if len(response.content) > 1_048_576:
+                raise ValueError("ARM readback exceeds bounded size")
+            result = response.json()
+            if not isinstance(result, list) or len(result) != 1:
+                raise ValueError("Incomplete ARM server view")
+            table = result[0]
+            names, options = columns_from_schema(table["schema"])
+            if len(table["rows"]) > 10000:
+                raise ValueError("ARM view exceeds bounded rows")
+            snapshot[name] = [decode_row(row, names, options) for row in table["rows"]]
+        return snapshot
 
     def close(self) -> None:
         self._client.close()
@@ -303,7 +338,7 @@ class RemoteSession:
 
     def active(self, now_ms: int | None = None) -> bool:
         now = now_ms if now_ms is not None else int(time.time() * 1000)
-        return not self.disarmed_at_ms and self.state.upper() not in _SESSION_ENDED and self.expires_at_ms > now
+        return not self.disarmed_at_ms and self.state.upper() == "ARMED" and self.expires_at_ms > now
 
     def baseline(self) -> dict[str, int] | None:
         """The USB baseline the owner armed with: a list of this Mac's fingerprints. None if it cannot be read, and then every device counts as new."""
@@ -370,12 +405,16 @@ class SpacetimeSubscriber:
     carry on regardless. A row that does not fit the contract, or is for another workstation or device, is counted and never acted on."""
 
     def __init__(self, config: SpacetimeConfig, *, on_incident: Callable[[IncidentUpdateV1], None], on_lock_request: Callable[[LockRequestV1], object], on_session: Callable[[RemoteSession], None],
-                 on_camera_event: Callable[[SecurityEventV1, str, int], None] | None = None, on_arm_grant: Callable[[object], None] | None = None):
+                 on_camera_event: Callable[[SecurityEventV1, str, int], None] | None = None, on_arm_grant: Callable[[object], None] | None = None,
+                 on_arm_grants_reset: Callable[[], None] | None = None, on_arm_grant_removed: Callable[[str], None] | None = None):
         self.config = config
         self.on_incident, self.on_lock_request, self.on_session, self.on_camera_event = on_incident, on_lock_request, on_session, on_camera_event
         self.on_arm_grant = on_arm_grant
+        self.on_arm_grants_reset, self.on_arm_grant_removed = on_arm_grants_reset, on_arm_grant_removed
         self.camera_rows = 0
         self.connected = False
+        if self.on_arm_grants_reset is not None:
+            self.on_arm_grants_reset()
         self.connections = 0
         self.reconnects = 0
         self.rows_received = 0
@@ -397,6 +436,8 @@ class SpacetimeSubscriber:
                 pass
         self._task = None
         self.connected = False
+        if self.on_arm_grants_reset is not None:
+            self.on_arm_grants_reset()
 
     def _views(self) -> list[str]:
         views = [self.config.sessions_view, self.config.incidents_view, self.config.lock_view]
@@ -432,11 +473,16 @@ class SpacetimeSubscriber:
                     async for raw in ws:
                         await self._message(raw)
             except asyncio.CancelledError:
+                self.connected = False
+                if self.on_arm_grants_reset is not None:
+                    self.on_arm_grants_reset()
                 raise
             except Exception as exc:
                 self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                 log.debug("SpacetimeDB subscription: %s", self.last_error)
             self.connected = False
+            if self.on_arm_grants_reset is not None:
+                self.on_arm_grants_reset()
             self.reconnects += 1
             await asyncio.sleep(delay)
             delay = min(delay * 2, RECONNECT_MAX_S)
@@ -444,6 +490,8 @@ class SpacetimeSubscriber:
     async def _message(self, raw: str | bytes) -> None:
         message = json.loads(raw)
         if "InitialSubscription" in message:
+            if self.on_arm_grants_reset is not None:
+                self.on_arm_grants_reset()
             tables = message["InitialSubscription"]["database_update"]["tables"]
         elif "TransactionUpdateLight" in message:
             tables = message["TransactionUpdateLight"]["update"]["tables"]
@@ -457,12 +505,17 @@ class SpacetimeSubscriber:
                 continue
             names, options = self._columns[name]
             for update in table.get("updates", []):
+                if name == self.config.arm_grants_view and self.on_arm_grant_removed is not None:
+                    for row in update.get("deletes", []):
+                        deleted = decode_row(row, names, options)
+                        if isinstance(deleted.get("id"), str):
+                            self.on_arm_grant_removed(deleted["id"])
                 for row in update.get("inserts", []):
                     await self._row(name, decode_row(row, names, options))
 
     async def _row(self, view: str, row: dict) -> None:
         self.rows_received += 1
-        if row.get("workstation_id") not in (None, self.config.workstation_id):
+        if row.get("workstation_id") != self.config.workstation_id:
             self.rows_ignored += 1
             return
         camera_event = None

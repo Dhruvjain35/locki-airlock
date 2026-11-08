@@ -18,6 +18,7 @@ from ..runtime import LockedInRuntime
 from ..simulation import scenarios
 
 router = APIRouter(prefix="/api")
+RECORDED_UPLOAD_TIMEOUT_S = 10.0
 
 
 def rt_of(request: Request) -> LockedInRuntime:
@@ -373,7 +374,8 @@ async def voice_stop(request: Request):
 
 @router.get("/voice/recorded")
 async def recorded_status(request: Request):
-    """Recorded voice input: speech-to-text readiness (starting it loads the engine once), the live microphone's state, recent turns."""
+    """Recorded voice readiness and recent turns; never initializes a speech engine."""
+    _own_dashboard(request)
     return rt_of(request).recorded_status()
 
 
@@ -386,15 +388,24 @@ async def recorded_command(request: Request, name: str = "recording.wav"):
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BYTES:
         raise HTTPException(413, f"recorded commands are limited to {MAX_BYTES // (1024 * 1024)} MB")
-    body = bytearray()
-    async for chunk in request.stream():
-        body.extend(chunk)
-        if len(body) > MAX_BYTES:
-            raise HTTPException(413, f"recorded commands are limited to {MAX_BYTES // (1024 * 1024)} MB")
+    if getattr(request.app.state, "recorded_upload_active", False):
+        raise HTTPException(429, "another recorded upload or command is being handled")
+    request.app.state.recorded_upload_active = True
     try:
+        body = bytearray()
+        try:
+            async with asyncio.timeout(RECORDED_UPLOAD_TIMEOUT_S):
+                async for chunk in request.stream():
+                    if len(chunk) > MAX_BYTES - len(body):
+                        raise HTTPException(413, f"recorded commands are limited to {MAX_BYTES // (1024 * 1024)} MB")
+                    body.extend(chunk)
+        except TimeoutError as exc:
+            raise HTTPException(408, "recorded upload timed out") from exc
         return await rt_of(request).handle_recorded(bytes(body), name)
     except RecordedAudioError as exc:
         raise HTTPException(400, str(exc)) from exc
+    finally:
+        request.app.state.recorded_upload_active = False
 
 
 @router.post("/voice/stop-speaking")

@@ -219,10 +219,13 @@ class PortAudioHost:
     def reinitialise(self, sd, current: int | None = None) -> bool:
         t0 = time.perf_counter()
         with self._lock:
-            captures = [c for c in self._captures if getattr(c, "_stream", None) is not None]
-            for c in captures:
-                c.suspend()
+            captures = [c for c in self._captures if getattr(c, "_stream", None) is not None or getattr(c, "_suspended", False)]
             try:
+                for c in captures:
+                    try:
+                        c.suspend()
+                    except Exception as exc:
+                        log.warning("microphone could not close before an output device change: %s", exc)
                 with contextlib.suppress(Exception):
                     sd.stop()
                 sd._terminate()

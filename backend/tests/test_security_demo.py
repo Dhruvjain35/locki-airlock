@@ -1,5 +1,5 @@
-"""Demo mode: a fresh owner every time, in its own folder; reset and end delete only that folder; rehearsal
-fixtures are labelled and refused in a live demo; nothing pretends someone is recognized. No real camera."""
+"""Person/zone demo by default; legacy face tests opt in explicitly. Reset and end delete only
+the demo folder; rehearsal fixtures stay labelled and are refused live. No real camera."""
 
 from __future__ import annotations
 
@@ -113,20 +113,49 @@ class DoneEnroller:
         return {"accepted": 12, "needed": 12, "complete": True}
 
 
-async def test_a_demo_starts_with_nobody_enrolled_in_its_own_private_folder(demo):
+async def test_a_demo_starts_without_face_identification_in_its_own_private_folder(demo):
     snap = await demo.demo.start("live")
     run = demo.demo.run
     assert snap["active"] and snap["mode"] == "live" and "LIVE" in snap["label"]
-    assert snap["enrolled"] is False and snap["recognized"] is False and "nobody is enrolled" in snap["template"]
+    assert snap["face_identification_enabled"] is False
+    assert snap["enrolled"] is False and snap["recognized"] is False and "disabled" in snap["template"]
     assert stat.S_IMODE(run.dir.stat().st_mode) == 0o700 and run.dir.parent == demo.demo.root
     cam = FakeDemoCamera.instances[0]
     assert cam.templates[0] == ("demo", None) and cam.running  # the camera compares against nobody, not an older owner
-    assert snap["steps"]["start"] == "done" and snap["steps"]["enroll"] == "pending"
-    assert await demo.said("nobody is enrolled yet")
+    assert snap["steps"]["start"] == "done" and not {"enroll", "recognized", "owner_return"} & snap["steps"].keys()
+    assert await demo.said("monitoring readiness on the dashboard")
+
+
+async def test_default_demo_refuses_face_models_enrollment_trials_and_late_callbacks(demo, monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("face model or template must not be constructed")
+
+    monkeypatch.setattr("app.vision.airlock.faces.YuNetFaceDetector", forbidden)
+    monkeypatch.setattr("app.vision.airlock.faces.SFaceEmbedder", forbidden)
+    monkeypatch.setattr("app.vision.airlock.enrollment.save_template", forbidden)
+    await demo.demo.start("live")
+    with pytest.raises(SecurityError, match="face identification is disabled"):
+        await demo.demo.enroll()
+    with pytest.raises(SecurityError, match="face identification is disabled"):
+        demo.demo.trial_start("genuine", "p")
+    demo.demo._enrolled(SimpleNamespace(template=forbidden))
+    assert demo.demo.run.template is None and not (demo.demo.run.dir / "owner_face.json").exists()
+
+
+async def test_default_demo_readiness_needs_no_face_weights(demo, tmp_path):
+    demo.rt.settings.models_dir = tmp_path / "readiness-models"
+    demo.rt.settings.models_dir.mkdir()
+    for filename in ("efficientdet_lite0.tflite", "hand_landmarker.task"):
+        (demo.rt.settings.models_dir / filename).write_bytes(b"readiness fixture, not a model")
+    snap = await demo.demo.start("live")  # FakeDemoCamera performs no inference
+    assert snap["readiness"]["models"]["ok"]
+    assert not any(key.startswith("face_") for key in snap["timings"])
+    assert not list(demo.rt.settings.models_dir.glob("*face*"))
 
 
 async def test_an_older_owner_template_is_never_reused_and_survives_the_demo(demo):
     rt = demo.rt
+    rt.settings.airlock_face_identification = True  # legacy feature is explicitly outside the default demo
     prod = template_path(rt.settings.data_dir)
     save_template(prod, template(seed=9))
     before = prod.read_bytes()
@@ -140,6 +169,7 @@ async def test_an_older_owner_template_is_never_reused_and_survives_the_demo(dem
 
 async def test_enrollment_goes_to_the_demo_folder_only_and_recognition_is_timed(demo):
     rt = demo.rt
+    rt.settings.airlock_face_identification = True
     await demo.demo.start("live")
     run = demo.demo.run
     if (rt.settings.models_dir / "face_recognition_sface_2021dec.onnx").exists():
@@ -165,6 +195,7 @@ async def test_enrollment_goes_to_the_demo_folder_only_and_recognition_is_timed(
 
 async def test_end_and_reset_remove_only_the_demo_folder(demo):
     rt = demo.rt
+    rt.settings.airlock_face_identification = True
     keep = rt.settings.data_dir / "airlock" / "zones.json"
     keep.parent.mkdir(parents=True, exist_ok=True)
     keep.write_text('{"zones": {}}')
@@ -278,6 +309,7 @@ async def test_recognition_trials_record_outcomes_and_timings_only(demo):
     from app.telemetry.events import EventSource, EventType
 
     rt = demo.rt
+    rt.settings.airlock_face_identification = True
     await demo.demo.start("live")
     with pytest.raises(SecurityError):
         demo.demo.trial_start("genuine", "v1")  # nothing to compare against yet

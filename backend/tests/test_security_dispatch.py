@@ -8,14 +8,19 @@ import os
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.security.contracts import IncidentUpdateV1
 from app.security.dispatch import (
     DISPATCH_MAX_AGE_MS,
+    MAX_INCIDENTS,
+    MAX_PENDING_NOTIFICATIONS,
     Dispatcher,
     NtfyChannel,
+    TransientError,
     load_phone_channel,
     recipients_for,
 )
@@ -184,3 +189,110 @@ def test_a_phone_channel_set_up_while_running_is_picked_up_without_a_restart(tmp
     assert d.snapshot()["phone"]["configured"] is True
     rec = d.observe(incident("incident:e7"), active_session_id="s1")
     assert [x.channel for x in rec.deliveries] == ["console", "phone"]
+
+
+@pytest.mark.parametrize("server", [
+    "http://localhost.attacker.example", "http://127.0.0.1.attacker.example",
+    "http://localhost@attacker.example", "https://user:secret@example.com",
+    "https://example.com?token=secret", "https://example.com#secret",
+    "http://127.0.0.1:70000", "https://example.com\n", "https://",
+])
+def test_phone_server_rejects_spoofed_loopback_and_secret_url_parts(server):
+    with pytest.raises(ValueError):
+        NtfyChannel(TOPIC, server)
+
+
+@pytest.mark.parametrize("server", ["http://127.0.0.1:9999", "http://localhost:9999", "http://[::1]:9999", "https://ntfy.example.com"])
+def test_phone_server_accepts_exact_loopback_or_https(server):
+    assert NtfyChannel(TOPIC, server).server == server
+
+
+@pytest.mark.parametrize("reply", [[], None, 42, {"id": []}, {"id": {}}, {"id": " "}, {"id": "x" * 257}])
+def test_malformed_provider_receipt_is_a_retryable_channel_failure(monkeypatch, reply):
+    def post(*args, **kwargs):
+        assert kwargs["trust_env"] is False and kwargs["follow_redirects"] is False
+        return httpx.Response(200, json=reply)
+    monkeypatch.setattr(httpx, "post", post)
+    with pytest.raises(TransientError, match="receipt"):
+        NtfyChannel(TOPIC).send("test", "test", "default")
+
+
+@pytest.mark.parametrize("value", [[], None, 42])
+def test_nonobject_phone_config_is_reported_without_crashing(tmp_path, value):
+    path = tmp_path / "phone.json"
+    path.write_text(json.dumps(value))
+    path.chmod(0o600)
+    channel, error = load_phone_channel(path)
+    assert channel is None and "not a valid phone channel" in error
+
+
+def test_config_removal_before_delivery_fails_explicitly(tmp_path):
+    path = tmp_path / "phone.json"
+    path.write_text(json.dumps({"provider": "ntfy", "topic": TOPIC}))
+    path.chmod(0o600)
+    d = Dispatcher("ws", path, start_worker=False)
+    rec = d.observe(incident(), active_session_id="s1")
+    path.unlink()
+    d.deliver(rec.incident_id, rec.deliveries[-1])
+    assert rec.deliveries[-1].status == "failed"
+    assert rec.deliveries[-1].error == "phone channel is unavailable"
+
+
+def test_delivery_retry_keeps_one_channel_when_config_changes(tmp_path):
+    calls = []
+    d = dispatcher(tmp_path, retry_delays=(0,))
+    def send(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            d.phone = None  # a concurrent config reload must not crash/change this delivery
+            raise TransientError("retry")
+        return "receipt"
+    d.phone = SimpleNamespace(send=send)
+    rec = d.observe(incident(), active_session_id="s1")
+    d.deliver(rec.incident_id, rec.deliveries[-1])
+    assert len(calls) == 2 and rec.deliveries[-1].status == "accepted"
+
+
+def test_unexpected_channel_failure_does_not_kill_worker(tmp_path):
+    calls, completed = [], threading.Event()
+    def send(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            raise RuntimeError("secret must not be exposed")
+        completed.set()
+        return "receipt"
+    d = dispatcher(tmp_path, phone=SimpleNamespace(send=send))
+    first = d.observe(incident("first"), active_session_id="s1").deliveries[-1]
+    second = d.observe(incident("second"), active_session_id="s1").deliveries[-1]
+    worker = threading.Thread(target=d._run)
+    worker.start()
+    try:
+        assert completed.wait(2)
+    finally:
+        d.close()
+        worker.join(2)
+    assert not worker.is_alive() and first.status == "failed" and second.status == "accepted"
+    assert first.error == "channel failure (RuntimeError)"
+
+
+@pytest.mark.parametrize("session, active", [("s1", None), (None, "s1"), (None, None)])
+def test_missing_session_scope_never_dispatches(tmp_path, session, active):
+    d = dispatcher(tmp_path, phone=SimpleNamespace(send=lambda *args: "receipt"))
+    rec = d.observe(incident(session=session), active_session_id=active)
+    assert rec.skipped == "not the armed session" and not rec.deliveries and d._queue.empty()
+
+
+def test_queue_pressure_is_bounded_and_eviction_keeps_exact_queued_message(tmp_path):
+    sent = []
+    d = dispatcher(tmp_path, phone=SimpleNamespace(send=lambda *args: sent.append(args) or "receipt"))
+    first = d.observe(incident("first", summary="Exact first incident."), active_session_id="s1")
+    for i in range(MAX_PENDING_NOTIFICATIONS):
+        last = d.observe(incident(f"incident-{i}"), active_session_id="s1")
+    assert d._queue.qsize() == MAX_PENDING_NOTIFICATIONS
+    assert len(d.incidents) == MAX_INCIDENTS and "first" not in d.incidents
+    assert last.deliveries[-1].status == "failed" and "queue is full" in last.deliveries[-1].error
+    iid, delivery, message = d._queue.get_nowait()
+    d.deliver(iid, delivery, message=message)
+    assert first.deliveries[-1].status == "accepted"
+    assert "Exact first incident." in sent[0][1]
+    assert "Incident first." in sent[0][1]

@@ -1,12 +1,12 @@
-"""Demo mode: the real product, start to finish, with a fresh owner enrollment every time.
+"""Demo mode: person and zone observations, without face identification by default.
 
 LIVE uses only real hardware and services: webcam frames, model inference, macOS USB events, SpacetimeDB,
 speech and Nemotron. REHEARSAL is the same product plus clearly labelled fixture events for whatever is not
 available. Fixtures are shown as FIXTURE, never spoken, and never counted as measurements.
 
 Isolation:
-- A demo has its own folder, data/airlock/demo/<id>/, holding only its owner template, which is empty at the start.
-- While the demo runs, the camera compares faces only against that template, never silently against an older owner.
+- A demo has its own folder, data/airlock/demo/<id>/.
+- Legacy optional face identification uses only the demo's own template, never an older owner.
 - Reset and End delete that folder and nothing else. They do not touch the production owner template, the device
   identities, or anything in SpacetimeDB: incidents stay in the database, and the demo never writes to it itself.
 - Timings are kept in data/airlock_runs/demo-<id>.json.
@@ -35,7 +35,9 @@ log = logging.getLogger(__name__)
 
 MODES = ("live", "rehearsal")
 STEPS = ("start", "enroll", "recognized", "zones", "arm", "monitor", "incident", "owner_return", "disarm")
-MODEL_FILES = ("efficientdet_lite0.tflite", "face_detection_yunet_2023mar.onnx", "face_recognition_sface_2021dec.onnx", "hand_landmarker.task")
+MODEL_FILES = ("efficientdet_lite0.tflite", "hand_landmarker.task")
+FACE_MODEL_FILES = ("face_detection_yunet_2023mar.onnx", "face_recognition_sface_2021dec.onnx")
+FACE_STEPS = {"enroll", "recognized", "owner_return"}
 
 
 def _pct(values: list[float], q: float) -> float | None:
@@ -76,6 +78,10 @@ class DemoService:
         self._readiness: dict = {}
         self._readiness_at = 0.0
 
+    @property
+    def face_identification_enabled(self) -> bool:
+        return self.rt.settings.airlock_face_identification
+
     # ------------------------------------------------------------------ lifecycle
     async def start(self, mode: str = "live") -> dict:
         from .service import SecurityError
@@ -108,15 +114,18 @@ class DemoService:
                 self.run.error = f"camera: {type(exc).__name__}: {exc}"[:200]
                 raise SecurityError(f"the camera did not start: {exc}") from exc
         self._mark("start")
-        self._timeline("demo", f"demo started ({mode}); nobody enrolled")
+        self._timeline("demo", f"demo started ({mode}); " + ("nobody enrolled" if self.face_identification_enabled else "person and zone observations only"))
         self.rt._say("security_demo_started")
         return self.snapshot()
 
     async def enroll(self) -> dict:
         """Start (or restart) enrolling the owner from the live camera. The owner chose to: this is the button they pressed."""
+        from .service import SecurityError
+
+        if not self.face_identification_enabled:
+            raise SecurityError("face identification is disabled; person and zone monitoring needs no enrollment")
         from ..vision.airlock.enrollment import EnrollmentConfig, FaceEnrollment
         from ..vision.airlock.faces import SFaceEmbedder, YuNetFaceDetector
-        from .service import SecurityError
 
         run = self._need_run()
         cam = self.security.camera
@@ -143,6 +152,8 @@ class DemoService:
             self._enrolled(enroller)
 
     def _enrolled(self, enroller) -> None:
+        if not self.face_identification_enabled:
+            return
         from ..vision.airlock.enrollment import save_template
 
         run = self.run
@@ -213,6 +224,8 @@ class DemoService:
         The first face track that appears after the start decides the trial: its first settled state, and how long that took."""
         from .service import SecurityError
 
+        if not self.face_identification_enabled:
+            raise SecurityError("face identification is disabled; recognition trials are outside the default demo")
         run = self._need_run()
         if label not in ("genuine", "impostor"):
             raise SecurityError("a trial is genuine (the enrolled person) or impostor (anyone else)")
@@ -404,7 +417,8 @@ class DemoService:
         running = bool(cam is not None and cam.running)
         out["camera"] = {"ok": running and health == "live",
                          "detail": "off" if not running else f"{health or 'starting'}" + (f", {vision.stats.fps:.0f} fps" if vision is not None and vision.stats.fps else "")}
-        missing = [f for f in MODEL_FILES if not (s.models_dir / f).exists()]
+        required_models = MODEL_FILES + (FACE_MODEL_FILES if self.face_identification_enabled else ())
+        missing = [f for f in required_models if not (s.models_dir / f).exists()]
         out["models"] = {"ok": not missing, "detail": "all present" if not missing else "missing " + ", ".join(missing)}
         mon = sec.monitor
         out["usb_monitor"] = {"ok": bool(mon is not None and mon.running and not mon.errors.get("usb")), "detail": "running" if mon is not None and mon.running else "not running"}
@@ -437,6 +451,8 @@ class DemoService:
         readiness = self.readiness()
         out = {}
         for step in STEPS:
+            if step in FACE_STEPS and not self.face_identification_enabled:
+                continue
             if step == "zones":
                 out[step] = "done" if readiness["zones"]["ok"] else "default"
             else:
@@ -448,7 +464,8 @@ class DemoService:
         run = self.run
         cam = self.security.camera
         vision = getattr(cam, "vision", None) if cam is not None else None
-        faces = getattr(vision, "faces", None) if vision is not None else None
+        faces_enabled = self.face_identification_enabled
+        faces = getattr(vision, "faces", None) if vision is not None and faces_enabled else None
         stats = {k: {"p50": _pct(v, 0.5), "p95": _pct(v, 0.95), "n": len(v)} for k, v in (run.timings.items() if run is not None else [])}
         if vision is not None and run is not None and cam is not None and cam.running:  # never numbers from a camera that has stopped
             fs = faces.snapshot() if faces is not None else {}
@@ -459,26 +476,29 @@ class DemoService:
             vs = vision.snapshot()["stats"]
             stats["person_detect_ms"] = {"p50": vs["detect_ms_p50"], "p95": vs["detect_ms_p95"]}
             stats["capture_to_event_ms"] = {"p50": vs["capture_to_event_ms_p50"], "p95": vs["capture_to_event_ms_p95"]}
-            stats["face_pass_ms"] = {"p50": fs.get("ms_p50"), "p95": fs.get("ms_p95")}
-            stats["face_compare_ms"] = {"p50": fs.get("compare_ms_p50"), "p95": fs.get("compare_ms_p95")}
+            if faces_enabled:
+                stats["face_pass_ms"] = {"p50": fs.get("ms_p50"), "p95": fs.get("ms_p95")}
+                stats["face_compare_ms"] = {"p50": fs.get("compare_ms_p50"), "p95": fs.get("compare_ms_p95")}
             if vision.live_since is not None and vision.first_person_mono is not None:
                 stats["first_person_after_camera_ms"] = {"p50": round((vision.first_person_mono - vision.live_since) * 1000, 1), "n": 1}
             stats["fps"] = round(vision.stats.fps, 1)
-        enrolling = vision is not None and vision.enroller is not None
+        enrolling = faces_enabled and vision is not None and vision.enroller is not None
         return {
             "active": run is not None,
+            "face_identification_enabled": faces_enabled,
             "id": None if run is None else run.id,
             "mode": None if run is None else run.mode,
             "label": None if run is None else ("LIVE: real hardware and services only" if run.mode == "live" else "REHEARSAL: fixture events are labelled FIXTURE and never spoken"),
             "started_at": None if run is None else run.started_at,
             "enrolling": enrolling,
-            "enrollment": vision.enroll_progress if vision is not None else None,
-            "enrolled": bool(run is not None and run.template is not None),
-            "enrolled_samples": None if run is None or run.template is None else int(run.template.samples.shape[0]),
-            "recognized": bool(run is not None and run.first_owner_match_mono is not None),
-            "template": "this demo's own (data/airlock/demo/<id>/owner_face.json, embeddings only)" if run is not None and run.template is not None
+            "enrollment": vision.enroll_progress if faces_enabled and vision is not None else None,
+            "enrolled": bool(faces_enabled and run is not None and run.template is not None),
+            "enrolled_samples": None if not faces_enabled or run is None or run.template is None else int(run.template.samples.shape[0]),
+            "recognized": bool(faces_enabled and run is not None and run.first_owner_match_mono is not None),
+            "template": "disabled: person and zone observations only" if not faces_enabled
+                        else "this demo's own (data/airlock/demo/<id>/owner_face.json, embeddings only)" if run is not None and run.template is not None
                         else "none: nobody is enrolled in this demo" if run is not None else None,
-            "thresholds": None if run is None or run.template is None else {"match": run.template.thresholds.match, "reject": run.template.thresholds.reject, "calibrated": run.template.thresholds.calibrated},
+            "thresholds": None if not faces_enabled or run is None or run.template is None else {"match": run.template.thresholds.match, "reject": run.template.thresholds.reject, "calibrated": run.template.thresholds.calibrated},
             "steps": self.steps(),
             "readiness": self.readiness(),
             "timings": stats,

@@ -3,6 +3,7 @@ silent. The audio here is synthetic levels and probabilities; the physical behav
 
 from __future__ import annotations
 
+import queue
 import time
 import types
 
@@ -61,6 +62,7 @@ def test_an_unfinished_turn_waits_and_the_rest_is_joined_into_one_question():
     joined = emit.utterances()[-1]
     assert joined["text"] == "I wanted to ask whether they touched my keyboard and whether anything was plugged in"
     assert joined["confidence"] == 0.7 and joined["parts"] == 2 and v.joined_turns == 1 and v._held is None
+    assert joined["capture_epoch"] == v.capture_epoch
 
 
 def test_a_held_turn_is_answered_once_the_owner_stays_quiet():
@@ -76,6 +78,64 @@ def test_push_to_talk_is_never_held():
     v, emit = voice(mode="push_to_talk")
     v._deliver(part("Is anyone near my desk and"))
     assert emit.utterances()[-1]["text"] == "Is anyone near my desk and"
+
+
+def test_stopping_discards_a_held_turn_instead_of_flushing_it_on_worker_exit():
+    v, emit = voice()
+    old_epoch = v.capture_epoch
+    v._deliver(part("I wanted to secure the workstation and"))
+    assert v._held is not None
+    v.stop()
+    v._stt_loop(old_epoch)
+    v._deliver({**part("secure my workstation"), "capture_epoch": old_epoch})
+    assert v._held is None and not emit.utterances() and v.capture_epoch > old_epoch
+
+
+def test_a_late_transcription_cannot_be_relabelled_after_the_same_capture_restarts(monkeypatch):
+    v, emit = voice()
+    v.running = False
+    workers = []
+
+    def thread(**kwargs):
+        worker = types.SimpleNamespace(**kwargs, start=lambda: None, join=lambda **_kwargs: None)
+        workers.append(worker)
+        return worker
+
+    monkeypatch.setattr(vs, "threading", types.SimpleNamespace(Thread=thread))
+    monkeypatch.setattr(vs, "AudioCapture", lambda _device: types.SimpleNamespace(
+        queue=queue.Queue(), start=lambda: None, stop=lambda: None,
+    ))
+
+    class LateTranscriber:
+        state = "ready"
+
+        def transcribe(self, _audio):
+            v.stop()
+            v.start(mode="always")
+            v._deliver(part("A new question about the"))
+            return {"text": "secure my workstation", "confidence": 0.9}
+
+    v.transcriber = LateTranscriber()
+    v.start(mode="always")
+    old_epoch, old_queue = v.capture_epoch, v._stt_q
+    assert all(w.args == (old_epoch,) for w in workers)
+    v._submit(np.zeros(16, dtype=np.float32))
+    v._stt_loop(old_epoch)  # the fake restarts the service while the old worker transcribes
+    assert v.capture_epoch > old_epoch and v._stt_q is not old_queue
+    assert all(w.args == (v.capture_epoch,) for w in workers[-2:])
+    assert not emit.utterances() and v.last_text is None and v.utterances == 0
+    assert v._held["payload"]["capture_epoch"] == v.capture_epoch  # the old worker cannot flush the new held turn
+    v._submit(np.zeros(16, dtype=np.float32), capture_epoch=old_epoch)
+    assert v._stt_q.empty()  # old input callbacks cannot queue audio into the new capture
+    v.stop()
+
+
+def test_parts_from_different_capture_epochs_never_form_a_joined_command():
+    v, emit = voice()
+    v._held = {"payload": {**part("secure my"), "capture_epoch": v.capture_epoch - 1},
+               "parts": 1, "deadline": time.monotonic() + 1}
+    v._deliver({**part("workstation"), "capture_epoch": v.capture_epoch})
+    assert v._held is None and not emit.utterances() and v.joined_turns == 0
 
 
 # ------------------------------------------------------------------ barge-in onset

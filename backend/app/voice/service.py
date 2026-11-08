@@ -70,8 +70,11 @@ class VoiceService:
         self.device = None
         self.running = False
         self._thread: threading.Thread | None = None
-        self._stt_q: queue.Queue[np.ndarray] = queue.Queue(maxsize=4)
+        self._stt_q: queue.Queue[tuple[np.ndarray, bool, int, int]] = queue.Queue(maxsize=4)
         self._stt_thread: threading.Thread | None = None
+        self._capture_epoch = 0
+        self._input_generation = 0
+        self._input_lock = threading.RLock()
         self._ptt_active = False
         self._ptt_buf: list[np.ndarray] = []
         self._ptt_stop_at: float | None = None
@@ -102,24 +105,37 @@ class VoiceService:
         self.input_held = False  # a recorded command is being handled: the live microphone is ignored meanwhile
 
     # ------------------------------------------------------------------ control
+    @property
+    def capture_epoch(self) -> int:
+        return self._capture_epoch
+
+    @property
+    def input_generation(self) -> int:
+        return self._input_generation
+
     def start(self, device=None, mode: str = "push_to_talk") -> None:
         if self.running:
             self.stop()
+        self._capture_epoch += 1
+        epoch = self._capture_epoch
         self.device = device
         self.mode = mode
         if self.transcriber is None:
             self.transcriber = make_transcriber(self.settings)
         self.capture = AudioCapture(device)
         self.capture.start()  # raises if the device cannot be opened
+        self._stt_q = queue.Queue(maxsize=4)  # a restarted capture never transcribes the previous capture's queued audio
         self.running = True
         self.vad.reset()
-        self._thread = threading.Thread(target=self._run, name="voice-input", daemon=True)
+        self._thread = threading.Thread(target=self._run, args=(epoch,), name="voice-input", daemon=True)
         self._thread.start()
-        self._stt_thread = threading.Thread(target=self._stt_loop, name="voice-stt", daemon=True)
+        self._stt_thread = threading.Thread(target=self._stt_loop, args=(epoch,), name="voice-stt", daemon=True)
         self._stt_thread.start()
 
     def stop(self) -> None:
         self.running = False
+        self._capture_epoch += 1
+        self._held, self._last_seg_end = None, None
         if self.capture is not None:
             self.capture.stop()
             self.capture = None
@@ -157,17 +173,33 @@ class VoiceService:
 
     def hold_input(self, held: bool) -> None:
         """Ignore (or listen again to) the live microphone, so a recorded command and the room never mix into one turn."""
-        if held == self.input_held:
-            return
-        self.input_held = held
-        self.vad.reset()
-        self._held = None
-        self._ptt_active = False
-        self._ptt_buf = []
+        with self._input_lock:
+            if held == self.input_held:
+                return
+            self._input_generation += 1
+            self.input_held = held
+            self.vad.reset()
+            self._held = None
+            self._last_seg_end = None
+            self._seg_overlap = False
+            self._ptt_active = False
+            self._ptt_buf = []
+            self._ptt_stop_at = None
+            # Both sides of the hold discard buffered input. In-flight work is
+            # rejected by generation checks; capture threads keep their epoch.
+            queues = [self._stt_q]
+            if self.capture is not None:
+                queues.append(self.capture.queue)
+            for pending in queues:
+                while True:
+                    try:
+                        pending.get_nowait()
+                    except queue.Empty:
+                        break
 
     def conversation_state(self) -> str:
         """What the audio and the models are really doing right now."""
-        if not self.running:
+        if not self.running or getattr(self.capture, "error", None) or self.stalled:
             return "IDLE"
         now = time.monotonic()
         if self.last_barge_in_at is not None and now - self.last_barge_in_at < 1.0:
@@ -183,6 +215,7 @@ class VoiceService:
         return "LISTENING"
 
     def snapshot(self) -> dict:
+        capture_error = getattr(self.capture, "error", None)
         return {
             "conversation_state": self.conversation_state(),
             "input_held_for_recorded": self.input_held,
@@ -199,21 +232,28 @@ class VoiceService:
             "noise_floor_db": round(self.vad.floor_db, 1),
             "vad": type(self.vad).__name__,
             "speech_prob": round(getattr(self.vad, "last_prob", 0.0), 2) if hasattr(self.vad, "last_prob") else None,
-            "warning": self.input_warning,
-            "stalled": self.stalled,
-            "reason": None if self.running else "voice input not started",
+            "warning": capture_error or self.input_warning,
+            "stalled": self.stalled or bool(capture_error),
+            "capture_state": getattr(self.capture, "state", None),
+            "reason": capture_error or (None if self.running else "voice input not started"),
         }
 
     # ------------------------------------------------------------------ threads
-    def _run(self) -> None:
+    def _run(self, capture_epoch: int | None = None) -> None:
+        epoch = self._capture_epoch if capture_epoch is None else capture_epoch
         cap = self.capture
-        while self.running and cap is not None:
+        while self.running and epoch == self._capture_epoch and cap is not None:
+            generation = self._input_generation
             try:
                 block = cap.queue.get(timeout=0.2)
             except queue.Empty:
-                self._maybe_finish_ptt()
+                if not self.running or epoch != self._capture_epoch:
+                    break
+                self._maybe_finish_ptt(epoch, generation)
                 self._check_stalled()
                 continue
+            if not self.running or epoch != self._capture_epoch:
+                break
             self._last_block_at = time.monotonic()
             if self.stalled:
                 self.stalled = False
@@ -222,31 +262,33 @@ class VoiceService:
             db = rms_db(block)
             self.meter.set(db)
             self._check_silent_input(block)
-            if self.input_held:
-                continue
-            if self.mode == "push_to_talk":
-                if self._ptt_active:
-                    self._ptt_buf.append(block)
-                    if len(self._ptt_buf) * BLOCK_S > PTT_MAX_S:
-                        self._ptt_stop_at = time.monotonic()
-                self._maybe_finish_ptt()
-                continue
-            during = self.speaker is not None and self.speaker.recently_spoke()
-            if during:
-                self.dropped_echo_blocks += 1
-            for kind, audio in self.vad.process(block):
-                if kind == "start":
-                    self._seg_overlap = during
-                    self.emit("speech_started", {"mode": self.mode})
-                elif kind == "end":
-                    self.emit("speech_ended", {"mode": self.mode, "kept": audio is not None})
-                    if audio is not None:
-                        self._last_seg_end = time.monotonic()
-                        self._submit(audio, during_playback=self._seg_overlap or during)
-                    self._seg_overlap = False
-            if during and self.vad.in_speech:
-                self._seg_overlap = True
-            self._watch_barge_in(db)
+            with self._input_lock:
+                if self.input_held or generation != self._input_generation:
+                    continue
+                if self.mode == "push_to_talk":
+                    if self._ptt_active:
+                        self._ptt_buf.append(block)
+                        if len(self._ptt_buf) * BLOCK_S > PTT_MAX_S:
+                            self._ptt_stop_at = time.monotonic()
+                    self._maybe_finish_ptt(epoch, generation)
+                    continue
+                during = self.speaker is not None and self.speaker.recently_spoke()
+                if during:
+                    self.dropped_echo_blocks += 1
+                for kind, audio in self.vad.process(block):
+                    if kind == "start":
+                        self._seg_overlap = during
+                        self.emit("speech_started", {"mode": self.mode})
+                    elif kind == "end":
+                        self.emit("speech_ended", {"mode": self.mode, "kept": audio is not None})
+                        if audio is not None:
+                            self._last_seg_end = time.monotonic()
+                            self._submit(audio, during_playback=self._seg_overlap or during, capture_epoch=epoch,
+                                         input_generation=generation)
+                        self._seg_overlap = False
+                if during and self.vad.in_speech:
+                    self._seg_overlap = True
+                self._watch_barge_in(db)
 
     def _watch_barge_in(self, db: float) -> None:
         """While LOCKI's own line plays, learn how loud its echo is at the mic, and call a strong, sustained voice above it a barge-in.
@@ -275,16 +317,20 @@ class VoiceService:
             self.last_barge_in_at = now
             self.emit("barge_in", {"over_echo_db": round(db - self._echo_db, 1), "speech_prob": round(prob, 2), "onset_ms": round(BARGE_IN_BLOCKS * BLOCK_S * 1000)})
 
-    def _maybe_finish_ptt(self) -> None:
-        if self._ptt_active and self._ptt_stop_at is not None and time.monotonic() >= self._ptt_stop_at:
-            self._ptt_active = False
-            audio = np.concatenate(self._ptt_buf) if self._ptt_buf else np.zeros(0, dtype=np.float32)
-            self._ptt_buf = []
-            self.emit("speech_ended", {"mode": "push_to_talk", "seconds": round(len(audio) / 16000, 2)})
-            if len(audio) / 16000 >= 0.3:
-                self._submit(audio)
-            else:
-                self.emit("rejected", {"reason": "push-to-talk clip too short", "seconds": round(len(audio) / 16000, 2)})
+    def _maybe_finish_ptt(self, capture_epoch: int | None = None, input_generation: int | None = None) -> None:
+        with self._input_lock:
+            generation = self._input_generation if input_generation is None else input_generation
+            if self.input_held or generation != self._input_generation:
+                return
+            if self._ptt_active and self._ptt_stop_at is not None and time.monotonic() >= self._ptt_stop_at:
+                self._ptt_active = False
+                audio = np.concatenate(self._ptt_buf) if self._ptt_buf else np.zeros(0, dtype=np.float32)
+                self._ptt_buf = []
+                self.emit("speech_ended", {"mode": "push_to_talk", "seconds": round(len(audio) / 16000, 2)})
+                if len(audio) / 16000 >= 0.3:
+                    self._submit(audio, capture_epoch=capture_epoch, input_generation=generation)
+                else:
+                    self.emit("rejected", {"reason": "push-to-talk clip too short", "seconds": round(len(audio) / 16000, 2)})
 
     def _check_stalled(self) -> None:
         """No audio blocks at all for a while: the input device went away (Bluetooth mic off,
@@ -310,15 +356,30 @@ class VoiceService:
             )
             self.emit("error", {"error": self.input_warning})
 
-    def _submit(self, audio: np.ndarray, during_playback: bool = False) -> None:
+    def _submit(self, audio: np.ndarray, during_playback: bool = False, capture_epoch: int | None = None,
+                input_generation: int | None = None) -> None:
+        epoch = self._capture_epoch if capture_epoch is None else capture_epoch
+        generation = self._input_generation if input_generation is None else input_generation
+        if not self.running or epoch != self._capture_epoch or self.input_held or generation != self._input_generation:
+            return
         try:
-            self._stt_q.put_nowait((audio, during_playback))
+            self._stt_q.put_nowait((audio, during_playback, epoch, generation))
         except queue.Full:
             self.emit("rejected", {"reason": "speech-to-text busy; utterance dropped"})
 
-    def _flush_held(self, force: bool = False) -> None:
+    def _flush_held(self, force: bool = False, capture_epoch: int | None = None) -> None:
+        epoch = self._capture_epoch if capture_epoch is None else capture_epoch
+        if epoch != self._capture_epoch:
+            return
+        if not self.running or self.input_held:
+            self._held = None
+            return
         held = self._held
         if held is None:
+            return
+        if (held["payload"].get("capture_epoch", epoch) != epoch
+                or held["payload"].get("input_generation", self._input_generation) != self._input_generation):
+            self._held = None
             return
         waiting = self.vad.in_speech or not self._stt_q.empty()
         if not force and (waiting or time.monotonic() < held["deadline"]):
@@ -328,14 +389,21 @@ class VoiceService:
 
     def _deliver(self, payload: dict) -> None:
         """A finished transcription: joined to a held unfinished turn, held itself if it sounds unfinished, or handed over."""
+        epoch = payload.get("capture_epoch", self._capture_epoch)
+        generation = payload.get("input_generation", self._input_generation)
+        if not self.running or epoch != self._capture_epoch or self.input_held or generation != self._input_generation:
+            return
+        payload = {**payload, "capture_epoch": epoch, "input_generation": generation}
         held = self._held
         if held is not None:
             self._held = None
-            self.joined_turns += 1
             prev = held["payload"]
+            if prev.get("capture_epoch", epoch) != epoch or prev.get("input_generation", generation) != generation:
+                return  # parts from different microphone sessions never form a command
+            self.joined_turns += 1
             payload = {**payload, "text": f"{prev['text']} {payload['text']}".strip(), "confidence": min(prev["confidence"], payload["confidence"]),
                        "during_playback": prev["during_playback"] or payload["during_playback"], "audio_s": (prev.get("audio_s") or 0) + (payload.get("audio_s") or 0),
-                       "parts": held["parts"] + 1}
+                       "parts": held["parts"] + 1, "capture_epoch": prev.get("capture_epoch", epoch)}
             parts = held["parts"] + 1
         else:
             parts = 1
@@ -346,12 +414,22 @@ class VoiceService:
             return
         self.emit("utterance", payload)
 
-    def _stt_loop(self) -> None:
-        while self.running:
+    def _stt_loop(self, capture_epoch: int | None = None) -> None:
+        epoch = self._capture_epoch if capture_epoch is None else capture_epoch
+        pending = self._stt_q
+        while self.running and epoch == self._capture_epoch:
             try:
-                audio, during_playback = self._stt_q.get(timeout=0.1)
+                item = pending.get(timeout=0.1)
             except queue.Empty:
-                self._flush_held()
+                self._flush_held(capture_epoch=epoch)
+                continue
+            if not self.running or epoch != self._capture_epoch:
+                break
+            audio, during_playback = item[:2]
+            if len(item) > 2 and item[2] != epoch:
+                continue
+            generation = item[3] if len(item) > 3 else self._input_generation
+            if self.input_held or generation != self._input_generation:
                 continue
             tr = self.transcriber
             if tr is None or tr.state != "ready":
@@ -366,6 +444,10 @@ class VoiceService:
                 self.transcribing = False
                 if self.on_transcribing is not None:
                     self.on_transcribing(False)
+            if not self.running or epoch != self._capture_epoch:
+                break
+            if self.input_held or generation != self._input_generation:
+                continue
             if result is None:
                 self.emit("rejected", {"reason": "transcription failed or timed out"})
                 continue
@@ -382,6 +464,8 @@ class VoiceService:
                     "latency_ms": result.get("roundtrip_ms", result.get("latency_ms")),
                     "audio_s": result.get("audio_s"),
                     "during_playback": during_playback,
+                    "capture_epoch": epoch,
+                    "input_generation": generation,
                 }
             )
-        self._flush_held(force=True)
+        self._flush_held(force=True, capture_epoch=epoch)

@@ -6,16 +6,34 @@ from __future__ import annotations
 
 import asyncio
 import time
+from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import RuntimeSettings
 from app.runtime import LockedInRuntime
+from app.vision.focus_observation import FaceObs
 from app.vision.pipeline import EGO_SETTLE_S, VisionService
 
 from .conftest import wait_for
 from .fake_esp32 import FakeESP32
 from .fake_mjpeg import FakeEsp32Camera, closed_port
+
+
+@pytest.fixture(autouse=True)
+def scripted_model_inference(monkeypatch):
+    """Exercise real camera decoding and transport with no model files or inference."""
+    monkeypatch.setattr(
+        "app.vision.pipeline.HandTracker",
+        lambda _models_dir: SimpleNamespace(detect=lambda _rgb, _ts: [], close=lambda: None),
+    )
+    monkeypatch.setattr(
+        "app.vision.pipeline.FaceObserver",
+        lambda _models_dir: SimpleNamespace(
+            observe=lambda _rgb, _ts: FaceObs(present=False), close=lambda: None,
+        ),
+    )
 
 
 def hardware_settings(settings, ws_port: int, camera_url: str, **extra):
@@ -50,6 +68,7 @@ async def test_hardware_profile_connects_both_links_and_stays_locked(settings, t
     try:
         assert await wait_for(lambda: rt.transport is not None and rt.transport.connected, timeout=5)
         assert await wait_for(lambda: rt.vision_live, timeout=8)
+        assert await wait_for(lambda: rt.vision.snapshot()["stats"]["frames_processed"] > 0)
         snap = rt.snapshot()
         v = snap["vision"]
         assert v["source_label"] == "ZEUS ESP32-CAM" and v["source"] == cam.url and v["mount"] == "robot"

@@ -122,7 +122,7 @@ async def run(url: str, minutes: float, label: str) -> dict:
             while time.monotonic() < deadline:
                 try:
                     raw = await asyncio.wait_for(ws.recv(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 msg = json.loads(raw)
                 if msg.get("type") == "event":

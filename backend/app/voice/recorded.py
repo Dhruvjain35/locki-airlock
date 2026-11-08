@@ -42,8 +42,10 @@ def decode_wav(data: bytes) -> tuple[np.ndarray, dict]:
             if seconds < MIN_SECONDS:
                 raise RecordedAudioError("the recording is too short to hold a command")
             raw = w.readframes(frames)
-    except wave.Error as exc:
+    except (wave.Error, EOFError) as exc:
         raise RecordedAudioError(f"the WAV file could not be read ({exc}); only uncompressed PCM WAV is supported") from exc
+    if len(raw) != frames * channels * width or len(raw) % (channels * width):
+        raise RecordedAudioError("the WAV audio is truncated or has incomplete PCM frames")
     if width == 1:
         pcm = (np.frombuffer(raw, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
     elif width == 2:

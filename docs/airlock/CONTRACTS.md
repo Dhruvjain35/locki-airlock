@@ -5,10 +5,11 @@
 # Mac integration contract — Sid's server answers
 
 These answers describe the current Sid module in `spacetime/src/index.ts`.
-Dhruv reported local commit `4277d99` on `feature/airlock-dhruv`; that unpushed
-branch and its original questions were not available in this checkout. This
-document does not claim to review or merge that commit. The complete reducer
-and row contract is [spacetime/CONTRACT.md](../../spacetime/CONTRACT.md).
+The original answers were written before Dhruv's local `4277d99` branch was
+available. The new repository now contains the audited M4 integration snapshot;
+[INTEGRATION_DECISIONS.md](../INTEGRATION_DECISIONS.md) records Sid's current review.
+The older Mac questions below remain historical context. The complete authoritative
+reducer and row contract is [spacetime/CONTRACT.md](../../spacetime/CONTRACT.md).
 
 ## Enrolled Mac subscriptions
 
@@ -40,6 +41,21 @@ identities cannot use these incident/event views. This change grants no
 acknowledgement, resolution, disarm, protected-action, approval, agent-trace or
 audit access to a Mac. Do not promote the voice adapter to reviewer to work
 around missing observations.
+
+## Camera publisher readback
+
+An enrolled `jetson` identity publishes authenticated observations and can read its
+session and own device status. It intentionally receives **zero rows** from
+`my_device_events` and `my_incidents`, including for events it published. This is a
+read boundary, not a publication failure. A committed sequence increase and reducer
+receipt are publisher evidence; use the owner or enrolled Mac's workstation-scoped
+view to verify the exact event ID, original `observed_at_ms`, server
+`received_at_ms`, device and simulation classification. Do not promote the camera
+to Mac, reviewer, service or owner merely to read back a publication.
+
+A `person_in_zone` observation alone is stored as `soft_observation` and does not
+create an intrusion incident. The existing Mac follows allowed remote cameras
+through its own authorized view; configure only the intended enrolled camera IDs.
 
 ## Exact event metadata
 

@@ -8,10 +8,13 @@ Read-only maincloud check during this change confirmed workstation `dhruv-m4-air
 |---|---|---|
 | `mac-707bf6209e27` | `mac` | enabled; existing Mac identity unchanged |
 | `mac-dev-cam-01` | `jetson` | enabled; Areeb identity `c200fe52abd5ae6bf337f8bd5ff7995e468aa01382f819a48bd7ccc8e956ff74` |
-| `cam-e2d5d60c513c` | not enrolled | its configured publisher identity is not available in Sid's checkout |
+| `cam-e2d5d60c513c` | not enrolled | M4-reported public identity is in INTEGRATION.md §2; verify the actual configured publisher locally |
 
-Do not substitute the M4 Mac-agent identity, CLI owner identity, or Areeb identity for
-the separate camera. On the M4, inspect the actual camera publisher configuration and
+Dhruv's audited [INTEGRATION.md](INTEGRATION.md) records the separate camera
+identity `c200c34697345ca09abb33ead410578af099974512d4b0bc092971bd64393587`.
+That is a team configuration report, not independent access to the current M4
+publisher/token. Do not substitute the M4 Mac-agent identity, CLI owner identity,
+or Areeb identity for the separate camera. On the M4, inspect the actual camera publisher configuration and
 compare its public configured identity with the authenticated identity reported by its
 existing connection. Record the config path and public identity, **not the token**.
 Do not start a second camera process just to inspect identity.
@@ -23,34 +26,20 @@ a hardware identity. No runnable command with a guessed publisher identity is su
 Keep Areeb enabled. Real events require a live, non-simulated armed session, original
 capture timestamps, sanitized metadata and owner-scoped event readback by device ID.
 
-## Seven reported merge conflicts
+## Migration and seven conflicts
 
-No unmerged paths exist in Sid's working tree. The GitHub branch inventory currently
-contains `feature/airlock-sid`, `main`, and `milestone-2`; Dhruv's local seven conflict
-paths and opposite-side commit are not available here. They are **not resolved**.
-Coordination request posted to [PR #1](https://github.com/Dhruvjain35/locked-in/pull/1#issuecomment-6715447150).
+The audited M4 snapshot is now available in private `Dhruvjain35/locki-airlock`,
+starting at `integration/voice-cv-sid` commit `2212251`. Sid's review preserves the
+seven explicit resolutions in [INTEGRATION_DECISIONS.md](../INTEGRATION_DECISIONS.md):
+Python investigator retained with Sid transport moved, separate Make targets,
+AIRLOCK default routing with retained `#demo`, package guard, both contracts,
+new product README and absent robot firmware. No old Git history is merged.
 
-Dhruv should provide these read-only outputs from his current merge, plus a pushed
-branch or patch that excludes credentials:
-
-```bash
-git status --short --branch
-git diff --name-only --diff-filter=U
-git rev-parse HEAD MERGE_HEAD
-```
-
-If no merge is in progress, supply the two branch commit IDs instead of `MERGE_HEAD`.
-For each actual conflict, record base/ours/theirs, intended behavior on both sides,
-selected resolution, owner of that edit, and a test proving both requirements survive.
-Do not accept an entire side wholesale or regenerate bindings from an unresolved schema.
-Preserve local work until the final contract is agreed.
-
-The [ARM contract](ARM_DELEGATION.md) is additive, deployed, and tested on an isolated cloud workstation. Direct ARM and
-DISARM remain owner-only. It must be integrated into Dhruv's voice path explicitly;
-do not replace his implementation with Sid's generic speech handler. Spacetime
-schema/reducer source is the source of truth; regenerate bindings after resolving it.
-Camera metadata/timestamps, Mac identities, durable queues, fresh-baseline checks,
-and reviewed owner policy are acceptance requirements on either side of a conflict.
+The current review fixes actual voice integration gaps in that snapshot; it does
+not replace the M4 runtime with Sid's standalone speech service or USB poller.
+The M4 CV Claude owns port 8077 and the controlled restart. See
+[M4_VOICE_ARM.md](M4_VOICE_ARM.md) for reviewed state/readback requirements and
+[RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for open physical/model evidence.
 
 ## Accuracy and deployment status
 

@@ -1,6 +1,15 @@
 # AIRLOCK camera
 
-The camera reports what happens at the workstation as timestamped observations: someone in view, someone at the desk, a hand in the USB zone, a covered lens. It never says who someone is beyond "matches the enrolled owner", and it never judges intent. The Mac's USB watcher remains the authority on whether a device was actually connected. Sid's SpacetimeDB module decides incidents.
+The camera reports what happens at the workstation as timestamped observations: someone in view, someone at the desk, a hand in the USB zone, a covered lens. The primary pipeline does not identify people or require face enrollment. The Mac's USB watcher remains the authority on whether a device was actually connected. Sid's SpacetimeDB module decides incidents.
+
+`Settings.airlock_face_identification` defaults to `False` (environment:
+`LOCKEDIN_AIRLOCK_FACE_IDENTIFICATION`). With that default, the security camera
+does not read an existing owner template or construct face models, and the demo
+rejects enrollment and recognition trials. Person detection and configured hand
+interaction zones remain available. Legacy face modules and explicit face CLI
+commands are retained outside the original PRD and P0 acceptance; their presence
+does not approve enabling biometrics. This repository change has not been
+activated or verified on the already-running M4 process.
 
 ```
 camera (CameraSource: index, MJPEG URL or file)
@@ -15,10 +24,14 @@ Code lives in `backend/app/vision/airlock/`. Geometry, trackers and events use o
 
 ```bash
 cd backend
-.venv/bin/python scripts/download_models.py --airlock-vision    # once, about 42 MB, checksummed in models.sha256
 .venv/bin/python scripts/airlock_vision.py --seconds 30         # the Mac's webcam; prints each event and a summary
 .venv/bin/python -m pytest -q tests/test_airlock_vision.py
 ```
+
+The camera run needs the approved local person model listed below; configured hand
+zones also need the hand model. Face weights are not required. The retained
+`download_models.py --airlock-vision` bundle includes legacy face weights, so it is
+not a prerequisite for the software tests or a face-free model inventory.
 
 The script uses the camera's own identity, `data/airlock_vision/identity.json` (`cam-...`), and its own sequence. Delivery is local only, so nothing goes to SpacetimeDB. Frames stay in memory and nothing is saved. The camera light is on while it runs.
 
@@ -27,8 +40,8 @@ The script uses the camera's own identity, `data/airlock_vision/identity.json` (
 | Model | Use | Size | Source |
 |---|---|---|---|
 | `efficientdet_lite0.tflite` (int8) | people (COCO "person") on the Mac | 4.6 MB | Google MediaPipe models |
-| `face_detection_yunet_2023mar.onnx` | faces with 5 landmarks, OpenCV DNN | 0.2 MB | OpenCV Zoo |
-| `face_recognition_sface_2021dec.onnx` | owner verification embeddings, OpenCV DNN | 38.7 MB | OpenCV Zoo |
+| `face_detection_yunet_2023mar.onnx` | legacy optional face detection, outside P0 | 0.2 MB | OpenCV Zoo |
+| `face_recognition_sface_2021dec.onnx` | legacy optional owner embeddings, outside P0 | 38.7 MB | OpenCV Zoo |
 | `hand_landmarker.task` (already present) | hands for zone interaction | 7.8 MB | Google MediaPipe models |
 
 ## Presence
@@ -57,7 +70,10 @@ A token bucket (burst 6, then 2 per second) caps everything.
 
 The camera is `obstructed` after 1.5 s of frames that are dark (grey mean below 14 of 255) or flat (spread below 5). It is `offline` when frames stop after the camera has worked, and `unavailable` when it never opens. While the camera cannot see, the trackers conclude nothing, so a covered lens is not reported as an empty room. Mac USB and app monitoring carry on regardless.
 
-## Owner face: voluntary, local, contextual only
+## Archived optional owner-face path (outside P0)
+
+The following describes the retained legacy feature. It is disabled in the
+security camera and demo by default, and is not part of the normal demo procedure.
 
 ```bash
 .venv/bin/python scripts/airlock_face.py enroll --i-consent      # the owner starts it; about 30 s

@@ -16,7 +16,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 from .llm_worker import _json_closed
 from .local_llm import Generation
@@ -36,10 +36,41 @@ def _refusal(model: str) -> str | None:
     return None
 
 
+def _http_origin(base: str) -> SplitResult:
+    """Parse before trusting a hostname; URL credentials and proxy paths are forbidden."""
+    if not isinstance(base, str) or not base or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in base):
+        raise ValueError("Ollama endpoint must be an HTTP origin")
+    try:
+        parts = urlsplit(base)
+        port = parts.port  # validates malformed and out-of-range ports
+        if (parts.scheme != "http" or not parts.hostname or parts.username is not None or parts.password is not None
+                or parts.path not in ("", "/") or "?" in base or "#" in base
+                or (port is not None and not 1 <= port <= 65535) or parts.netloc.endswith(":")):
+            raise ValueError("Ollama endpoint must be an HTTP origin")
+    except ValueError:
+        raise ValueError("Ollama endpoint must be an HTTP origin") from None
+    return parts
+
+
+def _origin_string(parts: SplitResult) -> str:
+    host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname
+    port = "" if parts.port is None else f":{parts.port}"
+    return f"http://{host}{port}"
+
+
+def local_ollama_endpoint(base: str) -> str:
+    """Exact loopback HTTP origin, including SSH-forwarded ports; never URL userinfo."""
+    parts = _http_origin(base)
+    if parts.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("Ollama must use an explicit loopback HTTP hostname")
+    return _origin_string(parts)
+
+
 def lan_address_ok(base: str) -> bool:
-    """The team's own machines only: loopback, a private LAN address, or a .local name. Never a public host."""
-    parts = urlsplit(base)
-    if parts.scheme != "http" or not parts.hostname or parts.path not in ("", "/"):
+    """Explicit investigator opt-in only: loopback, private LAN IP, or .local name."""
+    try:
+        parts = _http_origin(base)
+    except ValueError:
         return False
     host = parts.hostname
     if host == "localhost" or host.endswith(".local"):
@@ -54,12 +85,14 @@ def lan_address_ok(base: str) -> bool:
 def serves(base: str, model: str, timeout_s: float = 1.5) -> bool:
     """Whether Ollama at this loopback address (this Mac, or a tunnel to the team's M5) answers and already has this model. Reads the list
     of models only: nothing is pulled, loaded or generated."""
-    if not base.startswith(("http://127.0.0.1:", "http://localhost:")):
+    try:
+        base = local_ollama_endpoint(base)
+    except ValueError:
         return False
     import httpx
 
     try:
-        r = httpx.get(f"{base.rstrip('/')}/api/tags", timeout=timeout_s)
+        r = httpx.get(f"{base}/api/tags", timeout=timeout_s, trust_env=False, follow_redirects=False)
         names = {m.get("name") for m in r.json().get("models", [])} if r.status_code == 200 else set()
     except (httpx.HTTPError, ValueError, AttributeError):
         return False
@@ -73,8 +106,9 @@ class OllamaLLM:
         if allow_lan:
             if not lan_address_ok(base):
                 raise ValueError("Ollama must be on this Mac or a machine on the team's private network")
-        elif not base.startswith(("http://127.0.0.1:", "http://localhost:")):
-            raise ValueError("Ollama must be on this Mac")
+            base = _origin_string(_http_origin(base))
+        else:
+            base = local_ollama_endpoint(base)
         self.model = model
         self.base = base
         self.keep_alive = keep_alive
@@ -100,7 +134,7 @@ class OllamaLLM:
 
         t0 = time.monotonic()
         try:
-            r = httpx.get(f"{self.base}/api/tags", timeout=3.0)
+            r = httpx.get(f"{self.base}/api/tags", timeout=3.0, trust_env=False, follow_redirects=False)
             r.raise_for_status()
             names = {m.get("name") for m in r.json().get("models", [])}
         except Exception as exc:
@@ -111,7 +145,7 @@ class OllamaLLM:
             return
         if warm:
             try:
-                r = httpx.post(f"{self.base}/api/chat", json=self._body("warm up", 1, 0.1, 0.9, None, stream=False), timeout=timeout_s)
+                r = httpx.post(f"{self.base}/api/chat", json=self._body("warm up", 1, 0.1, 0.9, None, stream=False), timeout=timeout_s, trust_env=False, follow_redirects=False)
                 r.raise_for_status()
             except Exception as exc:
                 self.state, self.error = "error", f"could not load {self.model}: {exc}"[:200]
@@ -163,7 +197,7 @@ class OllamaLLM:
             t0 = time.monotonic()
             deadline = t0 + timeout_s
             try:
-                async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s, connect=2.0)) as client:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s, connect=2.0), trust_env=False, follow_redirects=False) as client:
                     async with client.stream("POST", f"{self.base}/api/chat", json=self._body(context, max_tokens, temperature, top_p, seed, system=system, response_format=response_format)) as resp:
                         resp.raise_for_status()
                         async for line in resp.aiter_lines():
@@ -225,7 +259,7 @@ class OllamaLLM:
         import httpx
 
         try:
-            r = httpx.get(f"{self.base}/api/ps", timeout=timeout_s)
+            r = httpx.get(f"{self.base}/api/ps", timeout=timeout_s, trust_env=False, follow_redirects=False)
             r.raise_for_status()
             for m in r.json().get("models", []):
                 if m.get("name") == self.model:

@@ -35,7 +35,7 @@ def rms_db(block: np.ndarray) -> float:
     return 20 * math.log10(max(rms, 1e-6))
 
 
-def end_silence_ms(cfg: "VADConfig", speech_blocks: int) -> int:
+def end_silence_ms(cfg: VADConfig, speech_blocks: int) -> int:
     """How much silence closes the turn: short turns end quickly, long ones tolerate a natural mid-thought pause."""
     return cfg.long_end_ms if speech_blocks * BLOCK_S * 1000 >= cfg.long_after_ms else cfg.end_ms
 
@@ -247,6 +247,16 @@ class AudioCapture:
         self.overflows = 0
         self.dropped = 0
         self.started_at: float | None = None
+        self.error: str | None = None
+        self._suspended = False
+
+    @property
+    def state(self) -> str:
+        if self.error is not None:
+            return "error"
+        if self._suspended:
+            return "suspended"
+        return "running" if self._stream is not None else "stopped"
 
     def start(self) -> None:
         from .tts import PORTAUDIO
@@ -258,21 +268,27 @@ class AudioCapture:
     def suspend(self) -> None:
         """Close the stream for a PortAudio re-init (the queue and counters stay)."""
         if self._stream is not None:
-            try:
-                self._stream.stop()
-                self._stream.close()
-            finally:
-                self._stream = None
-                self._suspended = True
+            self._suspended = True
+            self._close_stream()
 
     def resume(self) -> None:
-        if getattr(self, "_suspended", False):
-            self._suspended = False
+        if self._suspended:
             self._open()
+            self._suspended = False
+
+    def _close_stream(self) -> None:
+        stream, self._stream = self._stream, None
+        if stream is not None:
+            try:
+                try:
+                    stream.stop()
+                finally:
+                    stream.close()
+            except Exception as exc:
+                self.error = f"Microphone stream cleanup failed: {type(exc).__name__}: {exc}"[:240]
+                raise
 
     def _open(self) -> None:
-        import sounddevice as sd
-
         def callback(indata, frames, t, status):
             if status and status.input_overflow:
                 self.overflows += 1
@@ -282,22 +298,29 @@ class AudioCapture:
             except queue.Full:
                 self.dropped += 1
 
-        self._stream = sd.InputStream(
-            samplerate=SAMPLE_RATE, blocksize=BLOCK, channels=1, dtype="float32", device=self.device, callback=callback
-        )
-        self._stream.start()
+        try:
+            import sounddevice as sd
+
+            self._stream = sd.InputStream(
+                samplerate=SAMPLE_RATE, blocksize=BLOCK, channels=1, dtype="float32", device=self.device, callback=callback
+            )
+            self._stream.start()
+        except Exception as exc:
+            try:
+                self._close_stream()
+            except Exception as cleanup:
+                log.warning("microphone cleanup after failed start: %s", cleanup)
+            self.error = f"Microphone could not open: {type(exc).__name__}: {exc}"[:240]
+            raise
+        self.error = None
 
     def stop(self) -> None:
         from .tts import PORTAUDIO
 
         PORTAUDIO.unregister_capture(self)
         self._suspended = False
-        if self._stream is not None:
-            try:
-                self._stream.stop()
-                self._stream.close()
-            finally:
-                self._stream = None
+        self._close_stream()
+        self.error = None
 
 
 def measure_input_level(device: int | str | None, seconds: float = 2.0) -> dict:

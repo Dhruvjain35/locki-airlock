@@ -15,10 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 import time
 import uuid
 from collections import deque
+from pathlib import Path
+
+import psutil
 
 from ..missions.workspace import PolicyError, asks_to_see_file
 from ..telemetry.events import EventSource, EventType
@@ -87,6 +91,57 @@ ACT_TOOLS = frozenset(MISSION_TOOLS) - READ_TOOLS
 LED_REFUSAL = "the robot's factory firmware (1.4.5) has no LED control over the link (docs/legacy/HARDWARE_PROTOCOL.md)"
 
 
+def local_model_admission(model: str, models_dir: Path) -> dict:
+    """Conservative startup heuristic, not a model memory benchmark.
+
+    Size the configured MLX weights without loading them. Reserve twice their disk
+    size plus 2 GiB for context/runtime and at least 4 GiB available overall. Match
+    the existing Nemotron guard's 30% maximum swap pressure. Unknown inputs deny.
+    """
+    result = {"ready": False, "reason": "Local model not loaded: resource estimate unavailable"}
+    try:
+        folder = Path(models_dir) / "llm" / model
+        if not (folder / "config.json").is_file():
+            return {**result, "reason": "Local model not loaded: configured model is not installed"}
+        weights = list(folder.glob("*.safetensors"))
+        if not weights or len(weights) > 2048:
+            return result
+        sizes = [path.stat().st_size for path in weights if path.is_file()]
+        if len(sizes) != len(weights) or any(size <= 0 for size in sizes):
+            return result
+        minimum = max(4 * 1024**3, 2 * sum(sizes) + 2 * 1024**3)
+        memory, swap = psutil.virtual_memory(), psutil.swap_memory()
+        if not isinstance(memory.available, int) or memory.available < 0 or not math.isfinite(swap.percent) or not 0 <= swap.percent <= 100:
+            return result
+        ready = memory.available >= minimum and swap.percent <= 30
+        return {"ready": ready, "weight_bytes": sum(sizes), "minimum_available_bytes": minimum,
+                "available_bytes": memory.available, "swap_percent": swap.percent,
+                "reason": "Local resource heuristic passed" if ready else "Local model not loaded: insufficient available memory or excessive swap pressure"}
+    except (OSError, ValueError, TypeError, AttributeError, psutil.Error):
+        return result
+
+
+class _UnavailableModel:
+    """Visible failure without constructing a worker or making a model request."""
+
+    state = "unavailable"
+
+    def __init__(self, model: str, reason: str, *, provider: str = "local", admission: dict | None = None):
+        self.model, self.error, self.provider = model, reason, provider
+        self.admission = admission
+
+    def describe(self) -> dict:
+        return {"provider": self.provider, "model": self.model, "state": self.state, "error": self.error, "admission": self.admission}
+
+    async def generate(self, *args, **kwargs):
+        from .local_llm import Generation
+
+        return Generation(finish="unavailable", error=self.error)
+
+    def close(self) -> None:
+        pass
+
+
 class Companion:
     def __init__(self, rt):
         self.rt = rt
@@ -114,26 +169,38 @@ class Companion:
         s = self.rt.settings
         if s.llm_provider != "local" or not self.rt.enable_llm:
             return
-        if s.local_llm_backend == "ollama" and self._ollama_serves(s):
+        try:
+            use_ollama = s.local_llm_backend == "ollama" and self._ollama_serves(s)
+        except ValueError:
+            self.llm = _UnavailableModel(s.ollama_model, "Ollama endpoint refused: expected a loopback HTTP origin", provider="ollama")
+            self.dialogue = DialogueEngine(self.llm, timeout_s=s.local_llm_timeout_s)
+            return
+        if use_ollama:
             from .ollama_llm import OllamaLLM
 
-            self.llm = OllamaLLM(s.ollama_model, base=s.ollama_url)
+            self.llm = OllamaLLM(s.ollama_model, base=s.ollama_url, warm=False)
         else:
             from .local_llm import LocalLLM
 
-            self.llm = LocalLLM(s.local_llm_model, s.models_dir)
+            admission = local_model_admission(s.local_llm_model, s.models_dir)
+            if admission["ready"]:
+                self.llm = LocalLLM(s.local_llm_model, s.models_dir)
+            else:
+                log.warning("%s", admission["reason"])
+                self.llm = _UnavailableModel(s.local_llm_model, admission["reason"], admission=admission)
         self.dialogue = DialogueEngine(self.llm, timeout_s=s.local_llm_timeout_s)
 
     @staticmethod
     def _ollama_serves(s) -> bool:
         """Ollama was chosen: use it only if it answers at ollama_url with ollama_model pulled (the M5 tunnel may be down). Otherwise the
-        conversation runs on this Mac's own model and says so in the log; security warnings never depended on either. A model name the adapter
+        conversation may use this Mac's own model only after resource admission; security warnings never depended on either. A model name the adapter
         refuses (cloud-hosted, untagged) is never swapped for another: it stays on Ollama and shows as refused."""
-        from .ollama_llm import _refusal, serves
+        from .ollama_llm import _refusal, local_ollama_endpoint, serves
 
-        if _refusal(s.ollama_model) or serves(s.ollama_url, s.ollama_model):
+        base = local_ollama_endpoint(s.ollama_url)
+        if _refusal(s.ollama_model) or serves(base, s.ollama_model):
             return True
-        log.warning("Ollama at %s does not serve %s; the conversation uses the local model %s", s.ollama_url, s.ollama_model, s.local_llm_model)
+        log.warning("Selected Ollama model unavailable; checking resource admission for local model %s", s.local_llm_model)
         return False
 
     def close(self) -> None:

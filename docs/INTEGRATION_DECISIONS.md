@@ -1,4 +1,4 @@
-# Integration decisions (proposed, pending Sid's review)
+# Integration decisions and Sid review
 
 This snapshot joins two development lanes that diverged from the same base:
 
@@ -57,3 +57,31 @@ These are acceptance requirements, whichever side of a conflict they came from:
 | Jetson person events | Sid's module keeps a jetson `person_in_zone` as a soft observation and opens no incident. So the Mac follows `my_device_events` for the cameras the owner lists (`LOCKEDIN_SPACETIME_REMOTE_CAMERAS=jetson-01`; none by default). A listed camera's real rows feed the same mode engine and presence warning as the Mac's camera, once each and only for the armed session. Age is judged on the server's `received_at_ms`, never on the camera's clock |
 | Natural arm and disarm phrases | More of the owner's own words reach the arm and disarm intents. "I'm back" while armed asks to stand down. No phrase arms or disarms by itself |
 | Sid's `43b40dd` | Added as a snapshot (investigator evidence access, the live ARM deployment record). The module source is Sid's exactly |
+
+
+## Sid review — 2026-11-08
+
+Reviewed the new repository snapshot at `2212251` without importing the original
+Git history. The seven textual resolutions above preserve both lanes' intended
+interfaces. Sid's transport remains separately named and tested, the M4 Python
+investigator remains in place, Make targets and routes remain distinct, the server
+contract is authoritative, and no robot firmware ships. This records Sid's technical
+review; backend/CV ownership and M4 runtime restart remain with Dhruv.
+
+The integration review additionally corrected concrete voice authorization issues:
+whole original utterances are checked before truncation/echo handling; a single
+request owns each in-flight consume; cached grant/session state is not authority;
+and exact fresh server readback precedes confirmation. Maincloud accepts one SQL
+statement per HTTP request, so the five readback views are queried separately with
+explicit cross-checks, not described as an atomic snapshot. Owner UI consent binds
+the target Mac, active app, baseline, policy, apps, duration and issuing connection.
+
+The original PRD excludes face identification. The release defaults that legacy
+path off, preserves primary person/hand-zone detection, skips stored templates and
+face model construction, and removes enrollment/recognition requirements from the
+default demo. No running M4 setting was changed by this source review.
+
+Software and isolated cloud results are in
+[RELEASE_ACCEPTANCE.md](airlock/RELEASE_ACCEPTANCE.md). M4 Claude must review/pull the
+PR and coordinate any restart; live microphone/audio, actual Mustafa evidence and
+held-out volunteer trials remain separate acceptance work.

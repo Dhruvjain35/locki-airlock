@@ -433,10 +433,9 @@ class LockedInRuntime:
 
     def _kokoro_lines(self) -> list[str]:
         """Fixed lines for the current personality that have no cloud clip, most needed first."""
+        from .voice.delivery import CATEGORY_MODE, MODE_SPEED
         from .voice.personality import Style as _Style
         from .voice.personality import cacheable_lines
-
-        from .voice.delivery import CATEGORY_MODE, MODE_SPEED
 
         cloud = self._cached_line_check()
         lines = cacheable_lines([self.style(), _Style(tone="serious")])
@@ -2020,7 +2019,11 @@ class LockedInRuntime:
         except Exception as exc:
             return self._result(False, f"voice unavailable: {exc}")
         if self.voice is None:
-            self.voice = VoiceService(settings=self.settings, emit=self._voice_emit, speaker=self.speaker, on_transcribing=self._stt_busy)
+            # Bind the producing instance, not whichever microphone happens to
+            # be active when a delayed worker finally emits its transcript.
+            voice = VoiceService(settings=self.settings, emit=lambda kind, data: self._voice_emit(kind, data, capture=voice),
+                                 speaker=self.speaker, on_transcribing=self._stt_busy)
+            self.voice = voice
             self.voice.thinking = self._composing_reply
         try:
             await asyncio.to_thread(self.voice.start, self.rs.voice.input_device, self.rs.voice.listen_mode)
@@ -2049,16 +2052,33 @@ class LockedInRuntime:
         if self.settings.llm_yields_to_voice and llm is not None and hasattr(llm, "voice_rendering"):
             llm.voice_rendering(busy)
 
-    def _voice_emit(self, kind: str, data: dict) -> None:
+    def _voice_emit(self, kind: str, data: dict, *, capture=None) -> None:
         loop = self._loop
         if loop is None or loop.is_closed():
             return
         if kind == "utterance":
+            from .security.arm_delegation import security_voice_intent
+
+            data = dict(data)
+            security_command = security_voice_intent(data.get("text")) is not None
             # The user stopped talking about one transcription ago: the start of the response clock.
             heard = time.monotonic() - float(data.get("latency_ms") or 0.0) / 1000.0
-            loop.call_soon_threadsafe(
-                lambda: asyncio.ensure_future(
-                    self.handle_utterance(
+
+            async def dispatch():
+                # Recheck inside the scheduled task: stop/restart can occur
+                # between a worker callback and its event-loop dispatch.
+                epoch = data.get("capture_epoch")
+                generation = data.get("input_generation")
+                if security_command and (
+                    capture is None or capture is not self.voice or not capture.running
+                    or type(epoch) is not int or epoch != capture.capture_epoch
+                    or getattr(capture, "input_held", False)
+                    or type(generation) is not int or generation != getattr(capture, "input_generation", None)
+                ):
+                    self.bus.publish(EventType.VOICE_COMMAND_REJECTED, EventSource.VOICE,
+                                     {"reason": "security command from inactive or unverified microphone capture"})
+                    return
+                await self.handle_utterance(
                         data["text"],
                         source="voice",
                         stt_confidence=data.get("confidence", 0.0),
@@ -2066,8 +2086,8 @@ class LockedInRuntime:
                         during_playback=bool(data.get("during_playback")),
                         heard_mono=heard,
                     )
-                )
-            )
+
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(dispatch()))
         elif kind == "barge_in":
             loop.call_soon_threadsafe(self._barge_in, data)
         elif kind == "speech_started":
@@ -2101,19 +2121,22 @@ class LockedInRuntime:
         return self._recorded_tr
 
     def recorded_status(self) -> dict:
-        tr = self.recorded_transcriber()
         v = self.voice
+        tr = getattr(v, "transcriber", None) or self._recorded_tr
         return {"stt": tr.describe() if tr is not None else {"state": "unavailable"}, "busy": self._recorded_busy,
                 "live_mic": {"running": bool(v and v.running), "mode": self.rs.voice.listen_mode, "held_for_recorded": bool(v and v.input_held)},
                 "turns": list(self.recorded_turns)[-10:][::-1]}
 
     async def handle_recorded(self, data: bytes, name: str) -> dict:
         """A recorded command: the same speech-to-text, the same conversation and security rules, a fresh spoken reply. Labelled
-        source=recorded everywhere. Arming still needs the owner's one-use grant; nothing here disarms, locks or approves."""
+        source=recorded everywhere. Recordings cannot arm or disarm, even with an owner's one-use grant."""
         from .voice.recorded import decode_wav
         from .voice.transcription import is_hallucination
 
         t0 = time.monotonic()
+        if self._recorded_busy:
+            return {"ok": False, "source": "recorded", "input_mode": "recorded",
+                    "error": "another recorded command is still being handled"}
         audio, info = decode_wav(data)  # RecordedAudioError: the route answers 400 with the reason
         record = {"input_mode": "recorded", "source": "recorded", "file": (name or "recording.wav")[:120], "audio": info, "at": time.time(), "ok": False}
         tr = self.recorded_transcriber()
@@ -2125,11 +2148,25 @@ class LockedInRuntime:
             record["error"] = "another recorded command is still being handled"
             return record
         self._recorded_busy = True
-        held = self.voice is not None and self.voice.running
-        if held:
-            self.voice.hold_input(True)
+        held_voice = self.voice if self.voice is not None and self.voice.running else None
+        if held_voice is not None:
+            held_voice.hold_input(True)
         try:
-            result = await asyncio.to_thread(tr.transcribe, audio)
+            worker = asyncio.create_task(asyncio.to_thread(tr.transcribe, audio))
+            try:
+                result = await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                # Cancellation cannot stop the thread or release its shared engine.
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not worker.cancelled():
+                    worker.exception()  # retrieve any worker failure; never dispatch cancelled speech
+                raise
             record["stt_ms"] = round((time.monotonic() - t0) * 1000, 1)
             text = ((result or {}).get("text") or "").strip()
             if result is None:
@@ -2145,20 +2182,20 @@ class LockedInRuntime:
                               handled_ms=round((time.monotonic() - t0) * 1000, 1))
         finally:
             self._recorded_busy = False
-            if held:
-                asyncio.ensure_future(self._release_mic_after_reply())
+            if held_voice is not None:
+                asyncio.ensure_future(self._release_mic_after_reply(held_voice))
         self.recorded_turns.append(record)
         self.bus.publish(EventType.VOICE_RECORDED_TURN, EventSource.OPERATOR, {k: v for k, v in record.items() if k not in ("transcript", "reply")})
         return record
 
-    async def _release_mic_after_reply(self) -> None:
+    async def _release_mic_after_reply(self, held_voice) -> None:
         """Listen to the room again only once LOCKI has finished answering, so its reply is never heard as a new turn."""
         deadline = time.monotonic() + self.RECORDED_MIC_RELEASE_S
         while time.monotonic() < deadline and (self.speaker.speaking or self._recorded_busy or len(getattr(self.speaker, "_items", ()))):
             await asyncio.sleep(0.1)
         await asyncio.sleep(0.5)
-        if self.voice is not None and not self._recorded_busy:
-            self.voice.hold_input(False)
+        if self.voice is held_voice and not self._recorded_busy:
+            held_voice.hold_input(False)
 
     def stop_speaking(self) -> dict:
         """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
@@ -2222,10 +2259,17 @@ class LockedInRuntime:
         self, text: str, source: str, stt_confidence: float, stt_ms: float | None, during_playback: bool
     ) -> CommandResult:
         t0 = time.monotonic()
+        from .security.arm_delegation import security_voice_intent
+
+        original_security_intent = security_voice_intent(text)
+        if source == "recorded" and original_security_intent is not None:
+            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
         text = (text or "").strip()[:300]
         exclude = frozenset() if self.missions.active else NEEDS_MISSION  # with no mission these mean what they always meant
         if not self.security.enabled:
             exclude |= AIRLOCK_INTENTS
+        if original_security_intent is None or during_playback or source == "recorded":
+            exclude |= {IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION}
         intent = self.classifier.classify(text, stt_confidence, exclude=exclude)
         turn = _TURN.get()
         if turn is not None:
@@ -2365,6 +2409,8 @@ class LockedInRuntime:
     async def _dispatch_intent(self, intent, origin: str) -> CommandResult:
         n = intent.name
         s = intent.slots
+        if origin == "recorded" and n in {IntentName.ARM_WORKSTATION, IntentName.DISARM_WORKSTATION}:
+            return self._result(False, "Recorded speech cannot arm or disarm. Use the live microphone or authenticated owner controls.")
         if n == IntentName.EMERGENCY_STOP:
             return await self.emergency_stop(origin=origin, reason=f"voice: {intent.text}")
         if n == IntentName.ARM_WORKSTATION:
@@ -2403,6 +2449,8 @@ class LockedInRuntime:
             return await self.pause_session(origin=origin)
         if n == IntentName.RESUME:
             if self.security.enabled and self.security.session is not None and not self.sessions.active and re.search(r"\b(i am|we are) back\b", intent.text or ""):
+                if origin == "recorded":
+                    return self._result(False, "Recorded speech cannot disarm. Use authenticated owner controls.")
                 return self.security.request_disarm_by_voice()  # "I'm back" while armed means the owner wants to stand down; it still needs the dashboard
             if not self.sessions.active:
                 return await self.start_session(origin=origin)

@@ -4,6 +4,7 @@ the owner issued for this device, and LOCKI says armed only when the database's 
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import time
 
@@ -17,16 +18,17 @@ from .test_security_spacetime import CONFIG, Recording, following, remote
 
 GRANT_COLUMNS = ["id", "workstation_id", "owner", "owner_connection_id", "device_id", "delegate", "session_id", "baseline_json", "active_app_id",
                  "approved_apps_json", "duration_ms", "owner_policy_hash", "issued_at_ms", "expires_at_ms", "status", "consumed_at_ms"]  # read from the live view
+MAC_ID, OWNER_ID = "a" * 64, "b" * 64
 
 
 def grant_row(status="authorized", expires_in_ms=45_000, auth="auth-1", session="dhruv-m4-air-voice-1", device=CONFIG.device_id, workstation=CONFIG.workstation_id):
     now = int(time.time() * 1000)
-    return [auth, workstation, ["0xowner"], ["0xconn"], device, ["0xmac"], session, "[]", "com.apple.Terminal", "[]", 600_000, "hash-1234", now - 1_000,
+    return [auth, workstation, ["0x" + OWNER_ID], ["0xconn"], device, ["0x" + MAC_ID], session, "[]", "com.apple.Terminal", "[]", 600_000, "hash-1234", now - 1_000,
             now + expires_in_ms, status, 0]
 
 
 def grant(**kw) -> ArmGrant:
-    return grant_from_row(dict(zip(GRANT_COLUMNS, grant_row(**kw))))
+    return grant_from_row(dict(zip(GRANT_COLUMNS, grant_row(**kw), strict=False)))
 
 
 def test_only_an_authorized_unexpired_grant_for_this_mac_is_usable():
@@ -60,11 +62,33 @@ class Delegating(Recording):
     def __init__(self, rt, reply="delivered", confirm=True):
         super().__init__()
         self.rt, self.reply, self.confirm, self.calls = rt, reply, confirm, []
+        self.committed = None
+        self.snapshots = 0
+
+    def read_arm_snapshot(self):
+        self.snapshots += 1
+        grants = self.rt.security.arm_grants._grants.values()
+        rows = []
+        for g in grants:
+            row = dict(zip(GRANT_COLUMNS, grant_row(auth=g.authorization_id, session=g.session_id, status=g.status, device=g.device_id, workstation=g.workstation_id), strict=False))
+            row.update(issued_at_ms=g.issued_at_ms, expires_at_ms=g.expires_at_ms)
+            if self.committed and self.committed[0] == g.authorization_id:
+                row.update(status="consumed", consumed_at_ms=self.committed[1])
+            rows.append(row)
+        result = {"grants": rows, "memberships": [{"workstation_id": CONFIG.workstation_id, "identity": ["0x" + MAC_ID], "role": "mac", "enabled": True}],
+                  "devices": [{"id": CONFIG.device_id, "workstation_id": CONFIG.workstation_id, "identity": ["0x" + MAC_ID], "role": "mac", "enabled": True}],
+                  "sessions": [], "workstations": [{"id": CONFIG.workstation_id, "owner": ["0x" + OWNER_ID], "active_session_id": "", "auto_lock_enabled": False, "owner_policy_hash": "hash-1234"}]}
+        if self.committed:
+            g = next(row for row in rows if row["id"] == self.committed[0])
+            result["sessions"] = [{"id": g["session_id"], "workstation_id": CONFIG.workstation_id, "armed_by": ["0x" + MAC_ID], "state": "armed", "armed_at_ms": self.committed[1], "expires_at_ms": self.committed[1] + g["duration_ms"], "disarmed_at_ms": 0, "baseline_json": g["baseline_json"], "approved_apps_json": g["approved_apps_json"], "owner_policy_hash": g["owner_policy_hash"], "auto_lock_enabled": False, "simulated": False}]
+            result["workstations"][0]["active_session_id"] = g["session_id"]
+        return copy.deepcopy(result)
 
     def call_reducer(self, reducer, args):
         self.calls.append((reducer, list(args)))
         if self.reply == "delivered" and self.confirm:
             g = self.rt.security.arm_grants.usable()
+            self.committed = (g.authorization_id, int(time.time() * 1000))
             loop = self.rt.security._loop or asyncio.get_event_loop()
             loop.call_soon_threadsafe(self.rt.security.apply_remote_session, remote(session_id=g.session_id if g else "?"))
         return Delivery(self.reply, self.name, f"{reducer}: {self.reply}")
@@ -99,16 +123,16 @@ async def test_the_owners_grant_arms_once_and_locki_says_so_only_after_the_datab
 
 
 async def test_an_expired_or_consumed_grant_is_never_called(rt):
-    h = await delegating(rt)
+    await delegating(rt)
     rt.security.arm_grants.apply(grant(expires_in_ms=500))
     r = await say(rt)
-    assert not r.ok and rt.security.transport.calls == [] and "expired" in rt.security.voice_arm["why"]
+    assert not r.ok and rt.security.transport.calls == [] and "unavailable" in rt.security.voice_arm["why"]
     rt.security.arm_grants.apply(grant(auth="auth-2", status="consumed"))  # a replay of a grant already used
     r = await say(rt)
     assert not r.ok and rt.security.transport.calls == [] and rt.security.session is None
 
 
-@pytest.mark.parametrize("reply, outcome, line", [("refused", "refused", "refused to arm"), ("failed", "unreachable", "can't reach the security database")])
+@pytest.mark.parametrize("reply, outcome, line", [("refused", "refused", "hasn't confirmed"), ("failed", "unconfirmed", "hasn't confirmed")])
 async def test_a_refused_or_failed_call_never_claims_to_be_armed(rt, reply, outcome, line):
     h = await delegating(rt, reply=reply)
     rt.security.arm_grants.apply(grant())
@@ -129,7 +153,7 @@ async def test_an_accepted_call_with_no_armed_session_back_is_reported_unconfirm
 
 
 async def test_a_spoken_disarm_still_changes_nothing_after_a_voice_arm(rt):
-    h = await delegating(rt)
+    await delegating(rt)
     rt.security.arm_grants.apply(grant())
     await say(rt)
     r = await say(rt, "Alright, we're good. Stand down.")

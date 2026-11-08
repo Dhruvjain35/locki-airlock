@@ -25,6 +25,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .contracts import IncidentState, IncidentUpdateV1
 
@@ -42,6 +43,7 @@ SEVERITY_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 DISPATCH_MAX_AGE_MS = 120_000  # an incident the server last changed longer ago than this (a replay after reconnecting) is recorded, never sent
 RETRY_DELAYS_S = (2.0, 6.0, 15.0)  # after the first attempt; only for transient failures
 MAX_INCIDENTS = 200
+MAX_PENDING_NOTIFICATIONS = 200
 
 
 def recipients_for(rule_id: str | None, severity: str) -> tuple[str, ...]:
@@ -68,8 +70,21 @@ class NtfyChannel:
     def __init__(self, topic: str, server: str = "https://ntfy.sh", token: str | None = None, timeout_s: float = 8.0):
         if not topic or len(topic) < 16:
             raise ValueError("an ntfy topic of at least 16 characters is needed (it is the secret)")
-        if not server.startswith("https://") and not server.startswith(("http://127.0.0.1", "http://localhost")):
-            raise ValueError("the ntfy server must use https")
+        try:
+            parsed = urlsplit(server)
+            valid = (
+                not any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in server)
+                and parsed.hostname and parsed.username is None and parsed.password is None
+                and not parsed.query and not parsed.fragment
+                and (parsed.scheme == "https" or (
+                    parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+                ))
+            )
+            valid = valid and (parsed.port is None or parsed.port > 0)  # also validates malformed/out-of-range ports
+        except ValueError:
+            valid = False
+        if not valid:
+            raise ValueError("the ntfy server must use https or an exact local loopback host, without credentials/query/fragment")
         self.topic, self.server, self.token, self.timeout_s = topic, server.rstrip("/"), token, timeout_s
 
     def describe(self) -> dict:
@@ -85,35 +100,39 @@ class NtfyChannel:
                    "tags": ["rotating_light"] if priority in ("urgent", "high") else ["warning"]}
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         try:
-            r = httpx.post(f"{self.server}/", json=payload, headers=headers, timeout=self.timeout_s)
+            r = httpx.post(f"{self.server}/", json=payload, headers=headers, timeout=self.timeout_s,
+                           trust_env=False, follow_redirects=False)
         except httpx.HTTPError as exc:
             raise TransientError(f"{type(exc).__name__}") from None  # never the URL: it holds the topic
         if r.status_code == 429 or r.status_code >= 500:
             raise TransientError(f"HTTP {r.status_code}")
-        if r.status_code >= 400:
+        if not 200 <= r.status_code < 300:
             raise PermanentError(f"HTTP {r.status_code}")
         try:
-            message_id = str(r.json().get("id") or "")
+            reply = r.json()
         except ValueError:
-            message_id = ""
-        if not message_id:
+            reply = None
+        message_id = reply.get("id") if isinstance(reply, dict) else None
+        if not isinstance(message_id, str) or not message_id.strip() or len(message_id) > 256:
             raise TransientError("no receipt id in the reply")
         return message_id
 
 
 def load_phone_channel(path: Path):
     """The owner's phone channel from data/notify/phone.json, or None. The file holds a secret, so it must be readable by the owner only."""
-    if not path.exists():
-        return None, None
-    mode = path.stat().st_mode
-    if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        return None, f"{path.name} is readable by other users; chmod 600 it"
     try:
+        if not path.exists():
+            return None, None
+        mode = path.stat().st_mode
+        if mode & (stat.S_IRWXG | stat.S_IRWXO):
+            return None, f"{path.name} is readable by other users; chmod 600 it"
         cfg = json.loads(path.read_text())
+        if not isinstance(cfg, dict):
+            raise ValueError("phone channel must be an object")
         if cfg.get("provider") != "ntfy":
             return None, f"unsupported provider {cfg.get('provider')!r}"
         return NtfyChannel(str(cfg["topic"]), str(cfg.get("server") or "https://ntfy.sh"), cfg.get("token") or None), None
-    except (KeyError, ValueError, TypeError) as exc:
+    except (KeyError, ValueError, TypeError, OSError) as exc:
         return None, f"{path.name} is not a valid phone channel: {type(exc).__name__}"
 
 
@@ -156,7 +175,7 @@ class Dispatcher:
         self.clock, self.retry_delays = clock, tuple(retry_delays)
         self.incidents: dict[str, IncidentRecord] = {}
         self._lock = threading.Lock()
-        self._queue: queue.Queue = queue.Queue()
+        self._queue: queue.Queue = queue.Queue(maxsize=MAX_PENDING_NOTIFICATIONS)
         self._stop = threading.Event()
         self._worker = threading.Thread(target=self._run, name="security-dispatch", daemon=True) if start_worker else None
         if self._worker is not None:
@@ -198,7 +217,7 @@ class Dispatcher:
                         d.status = "acknowledged"
             if update.state == IncidentState.RESOLVED:
                 return rec
-            if update.session_id and active_session_id and update.session_id != active_session_id:
+            if not active_session_id or update.session_id != active_session_id:
                 rec.skipped = "not the armed session"
                 return rec
             if update.updated_at and now - update.updated_at > DISPATCH_MAX_AGE_MS:
@@ -218,7 +237,12 @@ class Dispatcher:
             if "owner" in who and self.phone is not None:
                 d = Delivery("owner", "phone", rec.severity, "queued", now)
                 rec.deliveries.append(d)
-                self._queue.put((rec.incident_id, d))
+                try:
+                    # Preserve exact incident content even if its display record
+                    # is later evicted. Queue pressure never blocks local warnings.
+                    self._queue.put_nowait((rec.incident_id, d, self.message(rec)))
+                except queue.Full:
+                    d.status, d.error, d.failed_at_ms = "failed", "phone notification queue is full", now
             return rec
 
     def message(self, rec: IncidentRecord) -> tuple[str, str, str]:
@@ -233,15 +257,30 @@ class Dispatcher:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                incident_id, d = self._queue.get(timeout=0.5)
+                incident_id, d, message = self._queue.get(timeout=0.5)
             except queue.Empty:
                 continue
-            self.deliver(incident_id, d)
+            try:
+                self.deliver(incident_id, d, message=message)
+            except Exception as exc:
+                # A bad provider/config must not silently kill the sole worker.
+                # Exception text can contain channel credentials: retain only its type.
+                with self._lock:
+                    d.status, d.error, d.failed_at_ms = "failed", f"channel failure ({type(exc).__name__})", self.clock()
+                log.warning("phone notification for %s: channel failure (%s)", incident_id, type(exc).__name__)
 
-    def deliver(self, incident_id: str, d: Delivery) -> None:
+    def deliver(self, incident_id: str, d: Delivery, *, message: tuple[str, str, str] | None = None) -> None:
         with self._lock:
+            self.refresh_phone()
+            phone = self.phone  # one immutable destination for this delivery's retries
+            if phone is None:
+                d.status, d.error, d.failed_at_ms = "failed", "phone channel is unavailable", self.clock()
+                return
             rec = self.incidents.get(incident_id)
-            title, body, priority = self.message(rec) if rec else ("LOCKI incident", "Security incident.", "default")
+            if message is None and rec is None:
+                d.status, d.error, d.failed_at_ms = "failed", "incident content is unavailable", self.clock()
+                return
+            title, body, priority = message if message is not None else self.message(rec)
         delays = (0.0, *self.retry_delays)
         for attempt, delay in enumerate(delays, start=1):
             if delay and self._stop.wait(delay):
@@ -249,7 +288,7 @@ class Dispatcher:
             with self._lock:
                 d.status, d.attempts = "sending", attempt
             try:
-                receipt = self.phone.send(title, body, priority)
+                receipt = phone.send(title, body, priority)
             except TransientError as exc:
                 with self._lock:
                     d.error = str(exc)[:160]

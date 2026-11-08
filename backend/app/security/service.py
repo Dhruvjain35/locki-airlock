@@ -102,6 +102,8 @@ class SecurityService:
         self.warnings: deque[dict] = deque(maxlen=50)
         self.locks: deque[dict] = deque(maxlen=50)
         self.pending_arm: dict | None = None
+        self._voice_arm_busy = False
+        self._voice_arm_sessions: deque[str] = deque(maxlen=64)
         self._last_warned: dict[str, float] = {}
         self._code_hash: bytes | None = None
         self._code_salt: bytes | None = None
@@ -225,7 +227,8 @@ class SecurityService:
         if self.dispatch is None:
             self.dispatch = Dispatcher(config.workstation_id, self.rt.settings.data_dir / "notify" / "phone.json")
         self.subscriber = SpacetimeSubscriber(config, on_incident=self.apply_incident_update, on_lock_request=self.handle_lock_request, on_session=self.apply_remote_session,
-                                              on_camera_event=self.apply_remote_camera_event, on_arm_grant=self.arm_grants.apply)
+                                              on_camera_event=self.apply_remote_camera_event, on_arm_grant=self.arm_grants.apply,
+                                              on_arm_grants_reset=self.arm_grants.clear, on_arm_grant_removed=self.arm_grants.remove)
         self.subscriber.start()
 
     async def start_monitoring(self) -> dict:
@@ -295,7 +298,9 @@ class SecurityService:
             self._publish_state("armed", origin="spacetimedb", simulated=remote.simulated)
             self.modes.set_armed(True, remote.session_id)
             self._presence_quiet = False
-            self.rt._say("security_armed_camera" if self._camera_on() else "security_armed")
+            camera = self._camera_on()
+            if remote.session_id not in self._voice_arm_sessions:
+                self.rt._say("security_armed_camera" if camera else "security_armed")
         elif self.session is not None and self.session.session_id == remote.session_id:
             self.session, self.incident = None, None
             self.lock.owner_returned()
@@ -332,46 +337,83 @@ class SecurityService:
     def request_arm_by_voice(self):
         """Speech cannot arm by itself. With SpacetimeDB, the owner arms on its dashboard and this Mac follows; without it, the owner sets a disarm code here."""
         rt = self.rt
-        if self.session is not None:
+        if self.database_arms:
+            if self._voice_arm_busy:
+                return rt._result(False, "An owner-authorized arming request is already pending")
+            return self._arm_with_grant()
+        if self.session is not None and not self.session.expired():
             return rt._result(True, "already armed", rt._say("security_already_armed"))
         self.pending_arm = {"at": time.time(), "origin": "voice"}
         self._publish_state("arm_requested")
-        if self.database_arms:
-            grant = self.arm_grants.usable() if self.arm_grants is not None else None
-            if grant is not None:
-                return self._arm_with_grant(grant)  # a coroutine: the runtime awaits it
-            self._last_baseline = 0.0
-            self.report_baseline()  # keeps this Mac's capture fresh for the owner's review
-            why = self.arm_grants.why_none() if self.arm_grants is not None else "not following the database's grants"
-            self.voice_arm = {"at_ms": int(time.time() * 1000), "outcome": "no_grant", "why": why}
-            return rt._result(False, f"not armed: {why}; the owner approves voice arming on the dashboard", rt._say("security_arm_needs_grant"))
         return rt._result(True, "arming needs the owner's confirmation on the dashboard", rt._say("security_confirm_arm"))
 
-    async def _arm_with_grant(self, grant):
-        """Consume the owner's one-use grant: arm_session_delegated(workstation, authorization) and nothing the speaker chose. Armed is said
-        only when the armed session row for the grant's session comes back (apply_remote_session says it); otherwise LOCKI says what failed."""
-        from .arm_delegation import ARM_DELEGATED_REDUCER
+    async def _arm_with_grant(self):
+        """Fresh selection -> exact consume -> fresh committed readback. Never cache authority."""
+        from .arm_delegation import ARM_DELEGATED_REDUCER, confirmed_session_row, select_fresh_grant
+        from .spacetime_adapter import session_from_row
 
-        rt = self.rt
-        t0 = time.monotonic()
-        record = {"at_ms": int(time.time() * 1000), "authorization_id": grant.authorization_id, "session_id": grant.session_id, "outcome": "calling"}
+        if self._voice_arm_busy:
+            return self.rt._result(False, "An owner-authorized arming request is already pending")
+        # Reserve inside the coroutine, before its first await. Cancellation
+        # before it starts cannot leave an abandoned busy flag.
+        self._voice_arm_busy = True
+
+        async def owned_call(function, *args):
+            task = asyncio.create_task(asyncio.to_thread(function, *args))
+            try:
+                return await asyncio.shield(task)
+            except asyncio.CancelledError:
+                # A request may commit after cancellation. Keep single-flight
+                # ownership until the worker stops; never announce its result.
+                while not task.done():
+                    try:
+                        await asyncio.shield(task)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if task.done() and not task.cancelled():
+                    task.exception()  # consume a late worker failure without changing cancellation
+                raise
+
+        rt, t0, speech_epoch = self.rt, time.monotonic(), self.rt.speaker.epoch
+        record = {"at_ms": int(time.time() * 1000), "outcome": "reading_authorization"}
         self.voice_arm = record
-        delivery = await asyncio.to_thread(self.transport.call_reducer, ARM_DELEGATED_REDUCER, [grant.workstation_id, grant.authorization_id])
-        record["reducer_ms"] = round((time.monotonic() - t0) * 1000, 1)
-        record["reducer"] = {"status": delivery.status, "detail": delivery.detail}
-        if delivery.status != "delivered":
-            record["outcome"] = "refused" if delivery.status == "refused" else "unreachable"
-            line = "security_arm_refused" if delivery.status == "refused" else "security_arm_unreachable"
-            return rt._result(False, f"not armed: {ARM_DELEGATED_REDUCER} {delivery.status}: {delivery.detail}", rt._say(line))
-        deadline = time.monotonic() + ARM_READBACK_S
-        while time.monotonic() < deadline:
-            if self.session is not None and self.session.session_id == grant.session_id:
-                record["outcome"] = "armed"
-                record["readback_ms"] = round((time.monotonic() - t0) * 1000, 1)
-                return rt._result(True, f"armed: session {grant.session_id} confirmed by SpacetimeDB")
-            await asyncio.sleep(0.05)
-        record["outcome"] = "unconfirmed"
-        return rt._result(False, f"{ARM_DELEGATED_REDUCER} was accepted but no armed session {grant.session_id} came back within {ARM_READBACK_S:.0f} s", rt._say("security_arm_unconfirmed"))
+        try:
+            config = self.subscriber.config
+            try:
+                snapshot = await owned_call(self.transport.read_arm_snapshot)
+                grant = select_fresh_grant(snapshot, config.workstation_id, config.device_id)
+            except Exception as exc:
+                record.update(outcome="no_grant", why=f"Fresh matching owner authorization unavailable ({type(exc).__name__})")
+                return rt._result(False, "No new arming was confirmed; the owner approves voice arming on the dashboard", rt._say("security_arm_needs_grant"))
+            record.update(authorization_id=grant.authorization_id, session_id=grant.session_id, outcome="calling")
+            self._voice_arm_sessions.append(grant.session_id)
+            delivery = await owned_call(self.transport.call_reducer, ARM_DELEGATED_REDUCER, [config.workstation_id, grant.authorization_id])
+            record["reducer_ms"] = round((time.monotonic() - t0) * 1000, 1)
+            record["reducer"] = {"status": delivery.status, "detail": delivery.detail}
+            if delivery.status == "refused":
+                record["outcome"] = "refused"
+                # An explicit denial must never recover somebody else's consume.
+                return rt._result(False, "The database refused this arming request; no new ARM confirmed", rt._say("security_arm_unconfirmed"))
+            if delivery.status not in {"delivered", "failed"}:
+                raise ValueError("Unexpected ARM delivery status")
+            # A failed transport receipt is ambiguous, not proof of disarm. A
+            # fresh matching consumed grant and session can resolve ACK loss.
+            fresh = await owned_call(self.transport.read_arm_snapshot)
+            remote = session_from_row(confirmed_session_row(fresh, grant))
+            self.apply_remote_session(remote)  # preserves the existing monitors/camera path, with delegated speech suppressed
+            record.update(outcome="armed", readback_ms=round((time.monotonic() - t0) * 1000, 1))
+            reply = rt._say("security_armed") if rt.speaker.epoch == speech_epoch else None
+            return rt._result(True, f"armed: session {grant.session_id} confirmed by fresh SpacetimeDB readback", reply)
+        except asyncio.CancelledError:
+            record["outcome"] = "cancelled_unconfirmed"
+            raise
+        except Exception as exc:
+            record.update(outcome="unconfirmed", why=type(exc).__name__)
+            return rt._result(False, "The database has not confirmed this arming request; check the authenticated dashboard", rt._say("security_arm_unconfirmed"))
+        finally:
+            self._voice_arm_busy = False
 
     async def arm(self, owner_code: str, policy: ResponsePolicy | None = None, origin: str = "dashboard") -> ArmedSession:
         if self.session is not None and not self.session.expired():
@@ -406,6 +448,8 @@ class SecurityService:
         """Anyone in the room can say a word, so a spoken "disarm" changes nothing."""
         rt = self.rt
         self._publish_state("disarm_refused_by_voice")
+        if self.database_arms:
+            return rt._result(False, "Disarm requires the authenticated owner dashboard; voice did not disarm the workstation", rt._say("security_disarm_on_dashboard"))
         if self.session is None:
             return rt._result(False, "not armed", rt._say("security_not_armed"))
         return rt._result(False, "disarming needs the owner's code on the dashboard; a voice is not enough", rt._say("security_disarm_needs_owner"))

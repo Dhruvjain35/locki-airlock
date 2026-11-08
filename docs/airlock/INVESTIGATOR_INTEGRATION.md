@@ -1,5 +1,42 @@
 # Read-only Nemotron investigator integration
 
+## Current integration target (2026-11-08)
+
+The team integration repository is now `Dhruvjain35/locki-airlock`; the inspected
+snapshot is `2212251`. Coordination and the exact missing artifacts are tracked in
+[issue #2](https://github.com/Dhruvjain35/locki-airlock/issues/2). Do not post new
+integration work to the retired `Dhruvjain35/locked-in` PR.
+
+The snapshot's `backend/app/intelligence/airlock_agent.py` is Dhruv's Python
+investigator attached to `SecurityService` and `AirlockTools`. It reads local
+session/evidence state, can record local review/lock proposals and run the managed
+sandbox, and records steps through the service callback. It is **not** Mustafa's
+separately authenticated, evidence-only SpacetimeDB client. Its report uses an
+`assessment` enum rather than a risk-severity field. Do not silently convert that
+enum to server severity or grant this service's other tools to the read-only
+principal.
+
+`backend/scripts/airlock_investigate.py` starts a local runtime, arms a local test
+session, opens Calculator and may run a real model. It is **not** the read-only
+verifier and was not run for this reconciliation. No second investigator consumer
+was started. The snapshot's `docs/airlock/INTEGRATION.md` §5 describes Dhruv's camera
+measurements; it is not Mustafa's missing host contract with the same section number.
+
+Fresh software verification on this snapshot: the read-only verifier passed 16/16,
+the report reconciler 24/24, and investigator transactional authorization 38/38.
+Fixture transports verify wrong
+identity, scope, provenance, unsafe timestamps, broader/private access and
+mid-read revocation failures; report tests preserve server high versus advisory
+medium (and the inverse), and reject invented/cross-session citations. These tests
+do not establish that Mustafa has been granted access or that his model ran.
+
+The safe host integration remains explicit: use the three views below through his
+existing credential, expose only returned approved evidence as read tools, retain
+model/Relay logs locally, refresh authorization before rendering, and reconcile
+the final advisory result with server severity. Keep action/sandbox/review tools
+out of this principal. Host wiring requires Mustafa's actual branch and contract;
+replacing the local service with a guessed adapter would violate this boundary.
+
 The investigator extension is deployed to maincloud `locki-w91bw`. Source is on
 `feature/airlock-sid`. It was first deployed separately, then preserved in the
 combined ARM/investigator release. Current module hash:

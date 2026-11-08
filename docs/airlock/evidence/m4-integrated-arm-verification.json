@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "checkedAt": "2026-11-08T07:21:29.870Z",
+  "server": "https://maincloud.spacetimedb.com",
+  "database": "locki-w91bw",
+  "workstation": "m4-arm-proof-1794122487828",
+  "authorizationId": "voice-arm-15bc80ea-97ea-4167-871b-f84066d0f4a8",
+  "sessionId": "voice-session-27e6ce97-8aaa-4e33-90c9-36b719695161",
+  "ownerConsentHttp": true,
+  "privateFixtureCliRead": true,
+  "productionM4Service": {
+    "passed": true,
+    "sessionId": "voice-session-27e6ce97-8aaa-4e33-90c9-36b719695161",
+    "first": {
+      "ok": true,
+      "detail": "armed: session voice-session-27e6ce97-8aaa-4e33-90c9-36b719695161 confirmed by fresh SpacetimeDB readback"
+    },
+    "replay": {
+      "ok": false,
+      "detail": "No new arming was confirmed; the owner approves voice arming on the dashboard"
+    },
+    "spokenLines": [
+      "security_armed",
+      "security_arm_needs_grant"
+    ],
+    "hardware": false,
+    "audioPlayback": false
+  },
+  "fixture": "Synthetic private CLI credential, baseline/application and identities in unique fixture workstation. Actual owner consent HTTP/SDK plus Python M4 service method/transport; no runtime startup, microphone, camera, model or audio.",
+  "actualDhruvWorkstationMutated": false,
+  "actualM4CliCredentialUsed": false,
+  "finalFixtureDisarmed": true,
+  "lockRequests": 0
+}

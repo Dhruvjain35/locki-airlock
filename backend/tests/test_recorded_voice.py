@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import io
+import threading
 import wave
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -56,6 +58,12 @@ def test_unusable_files_are_refused_with_a_reason(data, why):
 def test_oversized_files_are_refused_before_decoding():
     with pytest.raises(RecordedAudioError, match="MB"):
         decode_wav(b"RIFF" + b"\0" * 4 + b"WAVE" + b"\0" * MAX_BYTES)
+
+
+@pytest.mark.parametrize("data", [b"RIFF\xff\xff\xff\xffWAVEfmt ", wav()[:-1], wav(width=3)[:-2], wav()[:50]])
+def test_truncated_headers_and_pcm_are_rejected_as_audio_errors(data):
+    with pytest.raises(RecordedAudioError):
+        decode_wav(data)
 
 
 # ------------------------------------------------------------------ the runtime
@@ -146,11 +154,11 @@ def test_stop_speaking_stops_locki_and_keeps_security_warnings(rt):
     assert r["ok"] and stopped == ["owner pressed stop speaking"] and "P0" in r["message"]
 
 
-async def test_a_recorded_command_never_arms_without_the_owners_grant_and_never_disarms(rt):
+async def test_a_recorded_command_never_arms_even_with_the_owners_grant_and_never_disarms(rt):
     from .test_security_arm_delegation import delegating, grant
     from .test_security_spacetime import remote
 
-    h = await delegating(rt)
+    await delegating(rt)
     rt._recorded_tr = SaysWhatItIsTold("LOCKI, watch my desk", "alright, we're good, stand down", "LOCKI, watch my desk")
     r = await rt.handle_recorded(wav(), "arm.wav")
     assert not r["ok"] and rt.security.session is None and rt.security.transport.calls == []  # no grant: nothing is called
@@ -160,7 +168,74 @@ async def test_a_recorded_command_never_arms_without_the_owners_grant_and_never_
     rt.security.apply_remote_session(remote(session_id="owner-armed", state="DISARMED"))
     rt.security.arm_grants.apply(grant())
     r = await rt.handle_recorded(wav(), "arm.wav")
-    assert r["ok"] and rt.security.transport.calls == [("arm_session_delegated", [rt.security.arm_grants.workstation_id, "auth-1"])]
+    assert not r["ok"] and rt.security.transport.calls == []
+    assert "Recorded speech cannot arm or disarm" in r["message"]
+
+
+@pytest.mark.parametrize("text", ["LOCKI, watch my desk", "Lockie arm the desk", "arm workstation",
+                                "disarm workstation", "alright, we're good, stand down",
+                                "don't arm the workstation", 'say "arm workstation"',
+                                "arm workstation " + " " * 350 + "do not execute this"])
+async def test_recorded_alias_negation_quote_and_original_text_never_reach_security_actions(rt, monkeypatch, text):
+    from .test_security_arm_delegation import delegating, grant
+
+    await delegating(rt)
+    rt.security.arm_grants.apply(grant())
+    calls = []
+    monkeypatch.setattr(rt.security, 'request_arm_by_voice', lambda: calls.append('ARM'))
+    monkeypatch.setattr(rt.security, 'request_disarm_by_voice', lambda: calls.append('DISARM'))
+    rt._recorded_tr = SaysWhatItIsTold(text)
+    await rt.handle_recorded(wav(), "../../untrusted.wav")
+    assert calls == [] and rt.security.transport.calls == []
+    assert rt.recorded_turns[-1]['source'] == 'recorded'
+
+
+def test_recorded_status_does_not_load_a_transcriber(rt, monkeypatch):
+    monkeypatch.setattr(rt, 'recorded_transcriber', lambda: pytest.fail('status must not initialize models'))
+    rt._recorded_tr = None
+    status = rt.recorded_status()
+    assert status['stt']['state'] == 'unavailable'
+
+
+async def test_repeated_cancellation_keeps_transcriber_busy_until_thread_finishes(rt):
+    entered, release = threading.Event(), threading.Event()
+
+    class BlockingTranscriber(SaysWhatItIsTold):
+        def transcribe(self, audio):
+            self.calls += 1
+            entered.set()
+            assert release.wait(5)
+            return {'text': 'watch my desk', 'confidence': 1.0}
+
+    tr = BlockingTranscriber()
+    rt._recorded_tr = tr
+    task = asyncio.create_task(rt.handle_recorded(wav(), 'cancelled.wav'))
+    try:
+        for _ in range(200):
+            if entered.is_set():
+                break
+            await asyncio.sleep(0.005)
+        assert entered.is_set()
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert rt._recorded_busy and not task.done()
+        refused = await rt.handle_recorded(wav(), 'overlap.wav')
+        assert not refused['ok'] and 'another recorded' in refused['error'] and tr.calls == 1
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert not rt._recorded_busy and not any(t['source'] == 'recorded' for t in rt.voice_turns)
+
+
+async def test_old_recorded_release_cannot_unhold_a_replacement_voice(rt):
+    old, new = Mic(), Mic()
+    rt.voice = new
+    await rt._release_mic_after_reply(old)
+    assert new.holds == [] and old.holds == []
+    rt.voice = None
 
 
 def test_the_routes_are_for_the_local_dashboard_only(settings):
@@ -176,9 +251,45 @@ def test_the_routes_are_for_the_local_dashboard_only(settings):
     with TestClient(create_app(settings, runtime)) as c:
         assert c.post("/api/voice/recorded?name=x.wav", content=wav(), headers={"origin": "http://evil.example"}).status_code == 403
         assert c.post("/api/voice/stop-speaking", headers={"origin": "http://evil.example"}).status_code == 403
+        assert c.get("/api/voice/recorded", headers={"origin": "http://evil.example"}).status_code == 403
         bad = c.post("/api/voice/recorded?name=x.mp3", content=b"ID3....", headers={"origin": "http://127.0.0.1:5174"})
         assert bad.status_code == 400 and "not a WAV" in bad.json()["detail"]
         ok = c.post("/api/voice/recorded?name=time.wav", content=wav(), headers={"origin": "http://127.0.0.1:5174"}).json()
         assert ok["transcript"] == "how much time is left" and ok["source"] == "recorded"
         status = c.get("/api/voice/recorded").json()
         assert status["stt"]["state"] == "ready" and status["turns"][0]["file"] == "time.wav"
+
+
+async def test_recorded_upload_deadline_concurrency_and_size_fail_before_transcription(rt, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.api import routes
+
+    state = SimpleNamespace(runtime=rt)
+    received = asyncio.Event()
+
+    async def slow_stream():
+        received.set()
+        await asyncio.Event().wait()
+        yield b'never'
+
+    request = SimpleNamespace(headers={}, app=SimpleNamespace(state=state), stream=slow_stream)
+    monkeypatch.setattr(routes, 'RECORDED_UPLOAD_TIMEOUT_S', 0.05)
+    first = asyncio.create_task(routes.recorded_command(request))
+    await received.wait()
+    with pytest.raises(HTTPException) as busy:
+        await routes.recorded_command(request)
+    assert busy.value.status_code == 429
+    with pytest.raises(HTTPException) as timeout:
+        await first
+    assert timeout.value.status_code == 408 and state.recorded_upload_active is False
+
+    async def oversized_stream():
+        yield b'x' * MAX_BYTES
+        yield b'x'
+
+    request.stream = oversized_stream
+    with pytest.raises(HTTPException) as oversized:
+        await routes.recorded_command(request)
+    assert oversized.value.status_code == 413 and state.recorded_upload_active is False
+    assert rt._recorded_tr is None and not rt.recorded_turns

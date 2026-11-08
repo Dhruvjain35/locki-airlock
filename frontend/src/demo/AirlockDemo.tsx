@@ -1,3 +1,4 @@
+import { faceIdentificationEnabled, visibleDemoStep, visibleDemoTiming } from "./demoScope";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { demoApi, type DemoSnap, type Mode, type Stat, type Step } from "./demoApi";
 
@@ -6,8 +7,8 @@ import { demoApi, type DemoSnap, type Mode, type Stat, type Step } from "./demoA
 
 const MODE_TONE: Record<Mode, { text: string; ring: string; chip: string; label: string; note: string }> = {
   NORMAL: { text: "text-ink-2", ring: "oklch(0.6 0.012 228)", chip: "chip-dim", label: "Normal", note: "Calm companion. Nobody unmatched at the desk." },
-  WATCHFUL: { text: "text-sim", ring: "var(--color-sim)", chip: "chip-sim", label: "Watchful", note: "Someone not matched to the owner is near the desk. Attentive, no accusation." },
-  DEFENSIVE: { text: "text-hit", ring: "var(--color-hit)", chip: "chip-hit", label: "Defensive", note: "Someone not matched to the owner is using protected equipment. Short, firm, P0 speech." },
+  WATCHFUL: { text: "text-sim", ring: "var(--color-sim)", chip: "chip-sim", label: "Watchful", note: "Someone is near the desk. Attentive, no accusation." },
+  DEFENSIVE: { text: "text-hit", ring: "var(--color-hit)", chip: "chip-hit", label: "Defensive", note: "Interaction with protected equipment was observed. Short, factual P0 speech." },
   CRITICAL: { text: "text-danger", ring: "var(--color-danger)", chip: "chip-danger", label: "Critical", note: "A real unknown USB device, or the database's correlated incident." },
   OWNER_RETURNED: { text: "text-ok", ring: "var(--color-ok)", chip: "chip-live", label: "Owner returned", note: "The enrolled owner's face matched. Normal tone; still armed until an authenticated disarm." },
 };
@@ -134,6 +135,7 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
     }
   };
 
+  const faceEnabled = faceIdentificationEnabled(snap);
   const tone = MODE_TONE[mode];
   const vs = snap?.visual_state;
   const active = !!snap?.active;
@@ -162,9 +164,9 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
             </>
           ) : (
             <>
-              <button className="btn btn-primary" disabled={!!busy || snap?.enrolling} onClick={() => act("enroll", demoApi.enroll)}>
+              {faceEnabled && <button className="btn btn-primary" disabled={!!busy || snap?.enrolling} onClick={() => act("enroll", demoApi.enroll)}>
                 {snap?.enrolled ? "Re-enroll owner" : "Enroll owner"}
-              </button>
+              </button>}
               {snap?.mode === "rehearsal" ? (
                 <button className="btn btn-sim" disabled={!!busy} onClick={() => act("fixture", demoApi.fixtureUsb)} title="Rehearsal only: a pretend USB arrival, labelled FIXTURE, never spoken">
                   Fixture USB
@@ -227,7 +229,7 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
           <section className="panel px-4 py-3">
             <div className="label mb-2">Demo steps</div>
             <ol className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))" }}>
-              {STEPS.map((s, i) => {
+              {STEPS.filter(step => visibleDemoStep(step.key, faceEnabled)).map((s, i) => {
                 const st = snap?.steps?.[s.key] ?? "pending";
                 const cls = st === "done" ? "border-[oklch(0.82_0.12_165/0.5)] text-ok" : st === "default" ? "border-[oklch(0.83_0.14_80/0.45)] text-sim" : "border-line-soft text-ink-3";
                 return (
@@ -258,23 +260,24 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
                 })}
               </ul>
             ) : (
-              <p className="text-[13px] text-ink-3">Nothing yet. Camera, USB, mode, incident and enrollment events appear here as they happen.</p>
+              <p className="text-[13px] text-ink-3">Nothing yet. Camera, USB, mode and incident events appear here as they happen.</p>
             )}
           </Card>
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <Card title="Owner face" tag={<span className={`chip ${snap?.enrolled ? "chip-live" : "chip-dim"}`}>{snap?.enrolled ? `enrolled · ${snap.enrolled_samples} samples` : "not enrolled"}</span>}>
+          {faceEnabled && <Card title="Owner face" tag={<span className={`chip ${snap?.enrolled ? "chip-live" : "chip-dim"}`}>{snap?.enrolled ? `enrolled · ${snap.enrolled_samples} samples` : "not enrolled"}</span>}>
             <Identity snap={snap} />
-          </Card>
+          </Card>}
+          {!faceEnabled && <Card title="Desk activity"><p className="text-[13px] text-ink-3">Person presence and interaction zones are observed without identifying anyone. Owner authentication controls arming and disarming.</p></Card>}
 
-          {active && (snap?.enrolling || (snap?.enrollment && !snap.enrolled)) ? (
+          {faceEnabled && active && (snap?.enrolling || (snap?.enrollment && !snap.enrolled)) ? (
             <Card title="Enrollment" tag={<span className="chip chip-live">camera</span>}>
               <Enrollment snap={snap} />
             </Card>
           ) : null}
 
-          {active ? (
+          {faceEnabled && active ? (
             <Card title="Recognition trials" tag={<span className="chip chip-dim">consenting volunteers</span>}>
               <Trials snap={snap} busy={!!busy} onTrial={(label, who) => act("trial", () => demoApi.trial(label, who))} />
             </Card>
@@ -283,8 +286,7 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
           <Card title="Arm and disarm" tag={<span className="chip chip-dim">{snap?.arming === "database" ? "SpacetimeDB arms" : "owner code"}</span>}>
             {snap?.arming === "database" ? (
               <p className="text-[13px] leading-relaxed text-ink-3">
-                SpacetimeDB owns arming for this workstation. Arm and disarm from its dashboard (or the owner's <span className="num text-ink-2">spacetime call ... arm_session</span>); this Mac follows within a
-                second. Saying "secure my workstation" asks for that confirmation.
+                SpacetimeDB owns arming for this workstation. Use the authenticated security dashboard to authorize one voice ARM, then say “LOCKI, watch my setup.” LOCKI confirms only after database readback. Disarming requires the owner.
               </p>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
@@ -302,7 +304,7 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
                 <button className="btn btn-ghost" disabled={!!busy || !snap?.armed || code.length < 4} onClick={() => act("disarm", () => demoApi.disarm(code))}>
                   Disarm
                 </button>
-                <span className="text-[12px] text-ink-4">A face never disarms. Screen lock stays a dry run.</span>
+                <span className="text-[12px] text-ink-4">Disarming requires owner authorization. Screen lock stays a dry run.</span>
               </div>
             )}
           </Card>
@@ -310,7 +312,7 @@ export function AirlockDemo({ onExit }: { onExit: () => void }) {
           <Card title="Measured" tag={<span className="chip chip-dim">p50 · p95 · n</span>}>
             <table className="w-full text-[12.5px]">
               <tbody>
-                {TIMINGS.map((t) => {
+                {TIMINGS.filter(timing => visibleDemoTiming(timing.key, faceEnabled)).map((t) => {
                   const v = snap?.timings?.[t.key] as Stat | undefined;
                   return (
                     <tr key={t.key} className="border-b border-line-soft/60 last:border-0">

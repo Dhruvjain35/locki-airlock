@@ -3,10 +3,13 @@ re-initialised only when the default actually changed, only between clips, and t
 
 from __future__ import annotations
 
-import asyncio
+import sys
+from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
+from app.voice.input import AudioCapture
 from app.voice.tts import AudioOut, PortAudioHost, default_output_device_id
 
 
@@ -49,6 +52,92 @@ class FakeCapture:
     def resume(self):
         self.resumed += 1
         self._stream = object()
+
+
+class FakeInputStream:
+    def __init__(self, *, fail_stop=False, fail_start=False):
+        self.fail_stop, self.fail_start = fail_stop, fail_start
+        self.starts = self.stops = self.closes = 0
+
+    def start(self):
+        self.starts += 1
+        if self.fail_start:
+            raise RuntimeError("input cannot start")
+
+    def stop(self):
+        self.stops += 1
+        if self.fail_stop:
+            raise RuntimeError("input device disappeared")
+
+    def close(self):
+        self.closes += 1
+
+
+@pytest.mark.parametrize("operation", ["suspend", "stop"])
+def test_a_capture_attempts_close_even_when_stopping_raises(operation):
+    capture = AudioCapture()
+    stream = FakeInputStream(fail_stop=True)
+    capture._stream = stream
+    with pytest.raises(RuntimeError, match="input device disappeared"):
+        getattr(capture, operation)()
+    assert stream.stops == stream.closes == 1
+    assert capture._stream is None and capture.state == "error"
+
+
+def test_a_capture_closes_a_stream_that_fails_to_start(monkeypatch):
+    stream = FakeInputStream(fail_start=True)
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(InputStream=lambda **_kwargs: stream))
+    capture = AudioCapture()
+    with pytest.raises(RuntimeError, match="input cannot start"):
+        capture._open()
+    assert stream.closes == 1 and capture._stream is None
+    assert capture.state == "error" and "input cannot start" in capture.error
+
+
+@pytest.mark.parametrize("reopen_fails", [False, True])
+async def test_a_mic_close_or_reopen_failure_preserves_warning_playback_and_other_captures(monkeypatch, reopen_fails):
+    sd, host = FakeSD(), PortAudioHost(lookup=lambda: 41)
+    failed, healthy = AudioCapture(), FakeCapture()
+    old, replacement = FakeInputStream(fail_stop=True), FakeInputStream()
+    failed._stream = old
+
+    def open_input(**_kwargs):
+        if reopen_fails:
+            raise RuntimeError("input still unavailable")
+        return replacement
+
+    sd.InputStream = open_input
+    monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    host.register_capture(failed)
+    host.register_capture(healthy)
+    await AudioOut(host=host).play(np.zeros(24, dtype=np.int16), 24000)
+    assert old.closes == 1 and sd.initialised == sd.terminated == 1
+    assert len(sd.played) == 1 and sd.played[0][0] > 24  # the warning still has its latency tail
+    assert healthy.suspended == healthy.resumed == 1 and healthy._stream is not None
+    if reopen_fails:
+        assert failed._stream is None and failed.state == "error"
+        assert "input still unavailable" in failed.error
+    else:
+        assert failed._stream is replacement and failed.state == "running" and failed.error is None
+
+
+def test_voice_snapshot_reports_a_failed_capture_reopen(settings, monkeypatch):
+    from app.voice.service import VoiceService
+
+    def unavailable(**_kwargs):
+        raise RuntimeError("microphone unavailable")
+
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(InputStream=unavailable))
+    capture = AudioCapture()
+    capture._suspended = True
+    with pytest.raises(RuntimeError, match="microphone unavailable"):
+        capture.resume()
+    service = VoiceService(settings.model_copy(update={"vad_engine": "energy"}), emit=lambda *_args: None)
+    service.running, service.capture = True, capture  # active service, with no actual threads or microphone
+    snapshot = service.snapshot()
+    assert snapshot["running"] and snapshot["stalled"] and snapshot["capture_state"] == "error"
+    assert snapshot["conversation_state"] == "IDLE"
+    assert "microphone unavailable" in snapshot["warning"] and snapshot["reason"] == snapshot["warning"]
 
 
 def host_with(devices):

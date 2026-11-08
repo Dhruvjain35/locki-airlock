@@ -1,5 +1,26 @@
 # AIRLOCK PRD implementation and acceptance status
 
+**Current integration reconciliation (2026-11-08):** the authoritative integration
+repository is `Dhruvjain35/locki-airlock`, based on audited snapshot `2212251`.
+See [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the current P0 and named-test
+matrix, differences from the original PRD, and the distinction between inspected
+artifacts and teammate-reported hardware/model results. The older entries below
+are historical evidence from Sid's original lane; their old repository links,
+test counts, hardware discovery and missing-branch statements are not current
+release certification. Full PRD acceptance remains incomplete.
+
+Final merged-source checks: 1,562 backend tests passed/20 skipped; 46 frontend tests
+and build; 149 transactional +28 policy; 151 Node adapter, 31 read/HTTP boundary,
+28 owner-consent policy, 22 camera-free edge and 10 model-transport tests passed.
+Fresh cloud ARM authorization passed 12 checks; the production M4 service ARM path
+passed owner-consent HTTP/private fixture CLI issuance, session readback and replay
+denial without real M4 credentials or hardware/audio. Separate authorized stored-data
+readback confirmed an actual owner-armed M4 session and two non-simulated Jetson soft
+observations. This is not physical-frame/publisher-receipt or volunteer-accuracy proof.
+Face identification is now disabled by default in source (97 focused tests passed,
+one skipped); the running M4 privacy configuration remains unverified. Details and
+remaining gates are in the current release matrix above; raw real evidence stays local.
+
 This is a bounded evidence snapshot for the supplied `LOCKI_AIRLOCK_PRD.md`, sections 0–16, reconciled on 2026-11-07 after functional regression verification. The latest source release and commit-specific CI are recorded separately below. Machine-readable sanitized evidence is [software-verification.json](evidence/software-verification.json), whose historical runs retain their own source and timing boundaries. Full PRD acceptance remains incomplete. The source PRD remains unchanged. **Implemented** means code exists; **verified locally** means a described real execution occurred; **pending** means the acceptance evidence has not been collected. A synthetic observation through a real database does not become a physical observation.
 
 ## P0 requirements, individually
