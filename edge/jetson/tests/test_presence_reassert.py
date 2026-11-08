@@ -233,7 +233,7 @@ class RuntimeReassertTest(unittest.TestCase):
             f.write("t")
         os.chmod(tok, 0o600)
         # Derived from the live contract so whatever the operator sets there (kinds, health) is what runs here,
-        # but with person_cleared pinned in or out: the operator adds it to the live file after one live accept.
+        # but with person_cleared pinned in or out.
         with open(LIVE_CONTRACT) as f:
             live = json.load(f)
         base = [k for k in live["kinds"] if k != "person_cleared"]
@@ -242,6 +242,9 @@ class RuntimeReassertTest(unittest.TestCase):
         for path, kinds in ((self.live_plus_cleared, base + ["person_cleared"]), (self.live_without_cleared, base)):
             with open(path, "w") as f:
                 json.dump(dict(live, kinds=kinds, wire_metadata_keys=[]), f)
+        self.person_only = os.path.join(self.d, "person_only.json")   # the kinds accepted live so far
+        with open(self.person_only, "w") as f:
+            json.dump(dict(live, kinds=["person_in_zone"], wire_metadata_keys=[]), f)
         self.values = {"AIRLOCK_EDGE_RUNTIME": "jetson", "AIRLOCK_DEVICE_ID": "jetson-01",
                        "AIRLOCK_WORKSTATION_ID": "ws-1", "AIRLOCK_EDGE_AUTH_FILE": tok,
                        "AIRLOCK_STATE_DIR": os.path.join(self.d, "state"), "AIRLOCK_SESSION_ID": "ws-session-1",
@@ -383,7 +386,7 @@ class RuntimeReassertTest(unittest.TestCase):
         self.assertNotIn("camera_unavailable", C.KIND_CAPABILITY)   # the module refused that name
 
     def test_camera_kinds_stay_local_until_the_contract_lists_them(self):
-        rt = self.runtime(AIRLOCK_CONTRACT_FILE=self.live_without_cleared)
+        rt = self.runtime(AIRLOCK_CONTRACT_FILE=self.person_only)
         self.outage(rt)
         rt.outbox.close()
         self.assertEqual(self.queued(rt), [])

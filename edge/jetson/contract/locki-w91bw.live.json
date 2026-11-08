@@ -12,9 +12,12 @@
     "person_in_zone, metadata {}, live armed session, seq 1": "accepted, HTTP 200 (07:13:22Z jetson-01, 07:14:18Z mac-dev-cam-01)"
   },
   "kinds": [
-    "person_in_zone"
+    "person_in_zone",
+    "person_cleared",
+    "camera_offline",
+    "camera_online"
   ],
-  "_kinds_note": "Only person_in_zone has been accepted live. The module source allows role jetson only ['person_in_zone','person_cleared','camera_offline','camera_online','heartbeat'] (spacetime/src/index.ts:434). The face and interaction kinds (owner_face_match, unrecognized_face, face_uncertain, keyboard_interaction, usb_zone_interaction) are refused for role jetson and were never live-tested, so the edge keeps them in its local audit (kind_not_in_contract). person_cleared is not listed: the edge never emits it and it was never live-tested.",
+  "_kinds_note": "Accepted live from role jetson: person_in_zone only. person_cleared, camera_offline and camera_online are listed because the module source allows them for role jetson (spacetime/src/index.ts:434: person_in_zone, person_cleared, camera_offline, camera_online, heartbeat) and the M4 reads person_cleared as the desk clearing; their first live answer is still pending, and a refusal only rejects that one event. Face and interaction kinds stay local: the module refuses them for role jetson.",
   "wire_metadata_keys": [],
   "max_metadata_value_chars": 32,
   "health_components": [

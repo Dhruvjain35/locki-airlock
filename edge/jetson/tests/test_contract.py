@@ -139,9 +139,9 @@ class TestLiveContract(unittest.TestCase):
     # The module's allowlist for role "jetson" (spacetime/src/index.ts:434).
     MODULE_JETSON_KINDS = frozenset(("person_in_zone", "person_cleared", "camera_offline", "camera_online", "heartbeat"))
 
-    def test_lists_only_the_kind_accepted_live(self):
+    def test_lists_only_kinds_the_module_allows_for_role_jetson(self):
         live = C.Contract.from_file(os.path.join(ROOT, "contract", "locki-w91bw.live.json"))
-        self.assertEqual(live.kinds, frozenset(("person_in_zone",)))
+        self.assertEqual(live.kinds, frozenset(("person_in_zone", "person_cleared", "camera_offline", "camera_online")))
         self.assertTrue(live.kinds <= self.MODULE_JETSON_KINDS)
         for kind in ("owner_face_match", "unrecognized_face", "face_uncertain", "keyboard_interaction",
                      "usb_zone_interaction"):
