@@ -319,3 +319,21 @@ async def test_a_refused_or_failed_turn_never_shows_the_previous_turns_reply_or_
     assert refused["reply"] == "I can't arm from a recording. The owner approves arming in the LOCKI owner console." and refused["reply"] != first.get("reply")
     failed = await rt.handle_recorded(wav(), "silent-words.wav")
     assert failed.get("reply") is None and failed.get("intent") is None  # nothing carried over from the turns before
+
+
+def test_a_typed_command_is_for_the_local_dashboard_only(settings):
+    """A rebinding page (its own origin resolving to 127.0.0.1) sends a same-origin JSON POST with no CORS preflight; the guard refuses it."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from app.runtime import LockedInRuntime
+
+    from .test_voice_trials import RecordingTTS
+
+    runtime = LockedInRuntime(settings, persist_settings=False, tts_engine=RecordingTTS(), enable_vision=False, enable_voice=False)
+    with TestClient(create_app(settings, runtime)) as c:
+        for origin in ("http://evil.example", "http://rebind.example:8077"):
+            assert c.post("/api/command", json={"text": "what happened"}, headers={"origin": origin}).status_code == 403
+        assert not [t for t in runtime.voice_turns if t.get("source") == "typed"]
+        assert c.post("/api/command", json={"text": "how much time is left"}, headers={"origin": "http://127.0.0.1:5174"}).status_code == 200
+        assert c.post("/api/command", json={"text": "how much time is left"}).status_code == 200  # no Origin: curl and the dashboard proxy

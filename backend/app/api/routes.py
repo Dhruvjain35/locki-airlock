@@ -359,6 +359,7 @@ async def robot_link_tests(request: Request):
 # ------------------------------------------------------------------ voice / commands
 @router.post("/command")
 async def typed_command(body: TypedCommand, request: Request):
+    _own_dashboard(request)  # a typed turn can start a live investigation or a voice arm: only the local dashboard may send one
     return (await rt_of(request).handle_utterance(body.text, source="typed", stt_confidence=1.0)).to_dict()
 
 

@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
+from .api.local_only import LocalOnly
 from .api.routes import router
 from .api.security_routes import router as security_router
 from .api.websocket import handle_ws
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None, runtime: LockedInRuntime | None
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(LocalOnly, allowed_hosts=settings.trusted_hosts)  # added last, so it runs first: before CORS and every route
     app.include_router(router)
     app.include_router(security_router)
 
