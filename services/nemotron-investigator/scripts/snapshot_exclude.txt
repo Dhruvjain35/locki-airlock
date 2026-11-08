@@ -1,0 +1,24 @@
+# Paths removed from the monorepo snapshot, relative to the package root (shell globs).
+# They stay in the standalone repository; they are just not part of the clean source drop.
+#
+# Results produced before 2026-11-08 06:30 UTC. Back then fixture scenario A reused a real
+# incident id, so these files contain it. The v4 results (fixture-only ids) replace them.
+bench/results/bench_20261107T234540Z.*
+bench/results/bench_20261107T234723Z.*
+bench/results/bench_20261107T234838Z.*
+bench/results/bench_20261108T000408Z.*
+bench/results/bench_20261108T000632Z.*
+bench/results/bench_20261108T001717Z.*
+bench/results/bench_20261108T005053Z.*
+bench/results/bench_20261108T005610Z.*
+bench/results/bench_20261108T005610Z_rescore.json
+bench/results/bench_20261108T010203Z.*
+bench/results/runs/20261107T234540Z
+bench/results/runs/20261107T234723Z
+bench/results/runs/20261107T234838Z
+bench/results/runs/20261108T000408Z
+bench/results/runs/20261108T000632Z
+bench/results/runs/20261108T001717Z
+bench/results/runs/20261108T005053Z
+bench/results/runs/20261108T005610Z
+bench/results/runs/20261108T010203Z

@@ -1,0 +1,178 @@
+{
+  "dataset_id": "B_unknown_person_then_usb",
+  "label": "FIXTURE - not a live SpacetimeDB read",
+  "derived_from": "Illustrative scenario (no real incident).",
+  "notes": "Hand near port precedes the USB connect by ~6 s; CV never observes an insertion directly.",
+  "tables": {
+    "incidents": [
+      {
+        "id": "incident:fixture-b-person-then-usb",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "severity": "high",
+        "state": "open",
+        "rule_id": "unrecognized_person_usb",
+        "summary": "Unrecognized person near desk followed by unknown USB mass storage",
+        "event_ids_json": "[\"evt:fx-1e0acb09a5258301f7d8\", \"evt:fx-4328f1695475437bcbd4\"]",
+        "digital_event_id": "evt:fx-4328f1695475437bcbd4",
+        "physical_event_id": "evt:fx-1e0acb09a5258301f7d8",
+        "created_at_ms": 1794089131880,
+        "updated_at_ms": 1794089131880,
+        "acknowledged_by": "",
+        "resolved_by": "",
+        "resolution_note": "",
+        "action_required": true,
+        "simulated": false
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess:fx-df7e70e5021544f4834b",
+        "workstation_id": "ws:fixture-b",
+        "state": "armed",
+        "armed_by": "c200000000000000000000000000000000000000000000000000000000000000",
+        "armed_at_ms": 1794087331880,
+        "expires_at_ms": 1794101731880,
+        "disarmed_at_ms": 0,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "approved_apps_json": "[\"com.apple.finder\", \"com.apple.Safari\", \"com.microsoft.VSCode\", \"com.tinyspeck.slackmacgap\"]",
+        "auto_lock_enabled": true,
+        "owner_policy_hash": "sha256:placeholder-policy",
+        "simulated": false
+      }
+    ],
+    "device_events": [
+      {
+        "id": "evt:fx-619ea6eea2096aeae1ba",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:jetson-cv",
+        "source": "jetson_cv",
+        "kind": "person_detected",
+        "observed_at_ms": 1794089039880,
+        "received_at_ms": 1794089040020,
+        "seq": 901,
+        "confidence": 0.93,
+        "metadata_json": "{\"track_id\": 7, \"zone\": \"desk\", \"camera_id\": \"logitech-c920\", \"frame_count\": 64}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-29774085924ca50857a0",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:jetson-cv",
+        "source": "jetson_cv",
+        "kind": "face_unrecognized",
+        "observed_at_ms": 1794089043380,
+        "received_at_ms": 1794089043520,
+        "seq": 902,
+        "confidence": 0.81,
+        "metadata_json": "{\"track_id\": 7, \"face_match\": false, \"face_match_score\": 0.19, \"identity_label\": \"unknown\", \"owner_present\": false}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-b79ddf4a4f695088e2be",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:jetson-cv",
+        "source": "jetson_cv",
+        "kind": "desk_interaction",
+        "observed_at_ms": 1794089090880,
+        "received_at_ms": 1794089091020,
+        "seq": 905,
+        "confidence": 0.77,
+        "metadata_json": "{\"track_id\": 7, \"zone\": \"keyboard_area\", \"duration_ms\": 18000}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-1e0acb09a5258301f7d8",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:jetson-cv",
+        "source": "jetson_cv",
+        "kind": "hand_near_usb_port",
+        "observed_at_ms": 1794089125680,
+        "received_at_ms": 1794089125820,
+        "seq": 909,
+        "confidence": 0.72,
+        "metadata_json": "{\"track_id\": 7, \"zone\": \"usb_port_left\", \"duration_ms\": 3100}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-4328f1695475437bcbd4",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:mac-usb",
+        "source": "macos_usb",
+        "kind": "usb_device_connected",
+        "observed_at_ms": 1794089131580,
+        "received_at_ms": 1794089131720,
+        "seq": 5120,
+        "confidence": 1.0,
+        "metadata_json": "{\"vendor_id\": \"0x0781\", \"product_id\": \"0x5581\", \"vendor_name\": \"SanDisk\", \"product_name\": \"Ultra\", \"serial_hash\": \"sha256:51ad0e7731\", \"device_class\": \"mass_storage\", \"mass_storage\": true}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": "unknown_usb"
+      },
+      {
+        "id": "evt:fx-d0596f2bd1b01ee7c47d",
+        "workstation_id": "ws:fixture-b",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "device_id": "dev:mac-app",
+        "source": "macos_app",
+        "kind": "app_activated",
+        "observed_at_ms": 1794089140880,
+        "received_at_ms": 1794089141020,
+        "seq": 5121,
+        "confidence": 1.0,
+        "metadata_json": "{\"bundle_id\": \"com.apple.finder\", \"app_name\": \"Finder\", \"approved\": true}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      }
+    ],
+    "baseline_snapshots": [
+      {
+        "id": "base:fx-73f931df0a26ad17809f",
+        "workstation_id": "ws:fixture-b",
+        "device_id": "dev:mac-agent",
+        "publisher": "c200000000000000000000000000000000000000000000000000000000000000",
+        "observed_at_ms": 1794087331880,
+        "received_at_ms": 1794087331970,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "active_app_id": "com.apple.Safari",
+        "session_id": "sess:fx-df7e70e5021544f4834b",
+        "camera_status": "online",
+        "health_json": "{}"
+      }
+    ],
+    "device_health": [
+      {
+        "id": "health:fx-d19e16132e28fb7b1424",
+        "workstation_id": "ws:fixture-b",
+        "device_id": "dev:mac-usb",
+        "component": "usb_watcher",
+        "status": "ok",
+        "last_seen_ms": 1794089131080,
+        "detail": "IOKit watcher running"
+      },
+      {
+        "id": "health:fx-9a1a4996d956a7368459",
+        "workstation_id": "ws:fixture-b",
+        "device_id": "dev:jetson-cv",
+        "component": "vision",
+        "status": "ok",
+        "last_seen_ms": 1794089130380,
+        "detail": "Jetson CV 14 fps"
+      }
+    ]
+  }
+}

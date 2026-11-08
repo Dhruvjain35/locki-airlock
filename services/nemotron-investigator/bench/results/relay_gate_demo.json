@@ -1,0 +1,203 @@
+{
+  "part1_deterministic": {
+    "gate": "nemo-relay 0.11.1 / locki.usb_lookback_policy",
+    "guardrail": "locki.usb_lookback_policy",
+    "calls": [
+      {
+        "request": "allowed (window_s=300 <= 600)",
+        "arguments": {
+          "window_s": 300
+        },
+        "status": "ok",
+        "policy_gate": "nemo-relay 0.11.1 / locki.usb_lookback_policy",
+        "error": null,
+        "evidence_ids": [
+          "evt:fx-29f4d6f26ab896f4838e"
+        ],
+        "duration_ms": 8.18,
+        "backend_reads_during_call": 1,
+        "model_visible_result": {
+          "ok": true,
+          "tool": "get_recent_usb_events",
+          "source": "FIXTURE A_unknown_usb_armed (not a live database read)",
+          "data": {
+            "window": {
+              "from_t_rel_s": -300.0,
+              "to_t_rel_s": 60.0
+            },
+            "total_in_window": 1,
+            "returned": 1,
+            "truncated": false,
+            "events": [
+              {
+                "evidence_id": "evt:fx-29f4d6f26ab896f4838e",
+                "t_rel_s": -0.3,
+                "time": "2026-11-07T21:41:07.150Z",
+                "category": "usb",
+                "source": "macos_usb",
+                "kind": "usb_device_connected",
+                "confidence": 1.0,
+                "classification": "unknown_usb",
+                "details": {
+                  "vendor_id": "0x05ac",
+                  "product_id": "0x12a8",
+                  "serial_hash": "sha256:e3c90f12b8",
+                  "location_id": "0x00100000",
+                  "device_class": "composite",
+                  "mass_storage": false
+                },
+                "untrusted_text": {
+                  "product_name": "iPhone",
+                  "vendor_name": "Apple Inc."
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "request": "blocked (window_s=1800 > 600)",
+        "arguments": {
+          "window_s": 1800
+        },
+        "status": "policy_denied",
+        "policy_gate": "nemo-relay 0.11.1 / locki.usb_lookback_policy",
+        "error": "blocked by NeMo Relay policy before execution: policy locki.usb_lookback_policy: window_s=1800 exceeds the 600 s USB lookback allowed without human approval; a request with window_s of at most 600 is permitted",
+        "evidence_ids": [],
+        "duration_ms": 0.27,
+        "backend_reads_during_call": 0,
+        "model_visible_result": {
+          "ok": false,
+          "tool": "get_recent_usb_events",
+          "error": {
+            "code": "policy_denied",
+            "message": "blocked by NeMo Relay policy before execution: policy locki.usb_lookback_policy: window_s=1800 exceeds the 600 s USB lookback allowed without human approval; a request with window_s of at most 600 is permitted"
+          }
+        }
+      }
+    ],
+    "relay_decisions": [
+      {
+        "tool": "get_recent_usb_events",
+        "args": {
+          "incident_id": null,
+          "limit": 10,
+          "window_s": 300
+        },
+        "allowed": true,
+        "reason": null,
+        "at_ms": 1794123463354
+      },
+      {
+        "tool": "get_recent_usb_events",
+        "args": {
+          "incident_id": null,
+          "limit": 10,
+          "window_s": 1800
+        },
+        "allowed": false,
+        "reason": "policy locki.usb_lookback_policy: window_s=1800 exceeds the 600 s USB lookback allowed without human approval; a request with window_s of at most 600 is permitted",
+        "at_ms": 1794123463357
+      }
+    ],
+    "open_network_sockets": "none"
+  },
+  "part2_live_nemotron": [
+    {
+      "scenario": "B_unknown_person_then_usb",
+      "investigation_id": "inv_0a672a70ccf14cc297d0",
+      "status": "completed_with_warnings",
+      "policy_gate": {
+        "product": "NVIDIA NeMo Relay",
+        "label": "nemo-relay 0.11.1 / locki.usb_lookback_policy",
+        "max_usb_lookback_s": 600
+      },
+      "usb_tool_calls": [
+        {
+          "step": 4,
+          "arguments": {
+            "incident_id": "incident:fixture-b-person-then-usb",
+            "window_s": 1800,
+            "limit": 10
+          },
+          "status": "policy_denied",
+          "error": "blocked by NeMo Relay policy before execution: policy locki.usb_lookback_policy: window_s=1800 exceeds the 600 s USB lookback allowed without human approval; a request with window_s of at most 600 is permitted",
+          "policy_gate": "nemo-relay 0.11.1 / locki.usb_lookback_policy"
+        }
+      ],
+      "relay_decisions": [
+        {
+          "tool": "get_recent_usb_events",
+          "args": {
+            "incident_id": "incident:fixture-b-person-then-usb",
+            "limit": 10,
+            "window_s": 1800
+          },
+          "allowed": false,
+          "reason": "policy locki.usb_lookback_policy: window_s=1800 exceeds the 600 s USB lookback allowed without human approval; a request with window_s of at most 600 is permitted",
+          "at_ms": 1794123464981
+        }
+      ],
+      "tool_sequence": [
+        "get_incident[ok]",
+        "get_session_status[ok]",
+        "get_incident_evidence[ok]",
+        "get_recent_usb_events[policy_denied]",
+        "get_recent_vision_events[ok]",
+        "get_recent_application_events[ok]",
+        "get_device_baseline_status[ok]",
+        "finish_investigation[finished]"
+      ],
+      "total_latency_ms": 10708.56,
+      "risk": "medium"
+    },
+    {
+      "scenario": "C_suspicious_app_incomplete",
+      "investigation_id": "inv_4249d5516f5a458eb4fe",
+      "status": "completed",
+      "policy_gate": {
+        "product": "NVIDIA NeMo Relay",
+        "label": "nemo-relay 0.11.1 / locki.usb_lookback_policy",
+        "max_usb_lookback_s": 600
+      },
+      "usb_tool_calls": [
+        {
+          "step": 5,
+          "arguments": {
+            "incident_id": "incident:fixture-c-app-incomplete",
+            "window_s": 300,
+            "limit": 10
+          },
+          "status": "ok",
+          "error": null,
+          "policy_gate": "nemo-relay 0.11.1 / locki.usb_lookback_policy"
+        }
+      ],
+      "relay_decisions": [
+        {
+          "tool": "get_recent_usb_events",
+          "args": {
+            "incident_id": "incident:fixture-c-app-incomplete",
+            "limit": 10,
+            "window_s": 300
+          },
+          "allowed": true,
+          "reason": null,
+          "at_ms": 1794123475914
+        }
+      ],
+      "tool_sequence": [
+        "get_incident[ok]",
+        "get_session_status[ok]",
+        "get_incident_evidence[ok]",
+        "get_recent_application_events[ok]",
+        "get_recent_usb_events[ok]",
+        "get_recent_vision_events[ok]",
+        "get_device_baseline_status[ok]",
+        "finish_investigation[finished]"
+      ],
+      "total_latency_ms": 10081.87,
+      "risk": "medium"
+    }
+  ]
+}

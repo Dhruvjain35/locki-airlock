@@ -1,0 +1,69 @@
+{
+  "probed_at_ms": 1794123139725,
+  "host": "https://maincloud.spacetimedb.com",
+  "database": "locki-w91bw",
+  "investigator_identity": "c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883",
+  "limit_clause_supported": true,
+  "checks": [
+    {
+      "check": "ping_and_least_privilege",
+      "ok": true,
+      "ms": 158.7,
+      "result": {
+        "reachable": true,
+        "live": true,
+        "memberships": 0,
+        "authorized_for_any_workstation": false,
+        "least_privilege_ok": true
+      }
+    },
+    {
+      "check": "list_recent_incidents via my_incidents (operator listing)",
+      "ok": true,
+      "ms": 120.2,
+      "result": {
+        "visible": 0
+      }
+    },
+    {
+      "check": "direct private table read (expected refusal: HTTP 400 -> contract_error)",
+      "ok": false,
+      "ms": 120.1,
+      "result": null,
+      "error_type": "contract_error"
+    },
+    {
+      "check": "session read scoped to workstation (id AND workstation_id)",
+      "ok": true,
+      "ms": 152.0,
+      "result": {
+        "rows": 0
+      }
+    },
+    {
+      "check": "event window on received_at_ms with LIMIT 500 (syntax check)",
+      "ok": true,
+      "ms": 131.7,
+      "result": {
+        "rows": 0
+      }
+    },
+    {
+      "check": "baseline read, 24 h lower bound, LIMIT 200 (syntax check)",
+      "ok": true,
+      "ms": 132.0,
+      "result": {
+        "rows": 0
+      }
+    },
+    {
+      "check": "device health read with LIMIT 500 (syntax check)",
+      "ok": true,
+      "ms": 119.9,
+      "result": {
+        "rows": 0
+      }
+    }
+  ],
+  "note": "redacted copy; the full probe (with row content) is under var/live/ and is never committed"
+}

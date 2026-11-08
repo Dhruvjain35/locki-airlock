@@ -1,0 +1,58 @@
+{
+  "dataset_id": "N1_missing_evidence",
+  "label": "FIXTURE - not a live SpacetimeDB read",
+  "derived_from": "Illustrative negative scenario.",
+  "notes": "Linked events are not retrievable, no USB/CV/app events exist, no baseline recorded.",
+  "tables": {
+    "incidents": [
+      {
+        "id": "incident:fixture-n1-missing-evidence",
+        "workstation_id": "ws:fixture-n1",
+        "session_id": "sess:fx-b79f477f6d435116155b",
+        "severity": "medium",
+        "state": "open",
+        "rule_id": "unknown_usb",
+        "summary": "Unknown USB device connected while session armed",
+        "event_ids_json": "[\"evt:fx-3ea5a9d192ce1cb0bfc6\", \"evt:fx-e31679d20b85027b1960\"]",
+        "digital_event_id": "evt:fx-3ea5a9d192ce1cb0bfc6",
+        "physical_event_id": "",
+        "created_at_ms": 1794091490300,
+        "updated_at_ms": 1794091490300,
+        "acknowledged_by": "",
+        "resolved_by": "",
+        "resolution_note": "",
+        "action_required": true,
+        "simulated": false
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess:fx-b79f477f6d435116155b",
+        "workstation_id": "ws:fixture-n1",
+        "state": "armed",
+        "armed_by": "c200000000000000000000000000000000000000000000000000000000000000",
+        "armed_at_ms": 1794090290300,
+        "expires_at_ms": 1794104690300,
+        "disarmed_at_ms": 0,
+        "baseline_json": "{}",
+        "approved_apps_json": "[\"com.apple.finder\", \"com.apple.Safari\", \"com.microsoft.VSCode\", \"com.tinyspeck.slackmacgap\"]",
+        "auto_lock_enabled": true,
+        "owner_policy_hash": "sha256:placeholder-policy",
+        "simulated": false
+      }
+    ],
+    "device_events": [],
+    "baseline_snapshots": [],
+    "device_health": [
+      {
+        "id": "health:fx-928d1fe4283db0cd8f9d",
+        "workstation_id": "ws:fixture-n1",
+        "device_id": "dev:mac-usb",
+        "component": "usb_watcher",
+        "status": "restarting",
+        "last_seen_ms": 1794091492300,
+        "detail": "watcher restarted; event buffer lost"
+      }
+    ]
+  }
+}

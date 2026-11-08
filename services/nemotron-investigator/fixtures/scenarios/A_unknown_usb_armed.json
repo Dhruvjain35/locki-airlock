@@ -1,0 +1,98 @@
+{
+  "dataset_id": "A_unknown_usb_armed",
+  "label": "FIXTURE - not a live SpacetimeDB read",
+  "derived_from": "Modeled on the team's iPhone USB test of 2026-11-07 (rule unknown_usb, severity medium, action_required true). No id or row is copied from the live database.",
+  "notes": "Session was later disarmed (the real test session was disarmed). No CV was running.",
+  "tables": {
+    "incidents": [
+      {
+        "id": "incident:fixture-a-unknown-usb",
+        "workstation_id": "ws:fixture-a",
+        "session_id": "sess:fx-559aead08264d5795d39",
+        "severity": "medium",
+        "state": "open",
+        "rule_id": "unknown_usb",
+        "summary": "Unknown USB device connected while session armed",
+        "event_ids_json": "[\"evt:fx-29f4d6f26ab896f4838e\"]",
+        "digital_event_id": "evt:fx-29f4d6f26ab896f4838e",
+        "physical_event_id": "",
+        "created_at_ms": 1794087667412,
+        "updated_at_ms": 1794087667412,
+        "acknowledged_by": "",
+        "resolved_by": "",
+        "resolution_note": "",
+        "action_required": true,
+        "simulated": false
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess:fx-559aead08264d5795d39",
+        "workstation_id": "ws:fixture-a",
+        "state": "disarmed",
+        "armed_by": "c200000000000000000000000000000000000000000000000000000000000000",
+        "armed_at_ms": 1794087007412,
+        "expires_at_ms": 1794101407412,
+        "disarmed_at_ms": 1794088087412,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "approved_apps_json": "[\"com.apple.finder\", \"com.apple.Safari\", \"com.microsoft.VSCode\", \"com.tinyspeck.slackmacgap\"]",
+        "auto_lock_enabled": true,
+        "owner_policy_hash": "sha256:placeholder-policy",
+        "simulated": false
+      }
+    ],
+    "device_events": [
+      {
+        "id": "evt:fx-29f4d6f26ab896f4838e",
+        "workstation_id": "ws:fixture-a",
+        "session_id": "sess:fx-559aead08264d5795d39",
+        "device_id": "dev:mac-usb",
+        "source": "macos_usb",
+        "kind": "usb_device_connected",
+        "observed_at_ms": 1794087667150,
+        "received_at_ms": 1794087667290,
+        "seq": 4182,
+        "confidence": 1.0,
+        "metadata_json": "{\"vendor_id\": \"0x05ac\", \"product_id\": \"0x12a8\", \"vendor_name\": \"Apple Inc.\", \"product_name\": \"iPhone\", \"serial_hash\": \"sha256:e3c90f12b8\", \"location_id\": \"0x00100000\", \"device_class\": \"composite\", \"mass_storage\": false}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": "unknown_usb"
+      }
+    ],
+    "baseline_snapshots": [
+      {
+        "id": "base:fx-613722ebfc893d0f0ee0",
+        "workstation_id": "ws:fixture-a",
+        "device_id": "dev:mac-agent",
+        "publisher": "c200000000000000000000000000000000000000000000000000000000000000",
+        "observed_at_ms": 1794087007412,
+        "received_at_ms": 1794087007502,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "active_app_id": "com.apple.finder",
+        "session_id": "sess:fx-559aead08264d5795d39",
+        "camera_status": "not_reporting",
+        "health_json": "{}"
+      }
+    ],
+    "device_health": [
+      {
+        "id": "health:fx-e1fd809f0ba58874addd",
+        "workstation_id": "ws:fixture-a",
+        "device_id": "dev:mac-usb",
+        "component": "usb_watcher",
+        "status": "ok",
+        "last_seen_ms": 1794087666412,
+        "detail": "IOKit watcher running"
+      },
+      {
+        "id": "health:fx-390765a63eb9dc99980f",
+        "workstation_id": "ws:fixture-a",
+        "device_id": "dev:jetson-cv",
+        "component": "vision",
+        "status": "not_reporting",
+        "last_seen_ms": 1794085267412,
+        "detail": "no CV heartbeat received"
+      }
+    ]
+  }
+}

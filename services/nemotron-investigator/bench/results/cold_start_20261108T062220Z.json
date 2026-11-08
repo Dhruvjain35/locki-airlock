@@ -1,0 +1,35 @@
+{
+  "measured_utc": "2026-11-08T06:22:20Z",
+  "how": "the shared model had idle-unloaded on its own (/api/ps empty before the run); never force-unloaded",
+  "scenario": "A (fixture, test data)",
+  "model": "nemotron-3.5-bolt:e4b",
+  "runtime": {
+    "ollama_version": "0.40.15",
+    "runner": "mlx",
+    "model_digest": "fe4af3f5907b9275322dfea4fc3e4208c64469d0a47e3c05030c10cd27b49b38"
+  },
+  "first_model_call": {
+    "wall_ms": 4940.57,
+    "load_ms": 4121.76,
+    "prompt_tokens": 1034
+  },
+  "time_to_first_tool_decision_ms": 5000.63,
+  "total_latency_ms": 12814.41,
+  "model_latency_ms": 12745.19,
+  "status": "completed",
+  "tool_sequence": [
+    "get_incident",
+    "get_session_status",
+    "get_incident_evidence",
+    "get_recent_usb_events",
+    "get_recent_vision_events",
+    "get_recent_application_events",
+    "get_device_baseline_status",
+    "finish_investigation"
+  ],
+  "after_run_api_ps": {
+    "context_length": 4096,
+    "size_vram_gb": 7.67
+  },
+  "note": "numbers only: the raw record is kept privately because it predates the fixture id change"
+}

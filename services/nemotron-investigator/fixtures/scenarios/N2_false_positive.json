@@ -1,0 +1,130 @@
+{
+  "dataset_id": "N2_false_positive",
+  "label": "FIXTURE - not a live SpacetimeDB read",
+  "derived_from": "Illustrative negative scenario.",
+  "notes": "Owner's baseline keyboard re-enumerated without a serial; owner verified at the desk 8 s before.",
+  "tables": {
+    "incidents": [
+      {
+        "id": "incident:fixture-n2-false-positive",
+        "workstation_id": "ws:fixture-n2",
+        "session_id": "sess:fx-2a5f06422d35ac8977cb",
+        "severity": "medium",
+        "state": "open",
+        "rule_id": "unknown_usb",
+        "summary": "Unknown USB device connected while session armed",
+        "event_ids_json": "[\"evt:fx-35debd035cd98c54e068\"]",
+        "digital_event_id": "evt:fx-35debd035cd98c54e068",
+        "physical_event_id": "",
+        "created_at_ms": 1794092538950,
+        "updated_at_ms": 1794092538950,
+        "acknowledged_by": "",
+        "resolved_by": "",
+        "resolution_note": "",
+        "action_required": true,
+        "simulated": false
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess:fx-2a5f06422d35ac8977cb",
+        "workstation_id": "ws:fixture-n2",
+        "state": "armed",
+        "armed_by": "c200000000000000000000000000000000000000000000000000000000000000",
+        "armed_at_ms": 1794091638950,
+        "expires_at_ms": 1794106038950,
+        "disarmed_at_ms": 0,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "approved_apps_json": "[\"com.apple.finder\", \"com.apple.Safari\", \"com.microsoft.VSCode\", \"com.tinyspeck.slackmacgap\"]",
+        "auto_lock_enabled": true,
+        "owner_policy_hash": "sha256:placeholder-policy",
+        "simulated": false
+      }
+    ],
+    "device_events": [
+      {
+        "id": "evt:fx-bb818b2196999c1ab553",
+        "workstation_id": "ws:fixture-n2",
+        "session_id": "sess:fx-2a5f06422d35ac8977cb",
+        "device_id": "dev:jetson-cv",
+        "source": "jetson_cv",
+        "kind": "owner_verified",
+        "observed_at_ms": 1794092530950,
+        "received_at_ms": 1794092531090,
+        "seq": 1201,
+        "confidence": 0.96,
+        "metadata_json": "{\"track_id\": 2, \"zone\": \"desk\", \"face_match\": true, \"face_match_score\": 0.97, \"identity_label\": \"owner\", \"owner_present\": true}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-ea48a62eba52953abf2d",
+        "workstation_id": "ws:fixture-n2",
+        "session_id": "sess:fx-2a5f06422d35ac8977cb",
+        "device_id": "dev:mac-usb",
+        "source": "macos_usb",
+        "kind": "usb_device_disconnected",
+        "observed_at_ms": 1794092537050,
+        "received_at_ms": 1794092537190,
+        "seq": 6301,
+        "confidence": 1.0,
+        "metadata_json": "{\"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"product_name\": \"Magic Keyboard\", \"serial_hash\": \"sha256:4b1e0c55aa\"}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-35debd035cd98c54e068",
+        "workstation_id": "ws:fixture-n2",
+        "session_id": "sess:fx-2a5f06422d35ac8977cb",
+        "device_id": "dev:mac-usb",
+        "source": "macos_usb",
+        "kind": "usb_device_connected",
+        "observed_at_ms": 1794092538600,
+        "received_at_ms": 1794092538740,
+        "seq": 6302,
+        "confidence": 1.0,
+        "metadata_json": "{\"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"product_name\": \"Magic Keyboard\", \"device_class\": \"hid\", \"mass_storage\": false}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": "unknown_usb"
+      }
+    ],
+    "baseline_snapshots": [
+      {
+        "id": "base:fx-c06f3adccaa078d0970f",
+        "workstation_id": "ws:fixture-n2",
+        "device_id": "dev:mac-agent",
+        "publisher": "c200000000000000000000000000000000000000000000000000000000000000",
+        "observed_at_ms": 1794091638950,
+        "received_at_ms": 1794091639040,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "active_app_id": "com.apple.Safari",
+        "session_id": "sess:fx-2a5f06422d35ac8977cb",
+        "camera_status": "online",
+        "health_json": "{}"
+      }
+    ],
+    "device_health": [
+      {
+        "id": "health:fx-13c92e7a82f0623a579d",
+        "workstation_id": "ws:fixture-n2",
+        "device_id": "dev:mac-usb",
+        "component": "usb_watcher",
+        "status": "ok",
+        "last_seen_ms": 1794092538450,
+        "detail": "IOKit watcher running"
+      },
+      {
+        "id": "health:fx-352f57672aef3623125d",
+        "workstation_id": "ws:fixture-n2",
+        "device_id": "dev:jetson-cv",
+        "component": "vision",
+        "status": "ok",
+        "last_seen_ms": 1794092538050,
+        "detail": "Jetson CV 15 fps"
+      }
+    ]
+  }
+}

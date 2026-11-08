@@ -1,0 +1,389 @@
+{
+  "started_utc": "2026-11-08T06:50:34.509158+00:00",
+  "seed": 1794120634,
+  "model": "nemotron-3.5-bolt:e4b",
+  "runtime": {
+    "ollama_version": "0.40.15",
+    "model_digest": "fe4af3f5907b9275322dfea4fc3e4208c64469d0a47e3c05030c10cd27b49b38",
+    "runner": "mlx",
+    "family": ""
+  },
+  "ps_before": {
+    "context_length": 4096,
+    "size_vram_gb": 15.92
+  },
+  "request_options": {
+    "temperature": 0,
+    "num_predict": 120,
+    "num_ctx": "not sent",
+    "keep_alive": "not sent"
+  },
+  "trials": [
+    {
+      "target_tokens": 3000,
+      "trial": 1,
+      "wall_ms": 1658.8,
+      "prompt_eval_count": 3148,
+      "eval_count": 69,
+      "load_ms": 0.5,
+      "prompt_eval_ms": 1013.6,
+      "answer": "S=AMBER-1936-BISON\nU1=TULIP-5787-OPAL\nM1=QUILL-9429-YUCCA\nM2=JUNCO-9410-ZEPHYR\nE=NOVA-6107-LOTUS",
+      "recall": {
+        "S": {
+          "expected": "AMBER-1936-BISON",
+          "got": "AMBER-1936-BISON",
+          "ok": true
+        },
+        "U1": {
+          "expected": "TULIP-5787-OPAL",
+          "got": "TULIP-5787-OPAL",
+          "ok": true
+        },
+        "M1": {
+          "expected": "QUILL-9429-YUCCA",
+          "got": "QUILL-9429-YUCCA",
+          "ok": true
+        },
+        "M2": {
+          "expected": "JUNCO-9410-ZEPHYR",
+          "got": "JUNCO-9410-ZEPHYR",
+          "ok": true
+        },
+        "E": {
+          "expected": "NOVA-6107-LOTUS",
+          "got": "NOVA-6107-LOTUS",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 16.04
+      }
+    },
+    {
+      "target_tokens": 3000,
+      "trial": 2,
+      "wall_ms": 1785.0,
+      "prompt_eval_count": 3138,
+      "eval_count": 66,
+      "load_ms": 0.4,
+      "prompt_eval_ms": 1042.2,
+      "answer": "S=LOTUS-2263-WALRUS\nU1=AMBER-3553-BISON\nM1=XENON-3675-DELTA\nM2=OPAL-9772-IGLOO\nE=EMBER-3726-DELTA",
+      "recall": {
+        "S": {
+          "expected": "LOTUS-2263-WALRUS",
+          "got": "LOTUS-2263-WALRUS",
+          "ok": true
+        },
+        "U1": {
+          "expected": "AMBER-3553-BISON",
+          "got": "AMBER-3553-BISON",
+          "ok": true
+        },
+        "M1": {
+          "expected": "XENON-3675-DELTA",
+          "got": "XENON-3675-DELTA",
+          "ok": true
+        },
+        "M2": {
+          "expected": "OPAL-9772-IGLOO",
+          "got": "OPAL-9772-IGLOO",
+          "ok": true
+        },
+        "E": {
+          "expected": "EMBER-3726-DELTA",
+          "got": "EMBER-3726-DELTA",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 15.95
+      }
+    },
+    {
+      "target_tokens": 4600,
+      "trial": 1,
+      "wall_ms": 2084.1,
+      "prompt_eval_count": 4614,
+      "eval_count": 69,
+      "load_ms": 0.4,
+      "prompt_eval_ms": 1505.0,
+      "answer": "S=CEDAR-5651-JUNCO\nU1=HAZEL-3858-BISON\nM1=ZEPHYR-2661-YUCCA\nM2=RAVEN-2963-NOVA\nE=YUCCA-8916-PIXEL",
+      "recall": {
+        "S": {
+          "expected": "CEDAR-5651-JUNCO",
+          "got": "CEDAR-5651-JUNCO",
+          "ok": true
+        },
+        "U1": {
+          "expected": "HAZEL-3858-BISON",
+          "got": "HAZEL-3858-BISON",
+          "ok": true
+        },
+        "M1": {
+          "expected": "ZEPHYR-2661-YUCCA",
+          "got": "ZEPHYR-2661-YUCCA",
+          "ok": true
+        },
+        "M2": {
+          "expected": "RAVEN-2963-NOVA",
+          "got": "RAVEN-2963-NOVA",
+          "ok": true
+        },
+        "E": {
+          "expected": "YUCCA-8916-PIXEL",
+          "got": "YUCCA-8916-PIXEL",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 15.95
+      }
+    },
+    {
+      "target_tokens": 4600,
+      "trial": 2,
+      "wall_ms": 2307.5,
+      "prompt_eval_count": 4622,
+      "eval_count": 71,
+      "load_ms": 0.8,
+      "prompt_eval_ms": 1548.2,
+      "answer": "S=QUILL-3287-XENON\nU1=HAZEL-3718-IGLOO\nM1=DELTA-6404-CEDAR\nM2=VIOLA-8124-GECKO\nE=BISON-6341-IGLOO",
+      "recall": {
+        "S": {
+          "expected": "QUILL-3287-XENON",
+          "got": "QUILL-3287-XENON",
+          "ok": true
+        },
+        "U1": {
+          "expected": "HAZEL-3718-IGLOO",
+          "got": "HAZEL-3718-IGLOO",
+          "ok": true
+        },
+        "M1": {
+          "expected": "DELTA-6404-CEDAR",
+          "got": "DELTA-6404-CEDAR",
+          "ok": true
+        },
+        "M2": {
+          "expected": "VIOLA-8124-GECKO",
+          "got": "VIOLA-8124-GECKO",
+          "ok": true
+        },
+        "E": {
+          "expected": "BISON-6341-IGLOO",
+          "got": "BISON-6341-IGLOO",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 15.99
+      }
+    },
+    {
+      "target_tokens": 6900,
+      "trial": 1,
+      "wall_ms": 3102.1,
+      "prompt_eval_count": 6807,
+      "eval_count": 71,
+      "load_ms": 0.6,
+      "prompt_eval_ms": 2315.5,
+      "answer": "S=MAPLE-9488-LOTUS\nU1=TULIP-9666-IGLOO\nM1=SIERRA-4765-SIERRA\nM2=LOTUS-6946-DELTA\nE=YUCCA-8898-ZEPHYR",
+      "recall": {
+        "S": {
+          "expected": "MAPLE-9488-LOTUS",
+          "got": "MAPLE-9488-LOTUS",
+          "ok": true
+        },
+        "U1": {
+          "expected": "TULIP-9666-IGLOO",
+          "got": "TULIP-9666-IGLOO",
+          "ok": true
+        },
+        "M1": {
+          "expected": "SIERRA-4765-SIERRA",
+          "got": "SIERRA-4765-SIERRA",
+          "ok": true
+        },
+        "M2": {
+          "expected": "LOTUS-6946-DELTA",
+          "got": "LOTUS-6946-DELTA",
+          "ok": true
+        },
+        "E": {
+          "expected": "YUCCA-8898-ZEPHYR",
+          "got": "YUCCA-8898-ZEPHYR",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 15.9
+      }
+    },
+    {
+      "target_tokens": 6900,
+      "trial": 2,
+      "wall_ms": 3124.6,
+      "prompt_eval_count": 6756,
+      "eval_count": 69,
+      "load_ms": 2.2,
+      "prompt_eval_ms": 2271.4,
+      "answer": "S=LOTUS-6281-AMBER\nU1=KAYAK-8296-RAVEN\nM1=FJORD-7791-HAZEL\nM2=AMBER-4911-DELTA\nE=IGLOO-5934-CEDAR",
+      "recall": {
+        "S": {
+          "expected": "LOTUS-6281-AMBER",
+          "got": "LOTUS-6281-AMBER",
+          "ok": true
+        },
+        "U1": {
+          "expected": "KAYAK-8296-RAVEN",
+          "got": "KAYAK-8296-RAVEN",
+          "ok": true
+        },
+        "M1": {
+          "expected": "FJORD-7791-HAZEL",
+          "got": "FJORD-7791-HAZEL",
+          "ok": true
+        },
+        "M2": {
+          "expected": "AMBER-4911-DELTA",
+          "got": "AMBER-4911-DELTA",
+          "ok": true
+        },
+        "E": {
+          "expected": "IGLOO-5934-CEDAR",
+          "got": "IGLOO-5934-CEDAR",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 15.96
+      }
+    },
+    {
+      "target_tokens": 10000,
+      "trial": 1,
+      "wall_ms": 4176.3,
+      "prompt_eval_count": 9678,
+      "eval_count": 67,
+      "load_ms": 0.7,
+      "prompt_eval_ms": 3324.8,
+      "answer": "S=UMBRA-3141-DELTA\nU1=BISON-2277-DELTA\nM1=NOVA-6655-GECKO\nM2=XENON-1117-BISON\nE=OPAL-8803-FJORD",
+      "recall": {
+        "S": {
+          "expected": "UMBRA-3141-DELTA",
+          "got": "UMBRA-3141-DELTA",
+          "ok": true
+        },
+        "U1": {
+          "expected": "BISON-2277-DELTA",
+          "got": "BISON-2277-DELTA",
+          "ok": true
+        },
+        "M1": {
+          "expected": "NOVA-6655-GECKO",
+          "got": "NOVA-6655-GECKO",
+          "ok": true
+        },
+        "M2": {
+          "expected": "XENON-1117-BISON",
+          "got": "XENON-1117-BISON",
+          "ok": true
+        },
+        "E": {
+          "expected": "OPAL-8803-FJORD",
+          "got": "OPAL-8803-FJORD",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 16.11
+      }
+    },
+    {
+      "target_tokens": 10000,
+      "trial": 2,
+      "wall_ms": 4246.4,
+      "prompt_eval_count": 9685,
+      "eval_count": 68,
+      "load_ms": 2.1,
+      "prompt_eval_ms": 3342.1,
+      "answer": "S=NOVA-9092-NOVA\nU1=WALRUS-1379-OPAL\nM1=ZEPHYR-1381-VIOLA\nM2=YUCCA-8877-VIOLA\nE=RAVEN-6656-LOTUS",
+      "recall": {
+        "S": {
+          "expected": "NOVA-9092-NOVA",
+          "got": "NOVA-9092-NOVA",
+          "ok": true
+        },
+        "U1": {
+          "expected": "WALRUS-1379-OPAL",
+          "got": "WALRUS-1379-OPAL",
+          "ok": true
+        },
+        "M1": {
+          "expected": "ZEPHYR-1381-VIOLA",
+          "got": "ZEPHYR-1381-VIOLA",
+          "ok": true
+        },
+        "M2": {
+          "expected": "YUCCA-8877-VIOLA",
+          "got": "YUCCA-8877-VIOLA",
+          "ok": true
+        },
+        "E": {
+          "expected": "RAVEN-6656-LOTUS",
+          "got": "RAVEN-6656-LOTUS",
+          "ok": true
+        }
+      },
+      "ps_after": {
+        "context_length": 4096,
+        "size_vram_gb": 16.02
+      }
+    }
+  ],
+  "calibration": {
+    "chars": 7331,
+    "prompt_eval_count": 1674,
+    "chars_per_token": 4.379,
+    "recall": {
+      "S": {
+        "expected": "KAYAK-5997-CEDAR",
+        "got": "KAYAK-5997-CEDAR",
+        "ok": true
+      },
+      "U1": {
+        "expected": "KAYAK-7670-OPAL",
+        "got": "KAYAK-7670-OPAL",
+        "ok": true
+      },
+      "M1": {
+        "expected": "SIERRA-3178-NOVA",
+        "got": "SIERRA-3178-NOVA",
+        "ok": true
+      },
+      "M2": {
+        "expected": "CEDAR-4608-WALRUS",
+        "got": "CEDAR-4608-WALRUS",
+        "ok": true
+      },
+      "E": {
+        "expected": "CEDAR-7498-IGLOO",
+        "got": "CEDAR-7498-IGLOO",
+        "ok": true
+      }
+    }
+  },
+  "ps_after": {
+    "context_length": 4096,
+    "size_vram_gb": 16.02
+  },
+  "all_recalled": true,
+  "max_prompt_eval_count": 9685
+}

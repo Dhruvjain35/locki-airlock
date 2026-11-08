@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "stamp": "20261108T073811Z",
+    "model": "nemotron-3.5-bolt:e4b",
+    "model_digest": "fe4af3f5907b9275322dfea4fc3e4208c64469d0a47e3c05030c10cd27b49b38",
+    "ollama_version": "0.40.15",
+    "runner": "mlx",
+    "machine": "arm64 26.3",
+    "trials": 1,
+    "settings": {
+      "think": true,
+      "temperature": 0.1,
+      "max_model_turns": 8,
+      "max_tool_calls": 10
+    },
+    "memory_before": {
+      "loaded": true,
+      "size_bytes": 15946045200,
+      "size_vram_bytes": 15946045200,
+      "context_length": 4096,
+      "expires_at": "2026-11-08T01:43:04.176604-06:00",
+      "ollama_processes": [
+        {
+          "pid": 27545,
+          "rss_mb": 1168.5,
+          "comm": "ollama"
+        },
+        {
+          "pid": 71712,
+          "rss_mb": 33.4,
+          "comm": "Ollama"
+        },
+        {
+          "pid": 71714,
+          "rss_mb": 32.2,
+          "comm": "ollama"
+        }
+      ],
+      "ollama_rss_mb_total": 1234.1
+    },
+    "cold_start": {
+      "measured": false,
+      "reason": "not requested"
+    },
+    "wall_s": 28.2,
+    "memory_after": {
+      "loaded": true,
+      "size_bytes": 15955352872,
+      "size_vram_bytes": 15955352872,
+      "context_length": 4096,
+      "expires_at": "2026-11-08T01:43:39.997156-06:00",
+      "ollama_processes": [
+        {
+          "pid": 27545,
+          "rss_mb": 1206.0,
+          "comm": "ollama"
+        },
+        {
+          "pid": 71712,
+          "rss_mb": 28.2,
+          "comm": "Ollama"
+        },
+        {
+          "pid": 71714,
+          "rss_mb": 29.8,
+          "comm": "ollama"
+        }
+      ],
+      "ollama_rss_mb_total": 1264.0
+    },
+    "first_call_load_ms": 0.35
+  },
+  "aggregate": [
+    {
+      "scenario": "B_unknown_person_then_usb",
+      "runs": 1,
+      "completion_rate": 1.0,
+      "degraded_rate": 0.0,
+      "pass_rate": 1.0,
+      "status_counts": {
+        "completed_with_warnings": 1
+      },
+      "total_ms_p50": 28154.3,
+      "total_ms_p90": 28154.3,
+      "first_tool_decision_ms_p50": 934.0,
+      "step_ms_p50": 2202.0,
+      "step_ms_p90": 4161.6,
+      "finalize_ms_p50": 7514.7,
+      "finalize_ms_p90": 7514.7,
+      "tool_calls_mean": 8,
+      "tool_invocation_correctness": 1.0,
+      "tool_execution_success": 1.0,
+      "required_tool_coverage": 1.0,
+      "expected_tool_coverage": 1.0,
+      "citation_accuracy": 1.0,
+      "specific_citation_share": 1.0,
+      "normalized_arg_calls_total": 0,
+      "facts_grounded_mean": 5,
+      "facts_rejected_total": 0,
+      "overclaim_flags_total": 0,
+      "forbidden_fact_hits_total": 0,
+      "risk_counts": {
+        "low": 0,
+        "medium": 1,
+        "high": 0,
+        "critical": 0
+      },
+      "confidence_counts": {
+        "low": 0,
+        "medium": 1,
+        "high": 0
+      },
+      "check_failures": {
+        "completed": 0,
+        "not_degraded": 0,
+        "required_tools_used": 0,
+        "risk_level_acceptable": 0,
+        "confidence_acceptable": 0,
+        "key_evidence_cited": 0,
+        "key_evidence_cited_specifically": 0,
+        "missing_info_addressed": 0,
+        "no_forbidden_facts": 0,
+        "has_grounded_fact": 0
+      },
+      "max_prompt_tokens": 4547,
+      "finalize_retries": 0,
+      "stop_reasons": {
+        "model_finished": 1
+      },
+      "prompt_eval_ms_p50": 2938.2,
+      "eval_tokens_p50": 3432.0
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "B_unknown_person_then_usb",
+      "trial": 1,
+      "status": "completed_with_warnings",
+      "total_ms": 28154.29,
+      "model_ms": 28112.48,
+      "tool_ms": 2.95,
+      "first_tool_decision_ms": 933.99,
+      "step_ms": [
+        902.06,
+        1890.69,
+        2185.45,
+        2826.32,
+        2203.13,
+        2200.96,
+        4277.05,
+        4112.15
+      ],
+      "finalize_ms": [
+        7514.67
+      ],
+      "finalize_attempts": 1,
+      "max_prompt_tokens": 4547,
+      "eval_tokens_total": 3432,
+      "prompt_eval_ms_total": 2938.2,
+      "finish_reason": "The incident is confirmed by linked vision and USB events, and the connected device was not found in the established baseline.",
+      "load_ms_first_call": 0.35,
+      "tool_sequence": [
+        "get_incident",
+        "get_session_status",
+        "get_incident_evidence",
+        "get_recent_usb_events",
+        "get_recent_vision_events",
+        "get_recent_application_events",
+        "get_device_baseline_status",
+        "finish_investigation"
+      ],
+      "statuses": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "finished"
+      ],
+      "stop_reason": "model_finished",
+      "errors": [],
+      "checks": {
+        "completed": true,
+        "not_degraded": true,
+        "required_tools_used": true,
+        "risk_level_acceptable": true,
+        "confidence_acceptable": true,
+        "key_evidence_cited": true,
+        "key_evidence_cited_specifically": true,
+        "missing_info_addressed": true,
+        "no_forbidden_facts": true,
+        "has_grounded_fact": true
+      },
+      "passed": true,
+      "required_coverage": 1.0,
+      "expected_coverage": 1.0,
+      "tool_calls_proposed": 8,
+      "tool_calls_invalid": 0,
+      "tool_invocation_correctness": 1.0,
+      "tool_execution_success": 1.0,
+      "citation_accuracy": 1.0,
+      "specific_citation_share": 1.0,
+      "normalized_arg_calls": 0,
+      "facts_grounded": 5,
+      "facts_rejected": 0,
+      "overclaim_flags": 0,
+      "forbidden_fact_hits": [],
+      "risk": "medium",
+      "confidence": "medium"
+    }
+  ],
+  "negatives": []
+}

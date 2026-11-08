@@ -1,0 +1,63 @@
+{
+  "evidence_mode": "live",
+  "evidence_badge": "LIVE",
+  "evidence_banner": "LIVE EVIDENCE: read from SpacetimeDB database locki-w91bw through the read-only investigator identity c200b5b1...e88883",
+  "investigation_id": "inv_8c65a5b2f09747b3a582",
+  "incident_id": "incident:fixture-a-unknown-usb",
+  "requester_id": "bench",
+  "model_id": "nemotron-3.5-bolt:e4b",
+  "investigation_status": "rejected",
+  "started_at_ms": 1794120564378,
+  "evidence_provenance": {
+    "mode": "live",
+    "backend": "spacetimedb",
+    "live": true,
+    "label": "SpacetimeDB locki-w91bw (identity-scoped my_* views)"
+  },
+  "official_severity": null,
+  "effective_severity": null,
+  "validation": null,
+  "timeline": [],
+  "untrusted_content_flags": [],
+  "tool_execution_trace": [],
+  "model_calls": [],
+  "model_latency_ms": 0,
+  "tool_latency_ms": 0,
+  "total_latency_ms": 0.03,
+  "time_to_first_tool_decision_ms": null,
+  "metrics": {
+    "model_calls": 0,
+    "tool_calls_proposed": 0,
+    "tool_calls_ok": 0,
+    "tool_calls_invalid": 0,
+    "tool_calls_backend_failed": 0,
+    "tool_calls_not_found": 0,
+    "tool_calls_duplicate": 0,
+    "tool_calls_policy_denied": 0,
+    "tool_calls_limited": 0,
+    "distinct_tools_ok": [],
+    "tool_sequence": [],
+    "max_prompt_tokens": 0,
+    "eval_tokens_total": 0,
+    "context_compactions": 0,
+    "stop_reason": null,
+    "finish_reason": null
+  },
+  "policy_gate": null,
+  "runtime": {},
+  "context_verification": null,
+  "settings": {
+    "think": false,
+    "temperature": 0.1,
+    "max_model_turns": 8,
+    "max_tool_calls": 10,
+    "step_timeout_s": 45.0,
+    "tool_timeout_s": 5.0,
+    "total_timeout_s": 150.0,
+    "finalize_reserve_s": 25.0
+  },
+  "errors": [
+    "incident_id_not_valid_for_live_evidence"
+  ],
+  "conversation": []
+}

@@ -1,0 +1,48 @@
+{
+  "run_utc": "2026-11-08T07:37:16Z",
+  "note": "live negatives only; the real incident id is private (not recorded here)",
+  "rows": [
+    {
+      "case": "live_visible_incidents_within_granted_workstations",
+      "status": "ok",
+      "expected": [
+        "ok"
+      ],
+      "passed": true,
+      "total_ms": 0,
+      "model_calls": 0,
+      "tool_calls": 0,
+      "errors": [
+        "visible=0 outside_granted=0 memberships=0 least_privilege_ok=True"
+      ]
+    },
+    {
+      "case": "live_spacetimedb_unauthorized_identity",
+      "status": "rejected",
+      "expected": [
+        "rejected"
+      ],
+      "passed": true,
+      "total_ms": 144.57,
+      "model_calls": 0,
+      "tool_calls": 0,
+      "errors": [
+        "incident_not_found_or_not_authorized"
+      ]
+    },
+    {
+      "case": "fixture_id_refused_by_live_backend",
+      "status": "rejected",
+      "expected": [
+        "rejected"
+      ],
+      "passed": true,
+      "total_ms": 0.02,
+      "model_calls": 0,
+      "tool_calls": 0,
+      "errors": [
+        "incident_id_not_valid_for_live_evidence"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "dataset_id": "C_suspicious_app_incomplete",
+  "label": "FIXTURE - not a live SpacetimeDB read",
+  "derived_from": "Illustrative scenario (no real incident).",
+  "notes": "Camera went offline 9 minutes before; the linked physical event is not retrievable.",
+  "tables": {
+    "incidents": [
+      {
+        "id": "incident:fixture-c-app-incomplete",
+        "workstation_id": "ws:fixture-c",
+        "session_id": "sess:fx-6b23c0d5f35d1b11f9b6",
+        "severity": "medium",
+        "state": "open",
+        "rule_id": "unapproved_app_while_armed",
+        "summary": "Unapproved application launched while session armed",
+        "event_ids_json": "[\"evt:fx-36cfb77296b464dcf07e\", \"evt:fx-8d5f31724c2022c1077a\"]",
+        "digital_event_id": "evt:fx-36cfb77296b464dcf07e",
+        "physical_event_id": "evt:fx-8d5f31724c2022c1077a",
+        "created_at_ms": 1794090672004,
+        "updated_at_ms": 1794090672004,
+        "acknowledged_by": "",
+        "resolved_by": "",
+        "resolution_note": "",
+        "action_required": true,
+        "simulated": false
+      }
+    ],
+    "sessions": [
+      {
+        "id": "sess:fx-6b23c0d5f35d1b11f9b6",
+        "workstation_id": "ws:fixture-c",
+        "state": "armed",
+        "armed_by": "c200000000000000000000000000000000000000000000000000000000000000",
+        "armed_at_ms": 1794087972004,
+        "expires_at_ms": 1794102372004,
+        "disarmed_at_ms": 0,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "approved_apps_json": "[\"com.apple.finder\", \"com.apple.Safari\", \"com.microsoft.VSCode\", \"com.tinyspeck.slackmacgap\"]",
+        "auto_lock_enabled": true,
+        "owner_policy_hash": "sha256:placeholder-policy",
+        "simulated": false
+      }
+    ],
+    "device_events": [
+      {
+        "id": "evt:fx-36cfb77296b464dcf07e",
+        "workstation_id": "ws:fixture-c",
+        "session_id": "sess:fx-6b23c0d5f35d1b11f9b6",
+        "device_id": "dev:mac-app",
+        "source": "macos_app",
+        "kind": "app_launched",
+        "observed_at_ms": 1794090671504,
+        "received_at_ms": 1794090671644,
+        "seq": 7710,
+        "confidence": 1.0,
+        "metadata_json": "{\"bundle_id\": \"com.remotedesk.helper\", \"app_name\": \"RemoteDesk Helper\", \"approved\": false, \"signed\": true, \"launch_type\": \"unknown\"}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      },
+      {
+        "id": "evt:fx-512ec056322e746b96c0",
+        "workstation_id": "ws:fixture-c",
+        "session_id": "sess:fx-6b23c0d5f35d1b11f9b6",
+        "device_id": "dev:mac-app",
+        "source": "macos_app",
+        "kind": "app_activated",
+        "observed_at_ms": 1794090675404,
+        "received_at_ms": 1794090675544,
+        "seq": 7711,
+        "confidence": 1.0,
+        "metadata_json": "{\"bundle_id\": \"com.apple.Terminal\", \"app_name\": \"Terminal\", \"approved\": false}",
+        "simulated": false,
+        "schema_version": 1,
+        "classification": ""
+      }
+    ],
+    "baseline_snapshots": [
+      {
+        "id": "base:fx-6f2918a74a8416d23bfa",
+        "workstation_id": "ws:fixture-c",
+        "device_id": "dev:mac-agent",
+        "publisher": "c200000000000000000000000000000000000000000000000000000000000000",
+        "observed_at_ms": 1794087972004,
+        "received_at_ms": 1794087972094,
+        "baseline_json": "{\"usb_devices\": [{\"name\": \"Magic Keyboard\", \"vendor_id\": \"0x05ac\", \"product_id\": \"0x029c\", \"serial_hash\": \"sha256:4b1e0c55aa\"}, {\"name\": \"USB-C Hub\", \"vendor_id\": \"0x2109\", \"product_id\": \"0x0817\", \"serial_hash\": \"sha256:9a77d2c013\"}]}",
+        "active_app_id": "com.microsoft.VSCode",
+        "session_id": "sess:fx-6b23c0d5f35d1b11f9b6",
+        "camera_status": "online",
+        "health_json": "{}"
+      }
+    ],
+    "device_health": [
+      {
+        "id": "health:fx-51d4d3368ba011cea554",
+        "workstation_id": "ws:fixture-c",
+        "device_id": "dev:mac-usb",
+        "component": "usb_watcher",
+        "status": "ok",
+        "last_seen_ms": 1794090671304,
+        "detail": "IOKit watcher running"
+      },
+      {
+        "id": "health:fx-1476dee6ecf73dbc2847",
+        "workstation_id": "ws:fixture-c",
+        "device_id": "dev:jetson-cv",
+        "component": "vision",
+        "status": "offline",
+        "last_seen_ms": 1794090132004,
+        "detail": "Jetson stream lost"
+      }
+    ]
+  }
+}
