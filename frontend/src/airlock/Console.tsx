@@ -6,6 +6,7 @@ import type { CommandResult } from "../types/api";
 import { type Row, ago, clock, milliseconds, words } from "./format";
 import { maySubmitLiveArm } from "./armConsent";
 import { type MacLink, type Stage, STAGES, remoteFreshness, reportedStage } from "./macSecurity";
+import { FLOW, type ContainmentTrigger, containmentStatement, flowStep, gateStatus, lockStatus, warningAudio } from "./containment";
 import { type ProtectionState, EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, countdown, describeEvent, playbackLabel, startReview } from "./protection";
 import "./console.css";
 
@@ -32,13 +33,14 @@ export interface ConsoleModel {
   voiceWarning: string | null;
   history: { sessions: number; open: number };
   openGrants: number; revoking: boolean;
+  containment: ContainmentTrigger | null; present: boolean; recovered: boolean;
   pending: boolean;
 }
 
 export interface ConsoleActions {
   setView: (view: ConsoleView) => void;
   start: () => void; stop: () => void; explain: () => void; approve: () => void; cancelConsent: () => void; retry: () => void;
-  stopSpeaking: () => void; revokeOpenGrants: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
+  stopSpeaking: () => void; revokeOpenGrants: () => void; dismissContainment: () => void; viewEvidence: () => void; togglePresent: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
 }
 
 const STAGE_LABEL: Record<Stage, string> = { NORMAL: "Normal", WATCHFUL: "Watchful", DEFENSIVE: "Defensive", CRITICAL: "Critical", OWNER_RETURNED: "Owner returned" };
@@ -100,6 +102,7 @@ function TopBar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: Cons
           <button role="menuitem" onClick={() => { setMenu(false); a.copyIdentity(); }}>Copy public identity</button>
           <button role="menuitem" onClick={() => { setMenu(false); a.openConnection(); }}>Connection settings</button>
           {!m.owner && <button role="menuitem" onClick={() => { setMenu(false); a.openRecover(); }}>Recover owner access</button>}
+          <button role="menuitem" onClick={() => { setMenu(false); a.togglePresent(); }}>{m.present ? "Exit presentation mode" : "Presentation mode"}</button>
           <button role="menuitem" onClick={() => { setMenu(false); a.openAdvanced(); }}>Advanced controls</button>
         </div>}
       </div>
@@ -275,7 +278,7 @@ function NemotronPanel({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
   </section>;
 }
 
-function InvestigationView({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
+function InvestigationView({ m, a, recorded }: { m: ConsoleModel; a: ConsoleActions; recorded?: ReactNode }) {
   if (!m.incident) return <section className="lk-card lk-empty-view"><ScanSearch size={30} strokeWidth={1.5} /><h2>No incident in this session</h2><p>{m.live ? "When the Jetson and this Mac's sensors correlate into an incident, it appears here with its evidence." : "Start protection to monitor this workstation. Past incidents are in History."}</p><button className="lk-btn" onClick={() => a.setView("history")}><History size={15} />Open history</button></section>;
   const ev = m.scope?.events ?? [];
   return <div className="lk-investigation">
@@ -289,7 +292,7 @@ function InvestigationView({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
       <h4 className="lk-sub">What the investigator can read</h4>
       <ul className="lk-scope"><li><Check size={13} />This incident and its {ev.length} linked event{ev.length === 1 ? "" : "s"}</li>{m.scope?.baseline && <li><Check size={13} />This session's frozen USB baseline</li>}<li><X size={13} />Nothing else: no other incidents, sessions, files or screen</li></ul>
     </section>
-    <NemotronPanel m={m} a={a} />
+    <div className="lk-invest-side"><NemotronPanel m={m} a={a} />{recorded}</div>
   </div>;
 }
 
@@ -378,12 +381,95 @@ export function StopDialog({ state, onConfirm, onClose }: { state: StopState; on
   </Modal>;
 }
 
-export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, notice, dialogs }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView; history: ReactNode; drawer: ReactNode; drawerOpen: boolean; closeDrawer: () => void; notice?: ReactNode; dialogs?: ReactNode }) {
-  return <div className={`lk-app lk-state-${m.state.toLowerCase()}`}>
+/** DEFENSIVE: the Mac's own mode engine saw someone not matched to the owner touch protected equipment on this visit. */
+function DefensiveBanner({ m }: { m: ConsoleModel }) {
+  if (!m.live || reportedStage(m.mac) !== "DEFENSIVE") return null;
+  const vs = m.mac.data?.visual_state ?? {};
+  const touched = [vs.keyboard_interaction && "the keyboard", vs.laptop_interaction && "the laptop", vs.protected_device_interaction && "a protected device", vs.usb_zone_interaction && "the USB area"].filter(Boolean) as string[];
+  const gate = gateStatus(m.mac);
+  return <div className="lk-defensive" role="status"><ShieldAlert size={20} /><div><strong>Defensive</strong><span>Someone not matched to the owner {touched.length ? `touched ${touched.join(", ")}` : "interacted with protected equipment"} on this visit{secondsToMs(vs.mode_since) ? ` · since ${clock(secondsToMs(vs.mode_since))}` : ""}.</span></div><span className="lk-defensive-policy">Protected tools · {gate.label}</span></div>;
+}
+
+/** Protect → Detect → Contain → Explain → Recover, lit only from the real run's state. */
+function FlowStrip({ m }: { m: ConsoleModel }) {
+  const step = flowStep({ armed: Boolean(m.live), stage: reportedStage(m.mac), incident: Boolean(m.incident), explained: m.run.phase === "done" && m.run.incidentId === m.incident?.id, stoppedAfterIncident: m.recovered, sessionEvents: m.events.length });
+  const at = FLOW.findIndex(f => f.id === step);
+  return <ol className="lk-flow" aria-label="Demo progress">{FLOW.map((f, i) => <li key={f.id} className={i === at ? "is-active" : at > i ? "is-done" : ""} aria-current={i === at ? "step" : undefined}><span>{String(i + 1).padStart(2, "0")}</span>{f.label}</li>)}</ol>;
+}
+
+function StatusCell({ icon, title, s }: { icon: ReactNode; title: string; s: { label: string; tone: string; detail: string } }) {
+  return <div className={`lk-cs lk-cs-${s.tone}`}><div className="lk-cs-head">{icon}<span>{title}</span></div><strong>{s.label}</strong><small>{s.detail}</small></div>;
+}
+
+/** The CRITICAL containment view: full viewport, over the real dashboard. A visual security response only — never an OS lock, never a trap. */
+function Containment({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const t = m.containment!;
+  useEffect(() => {
+    ref.current?.querySelector<HTMLButtonElement>("[data-primary]")?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") a.dismissContainment(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [t.key]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const events = t.reason === "incident" ? (m.scope?.events ?? [])
+    : m.events.filter(e => m.now - milliseconds(e.observedAtMs) <= 120_000 && ["usb_added", "person_in_zone"].includes(String(e.kind))).sort((x, y) => milliseconds(x.observedAtMs) - milliseconds(y.observedAtMs));
+  const stage = reportedStage(m.mac);
+  const jet = jetsonStatus(m);
+  const usb = m.mac.data?.monitor?.usb;
+  const investigating = ["granting", "waiting_grant", "investigating"].includes(m.run.phase);
+  const nemo = m.explainBlocked ? { label: "Unavailable", tone: "muted", detail: m.explainBlocked } : investigating ? { label: "Investigating", tone: "ok", detail: "Reviewing the approved evidence now." } : m.grant === "granted" ? { label: "Ready", tone: "ok", detail: "Read-only access already approved for this incident." } : { label: "Ready", tone: "ok", detail: "Asks for your one-time, read-only consent first." };
+  const sensors = { label: m.mac.status === "live" && m.db.connected ? "Monitoring" : "Degraded", tone: m.mac.status === "live" && m.db.connected ? "ok" : "warn", detail: `Jetson ${jet.tone === "ok" ? "online" : "not reporting"} · USB watcher ${m.mac.status === "live" && usb && !usb.error ? "running" : "unverified"} · SpacetimeDB ${m.db.connected ? "synced" : "offline"}` };
+  return <div ref={ref} className="lk-contain" role="alertdialog" aria-modal="false" aria-labelledby="lk-contain-title" aria-describedby="lk-contain-statement">
+    <header className="lk-contain-top">
+      <div className="lk-brand"><span className="lk-mark lk-mark-alert"><Mark /></span><span className="lk-wordmark">LOCKI <b>AIRLOCK</b></span></div>
+      <span className="lk-contain-note">Visual security response · this screen is not an OS lock</span>
+      <button className="lk-icon-button" aria-label="Dismiss full-screen view" onClick={a.dismissContainment}><X size={18} /></button>
+    </header>
+    <section className="lk-contain-hero">
+      <span className="lk-contain-eyebrow" id="lk-contain-title"><span className="lk-state-dot lk-dot-alert" />Critical security event</span>
+      <h1 id="lk-contain-statement">{containmentStatement(events, t.incident, m.mac)}</h1>
+      <div className="lk-contain-meta">
+        <span className="lk-pill lk-pill-alert">Local stage · {stage ? STAGE_LABEL[stage] : "unverified"}</span>
+        {t.incident ? <span className={`lk-pill lk-pill-${sevTone(t.incident.severity)}`}>SpacetimeDB severity · {words(t.incident.severity)}</span> : <span className="lk-pill">SpacetimeDB incident · pending</span>}
+        {t.incident && <span title={String(t.incident.id)}>Incident <code>{String(t.incident.id).replace(/^incident:/, "").slice(0, 12)}</code></span>}
+        <span>{m.stationLabel}</span>
+        {m.live && <span title={String(m.live.id)}>Session <code>{sessionShort(m.live.id)}</code></span>}
+        <span>{clock(t.incident ? t.incident.createdAtMs : m.now)}</span>
+      </div>
+    </section>
+    <div className="lk-contain-body">
+      <section className="lk-contain-panel"><h2>Evidence</h2>
+        {events.length ? <ol className="lk-sequence">{events.map(e => { const d = describeEvent(e); return <li key={String(e.id)}><time>{clock(e.observedAtMs)}</time><div><strong>{d.title}</strong><small>{d.source}{d.detail ? ` · ${d.detail}` : ""}</small></div></li>; })}
+          {t.incident && <li className="lk-sequence-end"><time>{clock(t.incident.createdAtMs)}</time><div><strong>Recorded as an incident</strong><small>SpacetimeDB rule {words(t.incident.ruleId)}</small></div></li>}</ol>
+          : <p className="lk-empty">{t.reason === "mac_critical" ? "This Mac reported the event; SpacetimeDB's record is arriving." : "This incident's linked events aren't visible to the console."}</p>}
+      </section>
+      <section className="lk-contain-panel"><h2>What LOCKI did</h2>
+        <div className="lk-cs-grid">
+          <StatusCell icon={<Volume2 size={15} />} title="Spoken warning" s={warningAudio(m.mac)} />
+          <StatusCell icon={<LockKeyhole size={15} />} title="macOS screen lock" s={lockStatus(m.mac)} />
+          <StatusCell icon={<ShieldCheck size={15} />} title="Protected tools" s={gateStatus(m.mac)} />
+          <StatusCell icon={<Brain size={15} />} title="NVIDIA Nemotron" s={nemo} />
+          <StatusCell icon={<Radar size={15} />} title="Sensors" s={sensors} />
+          <StatusCell icon={<Database size={15} />} title="Evidence record" s={t.incident ? { label: "Recorded", tone: "ok", detail: "Kept in SpacetimeDB and History." } : { label: "Pending", tone: "warn", detail: "Waiting for SpacetimeDB's incident." }} />
+        </div>
+      </section>
+    </div>
+    <footer className="lk-contain-actions">
+      <button data-primary className="lk-btn lk-btn-primary lk-btn-xl" disabled={Boolean(m.explainBlocked) || investigating} onClick={a.explain}><Brain size={18} />Explain incident</button>
+      <button className="lk-btn lk-btn-xl" onClick={a.viewEvidence}><ScanSearch size={17} />View evidence</button>
+      <button className="lk-btn lk-btn-danger lk-btn-xl" disabled={m.pending} onClick={a.stop}><ShieldOff size={17} />Stop protection</button>
+      <button className="lk-btn lk-btn-ghost" onClick={a.dismissContainment}>Dismiss full-screen view</button>
+    </footer>
+  </div>;
+}
+
+export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, notice, dialogs, recorded }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView; history: ReactNode; drawer: ReactNode; drawerOpen: boolean; closeDrawer: () => void; notice?: ReactNode; dialogs?: ReactNode; recorded?: ReactNode }) {
+  return <div className={`lk-app lk-state-${m.state.toLowerCase()} ${m.present ? "lk-present" : ""} lk-stage-${(reportedStage(m.mac) ?? "none").toLowerCase()}`}>
     <TopBar m={m} a={a} view={view} />
-    <main className="lk-main">
-      {view === "protection" && <><Hero m={m} a={a} /><SensorTiles m={m} /><div className="lk-grid"><LiveActivity m={m} a={a} /><ResponseCard m={m} a={a} /></div></>}
-      {view === "investigation" && <InvestigationView m={m} a={a} />}
+    <main className="lk-main" aria-hidden={m.containment ? true : undefined}>
+      {m.present && <FlowStrip m={m} />}
+      {view === "protection" && <><DefensiveBanner m={m} /><Hero m={m} a={a} /><SensorTiles m={m} /><div className="lk-grid"><LiveActivity m={m} a={a} /><ResponseCard m={m} a={a} /></div></>}
+      {view === "investigation" && <InvestigationView m={m} a={a} recorded={recorded} />}
       {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}
       <footer className="lk-foot"><span><Mark size={13} />LOCKI AIRLOCK</span><span>SpacetimeDB holds the security record · this Mac reports its sensors · screen lock {m.mac.data?.lock_mode === "dry_run" ? "dry run" : "per policy"}</span><span><Server size={12} />{m.mac.status === "live" ? "Mac backend live" : "Mac backend unreachable"}</span></footer>
     </main>
@@ -392,6 +478,7 @@ export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, 
       <header><div><Settings2 size={16} /><strong>Advanced controls</strong></div><button className="lk-icon-button" aria-label="Close advanced controls" onClick={closeDrawer}><X size={16} /></button></header>
       <div className="lk-drawer-body airlock-app lk-legacy">{drawerOpen && drawer}</div>
     </aside>
+    {m.containment && <Containment m={m} a={a} />}
     {notice}{dialogs}
   </div>;
 }

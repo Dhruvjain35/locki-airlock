@@ -23,6 +23,7 @@ import { type InvestigatorAccessContext, changeInvestigatorAccess, investigatorA
 import { EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, evidenceGrantState, explainBlocker, explainScope, grantApprovedAt, openGrantIncidentIds, protectionState } from "./protection";
 import { type ConsoleActions, type ConsoleModel, type ConsoleView, type ExplainRun, type StopState, Console, ConsentDialog, StartDialog, StopDialog } from "./Console";
 import { api } from "../services/api";
+import { containmentTrigger } from "./containment";
 import "./airlock.css";
 import "./commandCenter.css";
 
@@ -74,6 +75,10 @@ function ControlRoom() {
   const [run, setRun] = useState<ExplainRun>({ phase: "idle" });
   const [stop, setStop] = useState<StopState>({ phase: "idle", grants: 0 });
   const [revoking, setRevoking] = useState(false);
+  // Containment views the owner dismissed stay dismissed across reloads in this tab, so a reconnect never replays a takeover.
+  const [dismissed, setDismissed] = useState<Set<string>>(() => { try { return new Set(JSON.parse(sessionStorage.getItem("lk.containment.dismissed") || "[]")); } catch { return new Set(); } });
+  const [present, setPresent] = useState(new URLSearchParams(location.search).get("present") === "1");
+  const [recovered, setRecovered] = useState(false);
   const [voiceOutput, setVoiceOutput] = useState<string | null>(null);
   const [voiceWarning, setVoiceWarning] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -151,7 +156,16 @@ function ControlRoom() {
       setRun({ phase: answered ? "done" : "failed", incidentId: id, startedAt, finishedAt: Date.now(), result, error: answered ? undefined : n?.error || result.message });
     } catch (e) { setRun({ phase: "failed", incidentId: id, startedAt, finishedAt: Date.now(), error: e instanceof Error ? e.message : String(e) }); }
   };
+  const containment = containmentTrigger({ incident, liveSessionId: liveId, stationId: station?.id ? String(station.id) : undefined, mac, now, dismissed });
+  const dismissContainment = () => {
+    if (!containment) return;
+    const next = new Set(dismissed); next.add(containment.key);
+    if (containment.incident) next.add(String(containment.incident.id));
+    setDismissed(next);
+    try { sessionStorage.setItem("lk.containment.dismissed", JSON.stringify([...next].slice(-50))); } catch { /* per-tab convenience only */ }
+  };
   const explain = () => {
+    dismissContainment();
     setCview("investigation");
     if (!incidentKey || explainBlocked || investigating) return;
     if (grant === "granted") void investigate(incidentKey); else setRun({ phase: "consent", incidentId: incidentKey });
@@ -200,11 +214,13 @@ function ControlRoom() {
   const stopProtection = async () => {
     if (!station) return;
     const ids = openGrantIncidentIds(scoped.audit, scoped.incidents);
+    const hadIncident = incSplit.current.length > 0;
     setStop(prev => ({ ...prev, phase: "working", grants: ids.length }));
     try { await api.stopSpeaking(); } catch { /* best effort: a stopped speaker never blocks disarming */ }
     const disarmed = await perform("disarmSession", { workstationId: station.id });
     const { revoked, failed } = await revokeIds(ids);
     setRun({ phase: "idle" });
+    if (disarmed && hadIncident) setRecovered(true);
     setStop(prev => ({ ...prev, phase: "done", grants: ids.length, disarmed, revoked, failed }));
   };
 
@@ -218,12 +234,14 @@ function ControlRoom() {
     owner, role, profile: config.profile, identity: live.identity, station, stationLabel: station ? String(station.name || station.id) : targetUnavailable ? `${stationId} · unverified` : "No workstation",
     live: liveS, lastSession: sessions[0], state: protectionState({ connected, owner, armed: Boolean(liveS), incidentOpen: Boolean(incident), investigating }),
     incident, incidents: incSplit.current, events: evSplit.current, scope, grant, grantAt, explainBlocked, run, jetsonHealth, voiceOutput, voiceWarning,
-    history: { sessions: past.length, open: historyOpen }, openGrants: openGrants.length, revoking, pending,
+    history: { sessions: past.length, open: historyOpen }, openGrants: openGrants.length, revoking, pending, containment, present, recovered,
   };
   const actions: ConsoleActions = {
     setView: v => { setCview(v); if (v === "history") setIncidentId(""); }, start: () => setDialog("start"), stop: () => setStop({ phase: "confirm", grants: openGrants.length, earlier: earlierGrants.length }),
     explain, approve: () => void approve(), cancelConsent: () => setRun({ phase: "idle" }), retry: explain,
-    stopSpeaking: () => { void api.stopSpeaking().catch(() => undefined); }, revokeOpenGrants: () => void revokeOpenGrants(), openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
+    stopSpeaking: () => { void api.stopSpeaking().catch(() => undefined); }, revokeOpenGrants: () => void revokeOpenGrants(),
+    dismissContainment, viewEvidence: () => { dismissContainment(); setCview("investigation"); },
+    togglePresent: () => { const next = !present; setPresent(next); const url = new URL(location.href); if (next) url.searchParams.set("present", "1"); else url.searchParams.delete("present"); history.replaceState(null, "", url); }, openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
     copyIdentity: () => void copyIdentity(), reconnect: live.reconnect,
   };
 
@@ -255,7 +273,7 @@ function ControlRoom() {
   const dialogs = <>
     {run.phase === "consent" && run.incidentId === incidentKey && <ConsentDialog m={model_} busy={false} onApprove={() => void approve()} onCancel={() => setRun({ phase: "idle" })} />}
     {stop.phase !== "idle" && <StopDialog state={stop} onConfirm={() => void stopProtection()} onClose={() => { if (stop.phase !== "working") setStop({ phase: "idle", grants: 0 }); }} />}
-    {dialog === "start" && station && <StartDialog station={station} snapshots={scoped.baselines} sessions={sessions} now={now} call={live.call} onDone={() => { setDialog(null); setCview("protection"); setNotice({ text: "Protection started. LOCKI is watching this workstation.", error: false }); }} onClose={() => setDialog(null)} />}
+    {dialog === "start" && station && <StartDialog station={station} snapshots={scoped.baselines} sessions={sessions} now={now} call={live.call} onDone={() => { setDialog(null); setRecovered(false); setCview("protection"); setNotice({ text: "Protection started. LOCKI is watching this workstation.", error: false }); }} onClose={() => setDialog(null)} />}
     {dialog === "recover" && <div className="airlock-app lk-legacy"><OwnerRecovery config={config} workstationId={station?.id || stationId} onClose={() => setDialog(null)} /></div>}
     {dialog === "connect" && <div className="airlock-app lk-legacy"><ConnectionForm config={config} identity={live.identity} onSave={saveConnection} onClose={() => setDialog(null)} /></div>}
     {dialog === "register" && mayCreate && <div className="airlock-app lk-legacy"><RegisterForm perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
@@ -264,7 +282,8 @@ function ControlRoom() {
     {dialog === "policy" && station && <div className="airlock-app lk-legacy"><PolicyForm station={station} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
     {dialog === "action" && station && <div className="airlock-app lk-legacy"><RequestActionForm station={station} service={role === "service"} incidentId={incident?.id || ""} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
   </>;
-  return <Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} />;
+  const recordedNode = owner ? <section className="lk-recorded airlock-app lk-legacy"><header><span className="lk-pill lk-pill-warn">Prerecorded voice · live AI response</span><p>A prepared WAV goes through the real speech-to-text and a fresh answer. It is labeled recorded everywhere and can never arm or disarm.</p></header><RecordedVoicePanel /></section> : null;
+  return <Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} recorded={recordedNode} />;
 }
 
 export default function AirlockApp() { return <ToastProvider><ControlRoom /></ToastProvider>; }
