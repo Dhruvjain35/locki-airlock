@@ -118,3 +118,13 @@ async def test_playback_follows_the_default_and_keeps_each_devices_own_latency()
 def test_the_real_lookup_answers_on_this_platform_or_says_none():
     value = default_output_device_id()
     assert value is None or (isinstance(value, int) and value > 0)
+
+
+def test_the_device_list_refreshes_only_while_nothing_is_sounding():
+    import time as _t
+
+    sd, host = FakeSD(), host_with([41, 83])
+    host.playing_until = _t.monotonic() + 5
+    assert not host.refresh_if_idle(sd) and sd.terminated == 0  # a warning is playing: never cut it off
+    host.playing_until = 0.0
+    assert host.refresh_if_idle(sd) and sd.terminated == 1

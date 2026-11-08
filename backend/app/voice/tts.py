@@ -190,6 +190,14 @@ class PortAudioHost:
         self.last_reinit_ms: float | None = None
         self._captures: list = []
         self._lock = threading.Lock()
+        self.playing_until = 0.0  # monotonic: a clip is sounding until then, so nothing outside playback may re-initialise
+
+    def busy(self) -> bool:
+        return time.monotonic() < self.playing_until
+
+    def refresh_if_idle(self, sd) -> bool:
+        """For callers outside playback (the device list): follow the default only while no clip is sounding."""
+        return False if self.busy() else self.follow_default(sd)
 
     def register_capture(self, capture) -> None:
         with self._lock:
@@ -287,10 +295,12 @@ class AudioOut:
             self.last_latency_ms = round(latency * 1000, 1)
         except Exception:
             self.last_latency_ms = None
+        self.host.playing_until = time.monotonic() + len(data) / sample_rate + 0.05
         try:
             await asyncio.sleep(len(data) / sample_rate + 0.05)
         except asyncio.CancelledError:
             sd.stop()
+            self.host.playing_until = 0.0
             raise
 
 
@@ -566,10 +576,12 @@ class CachedSystemTTS(SystemTTS):
                 t0 = time.perf_counter()
                 sd.play(data, sr, device=self.output_device or None)
                 self.last_start_ms = round((time.perf_counter() - t0) * 1000, 1)
+                PORTAUDIO.playing_until = time.monotonic() + len(data) / sr + 0.08
                 try:
                     await asyncio.sleep(len(data) / sr + 0.08)
                 except asyncio.CancelledError:
                     sd.stop()
+                    PORTAUDIO.playing_until = 0.0
                     raise
                 return
         self.misses += 1
