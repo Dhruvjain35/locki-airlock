@@ -36,11 +36,14 @@ import {
 // Import all reducer arg schemas
 import AcknowledgeIncidentReducer from "./acknowledge_incident_reducer";
 import ArmSessionReducer from "./arm_session_reducer";
+import ArmSessionDelegatedReducer from "./arm_session_delegated_reducer";
+import AuthorizeArmReducer from "./authorize_arm_reducer";
 import ClaimLockReducer from "./claim_lock_reducer";
 import ConsumeApprovalReducer from "./consume_approval_reducer";
 import DecideActionReducer from "./decide_action_reducer";
 import DisarmSessionReducer from "./disarm_session_reducer";
 import EnrollDeviceReducer from "./enroll_device_reducer";
+import GrantIncidentEvidenceReducer from "./grant_incident_evidence_reducer";
 import GrantReviewerReducer from "./grant_reviewer_reducer";
 import IngestDeviceEventReducer from "./ingest_device_event_reducer";
 import PanicSessionReducer from "./panic_session_reducer";
@@ -55,6 +58,8 @@ import ReportLockResultReducer from "./report_lock_result_reducer";
 import RequestIncidentInfoReducer from "./request_incident_info_reducer";
 import RequestLockReducer from "./request_lock_reducer";
 import ResolveIncidentReducer from "./resolve_incident_reducer";
+import RevokeArmAuthorizationReducer from "./revoke_arm_authorization_reducer";
+import RevokeIncidentEvidenceReducer from "./revoke_incident_evidence_reducer";
 import RevokeMemberReducer from "./revoke_member_reducer";
 import SetPolicyReducer from "./set_policy_reducer";
 
@@ -65,12 +70,16 @@ import MyAcknowledgementsRow from "./my_acknowledgements_table";
 import MyAgentRunsRow from "./my_agent_runs_table";
 import MyAgentStepsRow from "./my_agent_steps_table";
 import MyApprovalsRow from "./my_approvals_table";
+import MyArmAuthorizationsRow from "./my_arm_authorizations_table";
 import MyAuditEventsRow from "./my_audit_events_table";
 import MyBaselineSnapshotsRow from "./my_baseline_snapshots_table";
 import MyDeviceEventsRow from "./my_device_events_table";
 import MyDeviceHealthRow from "./my_device_health_table";
 import MyDevicesRow from "./my_devices_table";
 import MyIncidentsRow from "./my_incidents_table";
+import MyInvestigatorBaselinesRow from "./my_investigator_baselines_table";
+import MyInvestigatorEventsRow from "./my_investigator_events_table";
+import MyInvestigatorIncidentsRow from "./my_investigator_incidents_table";
 import MyLockRequestsRow from "./my_lock_requests_table";
 import MyMembershipsRow from "./my_memberships_table";
 import MyProtectedActionsRow from "./my_protected_actions_table";
@@ -109,6 +118,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyApprovalsRow),
+  myArmAuthorizations: __table({
+    name: 'my_arm_authorizations',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyArmAuthorizationsRow),
   myAuditEvents: __table({
     name: 'my_audit_events',
     indexes: [
@@ -151,6 +167,27 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyIncidentsRow),
+  myInvestigatorBaselines: __table({
+    name: 'my_investigator_baselines',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyInvestigatorBaselinesRow),
+  myInvestigatorEvents: __table({
+    name: 'my_investigator_events',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyInvestigatorEventsRow),
+  myInvestigatorIncidents: __table({
+    name: 'my_investigator_incidents',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyInvestigatorIncidentsRow),
   myLockRequests: __table({
     name: 'my_lock_requests',
     indexes: [
@@ -192,11 +229,14 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("acknowledge_incident", AcknowledgeIncidentReducer),
   __reducerSchema("arm_session", ArmSessionReducer),
+  __reducerSchema("arm_session_delegated", ArmSessionDelegatedReducer),
+  __reducerSchema("authorize_arm", AuthorizeArmReducer),
   __reducerSchema("claim_lock", ClaimLockReducer),
   __reducerSchema("consume_approval", ConsumeApprovalReducer),
   __reducerSchema("decide_action", DecideActionReducer),
   __reducerSchema("disarm_session", DisarmSessionReducer),
   __reducerSchema("enroll_device", EnrollDeviceReducer),
+  __reducerSchema("grant_incident_evidence", GrantIncidentEvidenceReducer),
   __reducerSchema("grant_reviewer", GrantReviewerReducer),
   __reducerSchema("ingest_device_event", IngestDeviceEventReducer),
   __reducerSchema("panic_session", PanicSessionReducer),
@@ -211,6 +251,8 @@ const reducersSchema = __reducers(
   __reducerSchema("request_incident_info", RequestIncidentInfoReducer),
   __reducerSchema("request_lock", RequestLockReducer),
   __reducerSchema("resolve_incident", ResolveIncidentReducer),
+  __reducerSchema("revoke_arm_authorization", RevokeArmAuthorizationReducer),
+  __reducerSchema("revoke_incident_evidence", RevokeIncidentEvidenceReducer),
   __reducerSchema("revoke_member", RevokeMemberReducer),
   __reducerSchema("set_policy", SetPolicyReducer),
 );
@@ -229,6 +271,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "my_agent_steps": Omit<typeof tablesSchema.schemaType.tables["myAgentSteps"], "accessorName"> & { readonly accessorName: "my_agent_steps" };
     /** @deprecated Use `myApprovals` instead. This alias will be removed in the next major version. */
     readonly "my_approvals": Omit<typeof tablesSchema.schemaType.tables["myApprovals"], "accessorName"> & { readonly accessorName: "my_approvals" };
+    /** @deprecated Use `myArmAuthorizations` instead. This alias will be removed in the next major version. */
+    readonly "my_arm_authorizations": Omit<typeof tablesSchema.schemaType.tables["myArmAuthorizations"], "accessorName"> & { readonly accessorName: "my_arm_authorizations" };
     /** @deprecated Use `myAuditEvents` instead. This alias will be removed in the next major version. */
     readonly "my_audit_events": Omit<typeof tablesSchema.schemaType.tables["myAuditEvents"], "accessorName"> & { readonly accessorName: "my_audit_events" };
     /** @deprecated Use `myBaselineSnapshots` instead. This alias will be removed in the next major version. */
@@ -241,6 +285,12 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "my_devices": Omit<typeof tablesSchema.schemaType.tables["myDevices"], "accessorName"> & { readonly accessorName: "my_devices" };
     /** @deprecated Use `myIncidents` instead. This alias will be removed in the next major version. */
     readonly "my_incidents": Omit<typeof tablesSchema.schemaType.tables["myIncidents"], "accessorName"> & { readonly accessorName: "my_incidents" };
+    /** @deprecated Use `myInvestigatorBaselines` instead. This alias will be removed in the next major version. */
+    readonly "my_investigator_baselines": Omit<typeof tablesSchema.schemaType.tables["myInvestigatorBaselines"], "accessorName"> & { readonly accessorName: "my_investigator_baselines" };
+    /** @deprecated Use `myInvestigatorEvents` instead. This alias will be removed in the next major version. */
+    readonly "my_investigator_events": Omit<typeof tablesSchema.schemaType.tables["myInvestigatorEvents"], "accessorName"> & { readonly accessorName: "my_investigator_events" };
+    /** @deprecated Use `myInvestigatorIncidents` instead. This alias will be removed in the next major version. */
+    readonly "my_investigator_incidents": Omit<typeof tablesSchema.schemaType.tables["myInvestigatorIncidents"], "accessorName"> & { readonly accessorName: "my_investigator_incidents" };
     /** @deprecated Use `myLockRequests` instead. This alias will be removed in the next major version. */
     readonly "my_lock_requests": Omit<typeof tablesSchema.schemaType.tables["myLockRequests"], "accessorName"> & { readonly accessorName: "my_lock_requests" };
     /** @deprecated Use `myMemberships` instead. This alias will be removed in the next major version. */
@@ -273,12 +323,16 @@ const tableAccessorAliases = {
   "my_agent_runs": "myAgentRuns",
   "my_agent_steps": "myAgentSteps",
   "my_approvals": "myApprovals",
+  "my_arm_authorizations": "myArmAuthorizations",
   "my_audit_events": "myAuditEvents",
   "my_baseline_snapshots": "myBaselineSnapshots",
   "my_device_events": "myDeviceEvents",
   "my_device_health": "myDeviceHealth",
   "my_devices": "myDevices",
   "my_incidents": "myIncidents",
+  "my_investigator_baselines": "myInvestigatorBaselines",
+  "my_investigator_events": "myInvestigatorEvents",
+  "my_investigator_incidents": "myInvestigatorIncidents",
   "my_lock_requests": "myLockRequests",
   "my_memberships": "myMemberships",
   "my_protected_actions": "myProtectedActions",
@@ -312,6 +366,8 @@ export type DbView = __DbViewBase & {
   readonly "my_agent_steps": __DbViewBase["myAgentSteps"];
   /** @deprecated Use `myApprovals` instead. This alias will be removed in the next major version. */
   readonly "my_approvals": __DbViewBase["myApprovals"];
+  /** @deprecated Use `myArmAuthorizations` instead. This alias will be removed in the next major version. */
+  readonly "my_arm_authorizations": __DbViewBase["myArmAuthorizations"];
   /** @deprecated Use `myAuditEvents` instead. This alias will be removed in the next major version. */
   readonly "my_audit_events": __DbViewBase["myAuditEvents"];
   /** @deprecated Use `myBaselineSnapshots` instead. This alias will be removed in the next major version. */
@@ -324,6 +380,12 @@ export type DbView = __DbViewBase & {
   readonly "my_devices": __DbViewBase["myDevices"];
   /** @deprecated Use `myIncidents` instead. This alias will be removed in the next major version. */
   readonly "my_incidents": __DbViewBase["myIncidents"];
+  /** @deprecated Use `myInvestigatorBaselines` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_baselines": __DbViewBase["myInvestigatorBaselines"];
+  /** @deprecated Use `myInvestigatorEvents` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_events": __DbViewBase["myInvestigatorEvents"];
+  /** @deprecated Use `myInvestigatorIncidents` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_incidents": __DbViewBase["myInvestigatorIncidents"];
   /** @deprecated Use `myLockRequests` instead. This alias will be removed in the next major version. */
   readonly "my_lock_requests": __DbViewBase["myLockRequests"];
   /** @deprecated Use `myMemberships` instead. This alias will be removed in the next major version. */
@@ -346,6 +408,8 @@ export type Tables = __TablesBase & {
   readonly "my_agent_steps": __TablesBase["myAgentSteps"];
   /** @deprecated Use `myApprovals` instead. This alias will be removed in the next major version. */
   readonly "my_approvals": __TablesBase["myApprovals"];
+  /** @deprecated Use `myArmAuthorizations` instead. This alias will be removed in the next major version. */
+  readonly "my_arm_authorizations": __TablesBase["myArmAuthorizations"];
   /** @deprecated Use `myAuditEvents` instead. This alias will be removed in the next major version. */
   readonly "my_audit_events": __TablesBase["myAuditEvents"];
   /** @deprecated Use `myBaselineSnapshots` instead. This alias will be removed in the next major version. */
@@ -358,6 +422,12 @@ export type Tables = __TablesBase & {
   readonly "my_devices": __TablesBase["myDevices"];
   /** @deprecated Use `myIncidents` instead. This alias will be removed in the next major version. */
   readonly "my_incidents": __TablesBase["myIncidents"];
+  /** @deprecated Use `myInvestigatorBaselines` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_baselines": __TablesBase["myInvestigatorBaselines"];
+  /** @deprecated Use `myInvestigatorEvents` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_events": __TablesBase["myInvestigatorEvents"];
+  /** @deprecated Use `myInvestigatorIncidents` instead. This alias will be removed in the next major version. */
+  readonly "my_investigator_incidents": __TablesBase["myInvestigatorIncidents"];
   /** @deprecated Use `myLockRequests` instead. This alias will be removed in the next major version. */
   readonly "my_lock_requests": __TablesBase["myLockRequests"];
   /** @deprecated Use `myMemberships` instead. This alias will be removed in the next major version. */

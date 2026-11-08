@@ -65,6 +65,26 @@ export const Approvals = __t.object("Approvals", {
 });
 export type Approvals = __Infer<typeof Approvals>;
 
+export const ArmAuthorizations = __t.object("ArmAuthorizations", {
+  id: __t.string(),
+  workstationId: __t.string(),
+  owner: __t.identity(),
+  ownerConnectionId: __t.string(),
+  deviceId: __t.string(),
+  delegate: __t.identity(),
+  sessionId: __t.string(),
+  baselineJson: __t.string(),
+  activeAppId: __t.string(),
+  approvedAppsJson: __t.string(),
+  durationMs: __t.u64(),
+  ownerPolicyHash: __t.string(),
+  issuedAtMs: __t.u64(),
+  expiresAtMs: __t.u64(),
+  status: __t.string(),
+  consumedAtMs: __t.u64(),
+});
+export type ArmAuthorizations = __Infer<typeof ArmAuthorizations>;
+
 export const AuditEvents = __t.object("AuditEvents", {
   id: __t.u64(),
   workstationId: __t.string(),
@@ -132,6 +152,24 @@ export const Devices = __t.object("Devices", {
 });
 export type Devices = __Infer<typeof Devices>;
 
+export const IncidentEvidenceGrants = __t.object("IncidentEvidenceGrants", {
+  id: __t.string(),
+  workstationId: __t.string(),
+  investigator: __t.identity(),
+  incidentId: __t.string(),
+  sessionId: __t.string(),
+  grantedBy: __t.identity(),
+  eventIdsJson: __t.string(),
+  incidentCreatedAtMs: __t.u64(),
+  sessionArmedAtMs: __t.u64(),
+  eventHashesJson: __t.string(),
+  baselineHash: __t.string(),
+  includeBaseline: __t.bool(),
+  enabled: __t.bool(),
+  approvedAtMs: __t.u64(),
+});
+export type IncidentEvidenceGrants = __Infer<typeof IncidentEvidenceGrants>;
+
 export const Incidents = __t.object("Incidents", {
   id: __t.string(),
   workstationId: __t.string(),
@@ -152,6 +190,33 @@ export const Incidents = __t.object("Incidents", {
   simulated: __t.bool(),
 });
 export type Incidents = __Infer<typeof Incidents>;
+
+export const InvestigatorBaseline = __t.object("InvestigatorBaseline", {
+  id: __t.string(),
+  workstationId: __t.string(),
+  deviceId: __t.string(),
+  sessionId: __t.string(),
+  observedAtMs: __t.u64(),
+  receivedAtMs: __t.u64(),
+  baselineJson: __t.string(),
+  activeAppId: __t.string(),
+});
+export type InvestigatorBaseline = __Infer<typeof InvestigatorBaseline>;
+
+export const InvestigatorIncident = __t.object("InvestigatorIncident", {
+  id: __t.string(),
+  workstationId: __t.string(),
+  sessionId: __t.string(),
+  severity: __t.string(),
+  state: __t.string(),
+  createdAtMs: __t.u64(),
+  updatedAtMs: __t.u64(),
+  simulated: __t.bool(),
+  approvedEventIdsJson: __t.string(),
+  evidenceApprovedAtMs: __t.u64(),
+  evidenceComplete: __t.bool(),
+});
+export type InvestigatorIncident = __Infer<typeof InvestigatorIncident>;
 
 export const LockClaims = __t.object("LockClaims", {
   actionId: __t.string(),
@@ -211,6 +276,9 @@ export type MyAgentSteps = __Infer<typeof MyAgentSteps>;
 export const MyApprovals = __t.object("MyApprovals", {});
 export type MyApprovals = __Infer<typeof MyApprovals>;
 
+export const MyArmAuthorizations = __t.object("MyArmAuthorizations", {});
+export type MyArmAuthorizations = __Infer<typeof MyArmAuthorizations>;
+
 export const MyAuditEvents = __t.object("MyAuditEvents", {});
 export type MyAuditEvents = __Infer<typeof MyAuditEvents>;
 
@@ -228,6 +296,15 @@ export type MyDevices = __Infer<typeof MyDevices>;
 
 export const MyIncidents = __t.object("MyIncidents", {});
 export type MyIncidents = __Infer<typeof MyIncidents>;
+
+export const MyInvestigatorBaselines = __t.object("MyInvestigatorBaselines", {});
+export type MyInvestigatorBaselines = __Infer<typeof MyInvestigatorBaselines>;
+
+export const MyInvestigatorEvents = __t.object("MyInvestigatorEvents", {});
+export type MyInvestigatorEvents = __Infer<typeof MyInvestigatorEvents>;
+
+export const MyInvestigatorIncidents = __t.object("MyInvestigatorIncidents", {});
+export type MyInvestigatorIncidents = __Infer<typeof MyInvestigatorIncidents>;
 
 export const MyLockRequests = __t.object("MyLockRequests", {});
 export type MyLockRequests = __Infer<typeof MyLockRequests>;
