@@ -344,9 +344,18 @@ class TestDetectNetAdapter(unittest.TestCase):
         if not HAVE_CV:
             self.skipTest("needs numpy + cv2")
         from locki_edge.vision import make_detector
-        self.assertEqual(make_detector("auto", Zone(0, 0, 1, 1)).name, "motion")
-        with self.assertRaises(ImportError):
-            make_detector("detectnet", Zone(0, 0, 1, 1))
+        # Simulate a box WITHOUT jetson-inference even on a Jetson that has it built (None blocks the import).
+        names = ("jetson_inference", "jetson_utils", "jetson", "jetson.inference", "jetson.utils")
+        saved = {n: sys.modules[n] for n in names if n in sys.modules}
+        sys.modules.update({n: None for n in names})
+        try:
+            self.assertEqual(make_detector("auto", Zone(0, 0, 1, 1)).name, "motion")
+            with self.assertRaises(ImportError):
+                make_detector("detectnet", Zone(0, 0, 1, 1))
+        finally:
+            for n in names:
+                sys.modules.pop(n, None)
+            sys.modules.update(saved)
 
 
 @unittest.skipUnless(HAVE_CV, "needs numpy + cv2")
