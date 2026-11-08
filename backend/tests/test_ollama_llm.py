@@ -116,6 +116,20 @@ def test_only_this_mac_can_be_the_server():
         OllamaLLM(MODEL, base="https://ollama.example.com")
 
 
+def test_the_conversation_uses_ollama_only_where_it_serves_the_model(fake, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.intelligence import companion as companion_mod
+    from app.intelligence.ollama_llm import serves
+
+    assert serves(fake.base, MODEL) and not serves(fake.base, "some-other-model:e4b")
+    assert not serves("http://127.0.0.1:9", MODEL)  # nothing listening: the M5 tunnel is down
+    assert not serves("http://192.168.1.5:11434", MODEL) and not fake.requests  # loopback only, and nothing generated or pulled
+    s = SimpleNamespace(ollama_url=fake.base, ollama_model=MODEL, local_llm_model="Qwen3-4B-Instruct-2507-4bit")
+    assert companion_mod.Companion._ollama_serves(s)
+    assert not companion_mod.Companion._ollama_serves(SimpleNamespace(**{**vars(s), "ollama_url": "http://127.0.0.1:9"}))
+
+
 async def test_ollama_not_running_is_an_error_not_a_crash():
     llm = OllamaLLM(MODEL, base="http://127.0.0.1:9")
     assert await ready(llm) and llm.state == "unavailable" and "not running" in llm.error

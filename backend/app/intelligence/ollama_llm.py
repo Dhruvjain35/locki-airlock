@@ -51,6 +51,21 @@ def lan_address_ok(base: str) -> bool:
     return ip.is_loopback or ip.is_private or ip.is_link_local
 
 
+def serves(base: str, model: str, timeout_s: float = 1.5) -> bool:
+    """Whether Ollama at this loopback address (this Mac, or a tunnel to the team's M5) answers and already has this model. Reads the list
+    of models only: nothing is pulled, loaded or generated."""
+    if not base.startswith(("http://127.0.0.1:", "http://localhost:")):
+        return False
+    import httpx
+
+    try:
+        r = httpx.get(f"{base.rstrip('/')}/api/tags", timeout=timeout_s)
+        names = {m.get("name") for m in r.json().get("models", [])} if r.status_code == 200 else set()
+    except (httpx.HTTPError, ValueError, AttributeError):
+        return False
+    return model in names
+
+
 class OllamaLLM:
     provider = "ollama"
 
