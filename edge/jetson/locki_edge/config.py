@@ -58,6 +58,7 @@ DEFAULTS = {
     "AIRLOCK_DETECTNET_THRESHOLD": "0.5",
     "AIRLOCK_DETECTNET_MODEL": "ssd-mobilenet-v2",
     "AIRLOCK_PERSON_THRESHOLD": "0.5",
+    "AIRLOCK_MIN_PERSON_AREA": "0",   # fraction of the frame a person box must cover (0 = off)
     "AIRLOCK_DNN_PROTOTXT": "~/models/MobileNetSSD_deploy.prototxt",
     "AIRLOCK_DNN_MODEL": "~/models/MobileNetSSD_deploy.caffemodel",
 }
@@ -167,6 +168,9 @@ class EdgeConfig(object):
         self.detectnet_threshold = float(v["AIRLOCK_DETECTNET_THRESHOLD"])
         self.detectnet_model = v["AIRLOCK_DETECTNET_MODEL"].strip()
         self.person_threshold = float(v["AIRLOCK_PERSON_THRESHOLD"])
+        self.min_person_area = float(v["AIRLOCK_MIN_PERSON_AREA"])
+        if not 0.0 <= self.min_person_area < 1.0:
+            raise ConfigError("AIRLOCK_MIN_PERSON_AREA must be in [0, 1)")
         self.dnn_prototxt = os.path.expanduser(v["AIRLOCK_DNN_PROTOTXT"].strip())
         self.dnn_model = os.path.expanduser(v["AIRLOCK_DNN_MODEL"].strip())
         if self.observer == "opencv_dnn":

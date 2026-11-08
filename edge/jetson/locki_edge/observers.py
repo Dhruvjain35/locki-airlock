@@ -119,6 +119,9 @@ class DetectNetPersonProvider(ObservationProvider):
         for zone in self.zones:
             best, best_ov = None, 0.0
             for d in dets:
+                x1, y1, x2, y2 = d.bbox
+                if (x2 - x1) * (y2 - y1) < getattr(self, "min_area", 0.0):
+                    continue  # far-away person (a passerby behind the desk), not someone AT the desk
                 ov = zone.overlap(d.bbox)
                 if ov >= self.min_overlap and ov > best_ov:
                     best, best_ov = d, ov
@@ -133,7 +136,8 @@ class OpenCvDnnPersonProvider(DetectNetPersonProvider):
     """Same zone mapping as detectNet; the boxes come from MobileNet-SSD on OpenCV DNN (JetPack 6 path)."""
     name = "opencv_dnn_person"
 
-    def __init__(self, zones, prototxt, caffemodel, threshold=0.5, min_overlap=0.3):
+    def __init__(self, zones, prototxt, caffemodel, threshold=0.5, min_overlap=0.3, min_area=0.0):
+        self.min_area = float(min_area)
         from .vision import OpenCvDnnDetector
         self.detector = OpenCvDnnDetector(prototxt, caffemodel, threshold=threshold)
         self.version = "opencv-dnn/mobilenet-ssd-voc"

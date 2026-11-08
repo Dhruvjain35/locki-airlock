@@ -626,6 +626,13 @@ class TestConfigAuth(unittest.TestCase):
         c = self.cfg(AIRLOCK_OBSERVER="opencv_dnn", AIRLOCK_DNN_PROTOTXT=proto, AIRLOCK_DNN_MODEL=model)
         self.assertEqual((c.observer, c.dnn_prototxt, c.dnn_model), ("opencv_dnn", proto, model))
 
+    def test_min_person_area_is_a_frame_fraction(self):
+        self.assertEqual(self.cfg().min_person_area, 0.0)
+        self.assertEqual(self.cfg(AIRLOCK_MIN_PERSON_AREA="0.12").min_person_area, 0.12)
+        for bad in ("1", "1.5", "-0.1"):
+            with self.assertRaises(ConfigError):
+                self.cfg(AIRLOCK_MIN_PERSON_AREA=bad)
+
     def test_world_readable_token_is_refused(self):
         os.chmod(self.token_path, 0o644)
         with self.assertRaises(ConfigError):
@@ -786,6 +793,14 @@ class TestOpenCvDnnPersonProvider(unittest.TestCase):
         self.assertAlmostEqual(by_zone["door"].confidence, 0.91, places=5)
         self.assertEqual(by_zone["door"].metadata["bbox"], [0.0, 0.0, 0.05, 0.05])
         self.assertEqual(p.version, "opencv-dnn/mobilenet-ssd-voc")
+
+        # min_area: the door-zone person (box area 0.0025) is a far-away passerby and is ignored.
+        with mock.patch.object(cv2.dnn, "readNetFromCaffe", return_value=Net(), create=True), \
+                mock.patch.object(cv2.dnn, "blobFromImage", side_effect=lambda img, *a: img, create=True):
+            p2 = OpenCvDnnPersonProvider([Zone("desk_01", 0.4, 0.3, 1.0, 1.0), Zone("door", 0.0, 0.0, 0.05, 0.05)],
+                                         "x.prototxt", "x.caffemodel", threshold=0.5, min_area=0.05)
+            obs2 = p2.observe(np.zeros((480, 640, 3), np.uint8), "2026-11-08T00:00:00.000Z")
+        self.assertEqual([o.zone_id for o in obs2], ["desk_01"])
 
 
 if __name__ == "__main__":

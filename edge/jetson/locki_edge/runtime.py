@@ -73,7 +73,8 @@ def build_provider(cfg):
     if cfg.observer == "detectnet":
         return DetectNetPersonProvider(cfg.zones, threshold=cfg.detectnet_threshold, model=cfg.detectnet_model)
     if cfg.observer == "opencv_dnn":
-        return OpenCvDnnPersonProvider(cfg.zones, cfg.dnn_prototxt, cfg.dnn_model, threshold=cfg.person_threshold)
+        return OpenCvDnnPersonProvider(cfg.zones, cfg.dnn_prototxt, cfg.dnn_model, threshold=cfg.person_threshold,
+                                       min_area=cfg.min_person_area)
     if cfg.observer == "apple_vision":
         return AppleVisionPersonProvider(cfg.zones, threshold=cfg.person_threshold)
     if cfg.observer == "dhruv_cv":
