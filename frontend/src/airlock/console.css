@@ -362,3 +362,10 @@
 .lk-notice.is-error svg { color: var(--red); }
 .lk-notice button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); }
 .lk-notice button svg { color: var(--text-2); }
+
+/* Investigator access still open after a session */
+.lk-grants-open { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--amber-line); background: var(--amber-soft); color: var(--text-2); font-size: 13px; }
+.lk-grants-open > svg { color: var(--amber); flex: none; }
+.lk-grants-open span { flex: 1; min-width: 200px; }
+.lk-grants-open strong { color: var(--text); }
+.lk-grants-open .lk-btn { height: 32px; font-size: 12.5px; }

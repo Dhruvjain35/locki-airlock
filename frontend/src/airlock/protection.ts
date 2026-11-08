@@ -77,6 +77,12 @@ export function grantedIncidentIds(audit: Row[], incidents: Row[], sessionId: st
   return incidents.filter(i => i.sessionId === sessionId).map(i => String(i.id)).filter(id => evidenceGrantState(audit, id, investigator) === "granted");
 }
 
+/** Every incident (any session) whose investigator access is still in force. The grant has no expiry, so Stop and the disarmed views
+ *  offer to close all of them, not only the current session's. */
+export function openGrantIncidentIds(audit: Row[], incidents: Row[], investigator = INVESTIGATOR_IDENTITY): string[] {
+  return incidents.map(i => String(i.id)).filter(id => evidenceGrantState(audit, id, investigator) === "granted");
+}
+
 /** What the investigator would be allowed to read for this incident: its own linked, real, same-session events and the session's frozen
  *  USB baseline. Nothing else is offered. */
 export function explainScope(incident: Row, events: Row[], snapshots: Row[]): { eventIds: string[]; events: Row[]; baseline?: Row } {

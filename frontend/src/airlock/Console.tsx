@@ -12,7 +12,7 @@ import "./console.css";
 export type ConsoleView = "protection" | "investigation" | "history";
 export type ExplainPhase = "idle" | "consent" | "granting" | "waiting_grant" | "investigating" | "done" | "failed";
 export interface ExplainRun { phase: ExplainPhase; incidentId?: string; startedAt?: number; finishedAt?: number; result?: CommandResult; error?: string }
-export interface StopState { phase: "idle" | "confirm" | "working" | "done"; grants: number; disarmed?: boolean; revoked?: number; failed?: number; message?: string }
+export interface StopState { phase: "idle" | "confirm" | "working" | "done"; grants: number; earlier?: number; disarmed?: boolean; revoked?: number; failed?: number; message?: string }
 
 export interface ConsoleModel {
   now: number;
@@ -31,13 +31,14 @@ export interface ConsoleModel {
   voiceOutput: string | null;
   voiceWarning: string | null;
   history: { sessions: number; open: number };
+  openGrants: number; revoking: boolean;
   pending: boolean;
 }
 
 export interface ConsoleActions {
   setView: (view: ConsoleView) => void;
   start: () => void; stop: () => void; explain: () => void; approve: () => void; cancelConsent: () => void; retry: () => void;
-  stopSpeaking: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
+  stopSpeaking: () => void; revokeOpenGrants: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
 }
 
 const STAGE_LABEL: Record<Stage, string> = { NORMAL: "Normal", WATCHFUL: "Watchful", DEFENSIVE: "Defensive", CRITICAL: "Critical", OWNER_RETURNED: "Owner returned" };
@@ -159,7 +160,7 @@ function EventRow({ e, now }: { e: Row; now: number }) {
   return <li className={`lk-event lk-event-${d.tone}`}><span className="lk-event-icon">{icon}</span><span className="lk-event-text"><strong>{d.title}</strong><small>{d.source}{d.detail ? ` · ${d.detail}` : ""}</small></span><time title={clock(e.observedAtMs)}>{clock(e.observedAtMs)}<small>{ago(e.observedAtMs, now)}</small></time></li>;
 }
 
-function LiveActivity({ m }: { m: ConsoleModel }) {
+function LiveActivity({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
   const feed = [...m.events].sort((x, y) => milliseconds(y.observedAtMs) - milliseconds(x.observedAtMs)).slice(0, 7);
   const linked = m.scope?.events ?? [];
   return <section className="lk-card lk-activity">
@@ -171,8 +172,13 @@ function LiveActivity({ m }: { m: ConsoleModel }) {
     </div>
       : m.live ? <div className="lk-calm"><ShieldCheck size={26} strokeWidth={1.6} /><div><strong>Your workstation is protected.</strong><span>No incidents in this session.</span></div></div>
       : <div className="lk-calm lk-calm-off"><ShieldOff size={26} strokeWidth={1.6} /><div><strong>{m.owner ? "Protection is off." : "Owner sign-in required."}</strong><span>{m.owner ? "Start protection to watch this desk with the Jetson camera and this Mac's USB and app sensors." : "Recover owner access to see this workstation's live activity."}</span></div></div>}
+    {!m.live && m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}
     {m.live && <><h4 className="lk-sub">Observations this session</h4>{feed.length ? <ul className="lk-events">{feed.map(e => <EventRow key={String(e.id)} e={e} now={m.now} />)}</ul> : <p className="lk-empty">No sensor observations yet in this session.</p>}</>}
   </section>;
+}
+
+function GrantsOpen({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
+  return <div className="lk-grants-open" role="status"><LockKeyhole size={16} /><span>The investigator still has read access to <strong>{m.openGrants} incident{m.openGrants === 1 ? "" : "s"}</strong> from earlier sessions.</span><button className="lk-btn lk-btn-ghost" disabled={m.revoking || m.pending} onClick={a.revokeOpenGrants}>{m.revoking ? <LoaderCircle size={14} className="lk-spin" /> : <ShieldOff size={14} />}Revoke access</button></div>;
 }
 
 function ResponseCard({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
@@ -366,7 +372,7 @@ export function StopDialog({ state, onConfirm, onClose }: { state: StopState; on
         {state.grants > 0 && <li className={state.failed ? "is-fail" : "is-ok"}>{state.failed ? <X size={14} /> : <Check size={14} />}{`Nemotron access revoked for ${state.revoked ?? 0} of ${state.grants} incident${state.grants === 1 ? "" : "s"}`}</li>}
         {state.message && <li className="is-fail"><X size={14} />{state.message}</li>}
         <li className="is-ok"><Check size={14} />Evidence and history stay in SpacetimeDB</li></ul>
-        : <><p className="lk-lede">LOCKI will disarm this workstation{state.grants ? ` and revoke the investigator's access to ${state.grants} incident${state.grants === 1 ? "" : "s"} from this session` : ""}. Incidents and evidence stay in History.</p></>}
+        : <><p className="lk-lede">LOCKI will disarm this workstation{state.grants ? ` and revoke the investigator's access to ${state.grants} incident${state.grants === 1 ? "" : "s"}${state.earlier ? ` (${state.earlier} from earlier sessions)` : ""}` : ""}. Incidents and evidence stay in History.</p></>}
     </div>
     <footer className="lk-modal-actions">{state.phase === "done" ? <button className="lk-btn lk-btn-primary" onClick={onClose}>Done</button> : <><button className="lk-btn" disabled={state.phase === "working"} onClick={onClose}>Cancel</button><button className="lk-btn lk-btn-danger" disabled={state.phase === "working"} onClick={onConfirm}>{state.phase === "working" ? <LoaderCircle size={15} className="lk-spin" /> : <ShieldOff size={15} />}Stop protection</button></>}</footer>
   </Modal>;
@@ -376,9 +382,9 @@ export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, 
   return <div className={`lk-app lk-state-${m.state.toLowerCase()}`}>
     <TopBar m={m} a={a} view={view} />
     <main className="lk-main">
-      {view === "protection" && <><Hero m={m} a={a} /><SensorTiles m={m} /><div className="lk-grid"><LiveActivity m={m} /><ResponseCard m={m} a={a} /></div></>}
+      {view === "protection" && <><Hero m={m} a={a} /><SensorTiles m={m} /><div className="lk-grid"><LiveActivity m={m} a={a} /><ResponseCard m={m} a={a} /></div></>}
       {view === "investigation" && <InvestigationView m={m} a={a} />}
-      {view === "history" && <div className="lk-history">{history}</div>}
+      {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}
       <footer className="lk-foot"><span><Mark size={13} />LOCKI AIRLOCK</span><span>SpacetimeDB holds the security record · this Mac reports its sensors · screen lock {m.mac.data?.lock_mode === "dry_run" ? "dry run" : "per policy"}</span><span><Server size={12} />{m.mac.status === "live" ? "Mac backend live" : "Mac backend unreachable"}</span></footer>
     </main>
     {drawerOpen && <div className="lk-drawer-scrim" onClick={closeDrawer} />}

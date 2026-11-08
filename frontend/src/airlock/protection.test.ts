@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INVESTIGATOR_IDENTITY, describeEvent, evidenceGrantState, explainBlocker, explainScope, grantedIncidentIds, playbackLabel, protectionState, startReview } from "./protection";
+import { INVESTIGATOR_IDENTITY, describeEvent, evidenceGrantState, explainBlocker, explainScope, grantedIncidentIds, openGrantIncidentIds, playbackLabel, protectionState, startReview } from "./protection";
 
 const NOW = 1_794_150_000_000;
 const OWNER = "c200bf80129f645f49c762279a175c3c3e84cf56af437c06191a237ac3eac422";
@@ -66,6 +66,11 @@ describe("evidence grants from the audit trail", () => {
     const audit = [granted(1, 10, "incident:a"), granted(2, 11, "incident:b"), revoked(3, 12, "incident:b"), granted(4, 13, "incident:c")];
     expect(grantedIncidentIds(audit, incidents, "s1")).toEqual(["incident:a"]);
     expect(grantedIncidentIds(audit, incidents, undefined)).toEqual([]);
+  });
+  it("finds every still-open grant across sessions, so none outlives its session unnoticed", () => {
+    const incidents = [{ id: "incident:a", sessionId: "s1" }, { id: "incident:b", sessionId: "s1" }, { id: "incident:c", sessionId: "s0" }];
+    const audit = [granted(1, 10, "incident:a"), granted(2, 11, "incident:b"), revoked(3, 12, "incident:b"), granted(4, 13, "incident:c")];
+    expect(openGrantIncidentIds(audit, incidents)).toEqual(["incident:a", "incident:c"]);
   });
 });
 

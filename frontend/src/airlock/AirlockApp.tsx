@@ -20,7 +20,7 @@ import { FaceIdCard, SensorHealth } from "./CommandCenter";
 import { useMacSecurity } from "./macSecurity";
 import { bySession, liveSession, pastSessions, pickIncident } from "./liveScope";
 import { type InvestigatorAccessContext, changeInvestigatorAccess, investigatorAccessReview } from "./investigatorAccessPolicy";
-import { EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, evidenceGrantState, explainBlocker, explainScope, grantApprovedAt, grantedIncidentIds, protectionState } from "./protection";
+import { EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, evidenceGrantState, explainBlocker, explainScope, grantApprovedAt, openGrantIncidentIds, protectionState } from "./protection";
 import { type ConsoleActions, type ConsoleModel, type ConsoleView, type ExplainRun, type StopState, Console, ConsentDialog, StartDialog, StopDialog } from "./Console";
 import { api } from "../services/api";
 import "./airlock.css";
@@ -73,6 +73,7 @@ function ControlRoom() {
   const [drawer, setDrawer] = useState(false);
   const [run, setRun] = useState<ExplainRun>({ phase: "idle" });
   const [stop, setStop] = useState<StopState>({ phase: "idle", grants: 0 });
+  const [revoking, setRevoking] = useState(false);
   const [voiceOutput, setVoiceOutput] = useState<string | null>(null);
   const [voiceWarning, setVoiceWarning] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -144,7 +145,7 @@ function ControlRoom() {
     const startedAt = Date.now();
     setRun({ phase: "investigating", incidentId: id, startedAt });
     try {
-      const result = await api.command(EXPLAIN_QUESTION);
+      const result = await Promise.race([api.command(EXPLAIN_QUESTION), new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Nemotron didn't answer within 60 s. Nothing was presented as its result.")), 60_000))]);
       const n = result?.data?.nemotron;
       const answered = result.ok === true && n?.incident_id === id && n?.evidence_badge === "LIVE";
       setRun({ phase: answered ? "done" : "failed", incidentId: id, startedAt, finishedAt: Date.now(), result, error: answered ? undefined : n?.error || result.message });
@@ -174,13 +175,10 @@ function ControlRoom() {
     return () => window.clearTimeout(t);
   }, [waitingFor, incidentKey, grant]);
 
-  // Stop protection: stop speech, disarm, then revoke the investigator grants approved for this session's incidents.
-  const stopProtection = async () => {
-    if (!station) return;
-    const ids = grantedIncidentIds(scoped.audit, scoped.incidents, liveId);
-    setStop({ phase: "working", grants: ids.length });
-    try { await api.stopSpeaking(); } catch { /* best effort: a stopped speaker never blocks disarming */ }
-    const disarmed = await perform("disarmSession", { workstationId: station.id });
+  // Investigator grants have no expiry, so every one still in force is closed by Stop, and offered for revoking while disarmed.
+  const openGrants = openGrantIncidentIds(scoped.audit, scoped.incidents);
+  const earlierGrants = openGrants.filter(id => scoped.incidents.find(i => String(i.id) === id)?.sessionId !== liveId);
+  const revokeIds = async (ids: string[]) => {
     let revoked = 0, failed = 0;
     for (const id of ids) {
       const ctx = accessContext("revoke", id);
@@ -188,8 +186,26 @@ function ControlRoom() {
       const outcome = review ? await changeInvestigatorAccess(ctx, review.fingerprint, perform) : { status: "blocked" as const };
       if (outcome.status === "committed") revoked++; else failed++;
     }
+    return { revoked, failed };
+  };
+  const revokeOpenGrants = async () => {
+    if (!station || revoking) return;
+    setRevoking(true);
+    const ids = openGrantIncidentIds(scoped.audit, scoped.incidents);
+    const { revoked, failed } = await revokeIds(ids);
+    setRevoking(false);
+    setNotice({ text: failed ? `Revoked investigator access to ${revoked} of ${ids.length} incidents. ${failed} could not be confirmed.` : `Investigator access revoked for ${revoked} incident${revoked === 1 ? "" : "s"}.`, error: failed > 0 });
+  };
+  // Stop protection: stop speech, disarm, then revoke every investigator grant still in force.
+  const stopProtection = async () => {
+    if (!station) return;
+    const ids = openGrantIncidentIds(scoped.audit, scoped.incidents);
+    setStop(prev => ({ ...prev, phase: "working", grants: ids.length }));
+    try { await api.stopSpeaking(); } catch { /* best effort: a stopped speaker never blocks disarming */ }
+    const disarmed = await perform("disarmSession", { workstationId: station.id });
+    const { revoked, failed } = await revokeIds(ids);
     setRun({ phase: "idle" });
-    setStop({ phase: "done", grants: ids.length, disarmed, revoked, failed });
+    setStop(prev => ({ ...prev, phase: "done", grants: ids.length, disarmed, revoked, failed }));
   };
 
   if (new URLSearchParams(location.search).get("view") === "desk" && !targetUnavailable) {
@@ -202,12 +218,12 @@ function ControlRoom() {
     owner, role, profile: config.profile, identity: live.identity, station, stationLabel: station ? String(station.name || station.id) : targetUnavailable ? `${stationId} · unverified` : "No workstation",
     live: liveS, lastSession: sessions[0], state: protectionState({ connected, owner, armed: Boolean(liveS), incidentOpen: Boolean(incident), investigating }),
     incident, incidents: incSplit.current, events: evSplit.current, scope, grant, grantAt, explainBlocked, run, jetsonHealth, voiceOutput, voiceWarning,
-    history: { sessions: past.length, open: historyOpen }, pending,
+    history: { sessions: past.length, open: historyOpen }, openGrants: openGrants.length, revoking, pending,
   };
   const actions: ConsoleActions = {
-    setView: v => { setCview(v); if (v === "history") setIncidentId(""); }, start: () => setDialog("start"), stop: () => setStop({ phase: "confirm", grants: grantedIncidentIds(scoped.audit, scoped.incidents, liveId).length }),
+    setView: v => { setCview(v); if (v === "history") setIncidentId(""); }, start: () => setDialog("start"), stop: () => setStop({ phase: "confirm", grants: openGrants.length, earlier: earlierGrants.length }),
     explain, approve: () => void approve(), cancelConsent: () => setRun({ phase: "idle" }), retry: explain,
-    stopSpeaking: () => { void api.stopSpeaking().catch(() => undefined); }, openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
+    stopSpeaking: () => { void api.stopSpeaking().catch(() => undefined); }, revokeOpenGrants: () => void revokeOpenGrants(), openAdvanced: () => setDrawer(true), openRecover: () => setDialog("recover"), openConnection: () => setDialog("connect"),
     copyIdentity: () => void copyIdentity(), reconnect: live.reconnect,
   };
 
