@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Brain, Cable, CameraOff, Check, ChevronDown, CircleAlert, Database, History, KeyRound, LayoutDashboard, LoaderCircle, LockKeyhole, PanelRight, Radar, RefreshCw, ScanSearch, Server, Settings2, ShieldAlert, ShieldCheck, ShieldOff, Square, TriangleAlert, Usb, UserRound, Volume2, X } from "lucide-react";
+import { Brain, Cable, CameraOff, Check, ChevronDown, CircleAlert, Database, History, KeyRound, LayoutDashboard, LoaderCircle, LockKeyhole, PanelRight, Play, Radar, RefreshCw, ScanSearch, Server, Settings2, ShieldAlert, ShieldCheck, ShieldOff, Square, TriangleAlert, Usb, UserRound, Volume2, X } from "lucide-react";
 import "@fontsource-variable/archivo/wdth.css";
 import { api } from "../services/api";
 import type { CommandResult } from "../types/api";
@@ -9,6 +9,7 @@ import { type MacLink, type Stage, STAGES, remoteFreshness, reportedStage } from
 import { FLOW, type ContainmentTrigger, containmentStatement, flowStep, gateStatus, lockStatus, warningAudio } from "./containment";
 import { type ProtectionState, EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, countdown, describeEvent, playbackLabel, startReview } from "./protection";
 import { type Takeover, RESPONSE_ROWS, browserFallback, nativeStatus, readTakeover, responseTone, responseWord } from "./takeover";
+import { DemoRun } from "./DemoRun";
 import "./console.css";
 
 export type ConsoleView = "protection" | "investigation" | "history";
@@ -34,14 +35,14 @@ export interface ConsoleModel {
   voiceWarning: string | null;
   history: { sessions: number; open: number };
   openGrants: number; revoking: boolean;
-  containment: ContainmentTrigger | null; present: boolean; recovered: boolean;
+  containment: ContainmentTrigger | null; present: boolean; recovered: boolean; demoOpen: boolean;
   pending: boolean;
 }
 
 export interface ConsoleActions {
   setView: (view: ConsoleView) => void;
   start: () => void; stop: () => void; explain: () => void; approve: () => void; cancelConsent: () => void; retry: () => void;
-  stopSpeaking: () => void; revokeOpenGrants: () => void; dismissContainment: () => void; viewEvidence: () => void; togglePresent: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
+  stopSpeaking: () => void; revokeOpenGrants: () => void; dismissContainment: () => void; viewEvidence: () => void; togglePresent: () => void; openDemo: () => void; closeDemo: () => void; openAdvanced: () => void; openRecover: () => void; openConnection: () => void; copyIdentity: () => void; reconnect: () => void;
 }
 
 const STAGE_LABEL: Record<Stage, string> = { NORMAL: "Normal", WATCHFUL: "Watchful", DEFENSIVE: "Defensive", CRITICAL: "Critical", OWNER_RETURNED: "Owner returned" };
@@ -126,6 +127,7 @@ function TopBar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: Cons
           <button role="menuitem" onClick={() => { setMenu(false); a.copyIdentity(); }}>Copy public identity</button>
           <button role="menuitem" onClick={() => { setMenu(false); a.openConnection(); }}>Connection settings</button>
           {!m.owner && <button role="menuitem" onClick={() => { setMenu(false); a.openRecover(); }}>Recover owner access</button>}
+          <button role="menuitem" onClick={() => { setMenu(false); m.demoOpen ? a.closeDemo() : a.openDemo(); }}>{m.demoOpen ? "Close demo panel" : "Run demo"}</button>
           <button role="menuitem" onClick={() => { setMenu(false); a.togglePresent(); }}>{m.present ? "Exit presentation mode" : "Presentation mode"}</button>
           <button role="menuitem" onClick={() => { setMenu(false); a.openAdvanced(); }}>Advanced controls</button>
         </div>}
@@ -205,6 +207,7 @@ function Hero({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
           : !armed ? <button className="lk-btn lk-btn-primary lk-btn-xl" disabled={m.pending || !m.station} onClick={a.start}><ShieldCheck size={18} />Start protection</button>
           : <>{m.incident && <button className="lk-btn lk-btn-primary lk-btn-xl" disabled={investigating || m.pending} onClick={a.explain}>{investigating ? <LoaderCircle size={18} className="lk-spin" /> : <Brain size={18} />}{investigating ? "Investigating…" : "Explain incident"}</button>}
             <button className={`lk-btn ${m.incident ? "" : "lk-btn-xl"}`} disabled={m.pending} onClick={a.stop}><ShieldOff size={17} />Stop protection</button></>}
+        {m.db.connected && !m.demoOpen && <button className={`lk-btn ${armed ? "" : "lk-btn-xl"}`} onClick={a.openDemo}><Play size={17} />Run demo</button>}
       </div>
       {!armed && m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}
     </div>
@@ -596,6 +599,7 @@ export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, 
       <main className="lk-main" aria-hidden={overlay ? true : undefined}>
         {m.present && <FlowStrip m={m} />}
         {view === "protection" && takeover && <TakeoverCard m={m} t={takeoverInfo!} />}
+        {view === "protection" && m.demoOpen && <DemoRun m={m} a={a} />}
         {view === "protection" && <><DefensiveBanner m={m} /><div className="lk-overview"><Hero m={m} a={a} /><StageTrack m={m} /><SensorTiles m={m} /><LiveActivity m={m} /><ResponseCard m={m} a={a} /></div></>}
         {view === "investigation" && <InvestigationView m={m} a={a} recorded={recorded} />}
         {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}

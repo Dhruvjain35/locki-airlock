@@ -8,6 +8,7 @@
 //   &native=off                       (with an armed scenario) the native alert window is reported as not running; with the
 //                                     incident scenario the console's own full-viewport fallback view opens, labelled degraded
 //   &present=1                        presentation mode
+//   &demo=1                           the guided demo panel, with a face-recognition demo snapshot (enrolled owner, a rejected second person)
 import { useState } from "react";
 import type { AirlockData, ConnectionConfig } from "./client";
 import { INVESTIGATOR_IDENTITY } from "./protection";
@@ -26,6 +27,23 @@ const at = (secondsAgo: number) => T0 - secondsAgo * 1000;
 const armed = SCENARIO !== "off";
 const withIncident = SCENARIO === "incident";
 const nativeUp = FIXTURE_ACTIVE && new URLSearchParams(location.search).get("native") !== "off";
+const demoOn = FIXTURE_ACTIVE && new URLSearchParams(location.search).get("demo") === "1";
+
+/** The demo engine's snapshot (GET /api/security/demo) for design review: owner enrolled and matched, one second person rejected. */
+function demoSnap() {
+  const mode = withIncident ? "CRITICAL" : armed ? "WATCHFUL" : "NORMAL";
+  return {
+    face_identification_enabled: true, active: true, id: "fixture-demo", mode: "live", label: null, started_at: at(16 * 60) / 1000,
+    enrolling: false, enrollment: { accepted: 12, needed: 12, poses: { center: 6, left: 3, right: 3 }, hint: "Enrollment complete", last_problem: null, rejected: {}, complete: true },
+    enrolled: true, enrolled_samples: 12, recognized: true, template: "demo", thresholds: { match: 0.36, reject: 0.3, calibrated: true },
+    steps: { start: "done", enroll: "done", recognized: "done", zones: "default", ...(armed ? { arm: "done", monitor: "done" } : {}), ...(withIncident ? { incident: "done" } : {}) },
+    readiness: {}, timings: {}, history: {}, timeline: [], fixtures: [], error: null,
+    trials: [{ n: 1, label: "impostor", participant: "Sid", state: "done", outcome: "unrecognized", identity_ms: 412, presence_ms: 280, agreement: 0.18, correct: true }],
+    trial_summary: {},
+    visual_state: { current_security_mode: mode, previous_mode: null, mode_since: at(8) / 1000, mode_reason: "fixture", face_identity_state: armed ? "unrecognized" : "owner", identity_confidence: armed ? 0.18 : 0.83, camera_health: "ok" },
+    armed, arming: "database", camera_running: false, preview: "/api/security/demo/stream.mjpg",
+  };
+}
 
 function data(): AirlockData {
   const armedAt = at(14 * 60);
@@ -85,7 +103,7 @@ function security(now: number) {
     armed, session: armed ? { session_id: SESSION, armed_at_ms: armedAt } : null, lock_mode: "dry_run",
     incident: withIncident ? { incident_id: INCIDENT } : null,
     visual_state: { current_security_mode: mode, mode_reason: withIncident ? "correlated_usb_physical" : armed ? "person_in_zone" : "desk_clear", mode_since: (withIncident ? at(367.4) : at(8)) / 1000 },
-    demo: { camera_running: false },
+    demo: demoOn ? demoSnap() : { camera_running: false },
     remote_camera: armed ? { kind: "person_in_zone", device_id: "jetson-01", event_id: "9a3c5e71-2d4f-4b86-a1e0-c7f3b8d2e649", server_received_at_ms: now - 4_200, acted_on: true } : null,
     camera_events: [{ event_id: "9a3c5e71-2d4f-4b86-a1e0-c7f3b8d2e649", kind: "person_in_zone", zone: "desk_01", confidence: 0.91 }],
     warnings: armed ? [
@@ -139,6 +157,7 @@ export function installFixtureFetch() {
     if (path === "/api/command" && method === "POST") return new Promise(r => window.setTimeout(() => r(new Response(JSON.stringify(COMMAND), { status: 200, headers: { "Content-Type": "application/json" } })), 1800));
     if (method !== "GET") return json({ detail: "Fixture data: actions are disabled." }, 409);
     if (path === "/api/security") return json(security(Date.now()));
+    if (path === "/api/security/demo" && demoOn) return json(demoSnap());
     if (path === "/api/voice/devices") return json({ available: true, inputs: [], outputs: [{ name: "Fixture speaker", default: true }] });
     if (path === "/api/state") return json({ voice: { output: { warning: null } } });
     if (path.startsWith("/api/security/investigation/")) return json(INVESTIGATION);
