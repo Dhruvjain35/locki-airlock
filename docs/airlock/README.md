@@ -1,5 +1,14 @@
 # LOCKI AIRLOCK: local run and integration
 
+| Guide | Contents |
+|---|---|
+| [Product](PRODUCT.md) | Behavior, limitations and open product issues |
+| [Mac setup](SETUP.md) | Hardware, enrollment, voice, model connection and software checks |
+| [Test plan](TEST_PLAN.md) | Acceptance procedures and result recording |
+| [Scenarios](SCENARIOS.md) | Shared-workspace cases and required work |
+| [Contracts](CONTRACTS.md) | Events and device integration |
+| [Release acceptance](RELEASE_ACCEPTANCE.md) | Detailed integration status and evidence |
+
 AIRLOCK's authority is the TypeScript module in `spacetime/`. The React console reads caller-scoped SpacetimeDB views. FastAPI's existing voice interface remains a separate optional telemetry connection. The default demo uses explicitly labeled synthetic observations and does not start a camera, model, microphone, notification, robot, or screen-lock adapter.
 
 ## Start the local prototype

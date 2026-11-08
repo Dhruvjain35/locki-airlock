@@ -23,6 +23,25 @@ The timings are kept in `data/airlock_runs/demo-<id>.json`.
 
 A live demo refuses fixtures.
 
+## Product walkthrough
+
+Present the normal coworker case before the device incident. Use the second console
+for review while the protected Mac is locked.
+
+| Step | What to show |
+|---|---|
+| Leave a running job | Arm, lock normally and show whether the chosen job continues. A dry-run request is not a locked screen. |
+| Friend approaches | Show the presence observation and actual local response. The current presence warning is an open product issue; silencing the demo does not fix it. |
+| Harmless USB connection | Compare an approved peripheral with an unapproved one. Explain the observed policy mismatch without calling the person a hacker. |
+| Review | Show the same incident on an authorized second console. Ask what happened; show evidence and uncertainty rather than infer identity or intent. |
+| Coverage loss and return | Disconnect the camera, show missing coverage, reconnect, then unlock/disarm normally. Check that old events do not cause a lock loop. |
+
+Only claim the steps that succeed on the identified running build. If asked why this
+adds value over native locking, explain that native lock is the access boundary;
+Airlock is being evaluated for useful context and coordinated review. The fixed
+camera is sufficient for this workflow. Lights or movement are not required to
+demonstrate it. See [product behavior](PRODUCT.md) and [acceptance tests](TEST_PLAN.md).
+
 ## Start a fresh live demo
 
 ### Once, before the event

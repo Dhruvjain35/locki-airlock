@@ -6,6 +6,10 @@ integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane ev
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
 
+Source update: `services/nemotron-investigator/` is present in main snapshot
+`1bbbfbf`. Earlier handoff notes describing it as absent are historical. Source
+import does not close the live model, deployment or tracing gates below.
+
 Final integration update: the full backend suite passed **1,562 tests, 20 skipped**;
 frontend **46 tests and production build** passed; module **149 transactional +28
 policy** tests passed; Node adapters **151**, read/HTTP boundaries **31**, owner
@@ -46,7 +50,7 @@ Evidence levels used here:
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
 | 6 Authoritative SpacetimeDB | Server owns enrollment/session/incident/review/approval; private scoped views and deployment manifests are present. | Validate the merged host and two physical clients against the same deployed module; preserve database authority in all local fallback UI. |
-| 7 Operational local Nemotron E4B | Python investigator and transport exist. README reports run-ba05ba8e294e, four calls/4.4s through M5. Mustafa's own service is explicitly absent. | Actual host branch, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools on the correlated incident. Team timing is not inspected run proof. |
+| 7 Operational local Nemotron E4B | Python investigator, transport and imported service source exist. Historical team report: run-ba05ba8e294e, four calls/4.4s through M5. | Actual host branch, exact tag/runtime/model response and native evidence for 3+ model-selected approved tools on the correlated incident. Team timing is not inspected run proof. |
 | 8 Native Relay and protected Code Quest tools | Historical native Relay/managed boundary evidence and local gate source exist. | Actual merged-model LLM/tool spans, correlation IDs and pre-execution allowed/denied Code Quest callback proof; application logs do not substitute. |
 | 9 Existing live voice and safety priority | M4 speech stack is preserved; no second voice service is needed. Team reports local cached warnings/Bluetooth measurements. | Real mic→ASR→model/fallback→speaker, warning interruption and stop-talking-without-disarm on the integrated host; no duplicate runtime. |
 | 10 Recovery and two-client synchronization | Historical independent SDK/browser/reconnect evidence exists. | Same real incident acknowledged/resolved on two physical clients, owner disarm, reconnect/network recovery and normal unlock. |
@@ -63,7 +67,7 @@ Evidence levels used here:
 | MAC-03 | Historical native Calculator proof; new source uses NSWorkspace | Merged-host event/receipt and bundle/signature metadata where available; explicit visible-app limits. |
 | MAC-04 | Dry-run implementation; README says no real lock run | Prior explicit consent, real own-Mac request/action/observed-lock evidence and unlock/disarm. |
 | VOX-01 | Preserved software and team audio reports | Live microphone/ASR/model/speaker sample with P0 interruption and acoustic timing method. |
-| NV-01 | Team real E4B run report; host service absent | Exact local M5 model tag, runtime/version and actual response artifact; no cloud-model substitution. |
+| NV-01 | Team real E4B run report; service source imported, running host unverified | Exact local M5 model tag, runtime/version and actual response artifact; no cloud-model substitution. |
 | NV-02 | Checked local investigator; scoped evidence helper 24/24 | Real model selects ≥3 approved tools on real correlated evidence, records failures/uncertainty and preserves authoritative server severity. |
 | NV-03 | Historical native tool/guardrail proof | Actual Nemotron run's native Relay start/end LLM/tool spans with shared correlation ID. |
 | NV-04 | Historical managed-boundary proof | Unauthorized callback never starts, harmless authorized callback succeeds in current host; fixture approval labeled. |
