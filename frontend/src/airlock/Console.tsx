@@ -156,7 +156,7 @@ function StageTrack({ m }: { m: ConsoleModel }) {
   const since = secondsToMs(vs?.mode_since);
   const fresh = Boolean(stage && since && m.now - since < 6000);
   return <section className="lk-card lk-stage" aria-live="polite">
-    <header className="lk-card-head"><h2>Local security mode · M4</h2></header>
+    <header className="lk-card-head"><h2>Local security mode · this Mac</h2></header>
     <div className={`lk-gauge ${stage ? `lk-gauge-${stage.toLowerCase()}` : "is-unknown"}`}>
       <StageArc stage={stage} fresh={fresh} />
       <div className="lk-gauge-center"><span>Mode</span><strong>{stage ? STAGE_LABEL[stage] : "Unavailable"}</strong><small>{stage ? STAGE_NOTE[stage] : m.mac.status === "offline" ? "Mac backend offline" : "Waiting for this Mac"}</small></div>
@@ -329,7 +329,7 @@ function SensorTiles({ m }: { m: ConsoleModel }) {
         : <><strong>{jet.tone === "ok" ? "Watching the desk" : jet.tone === "muted" ? "Unverified" : "Not reporting"}</strong><small>{m.live ? "No presence observed this session" : jet.detail}</small></>}
       <MiniBars data={sessionBuckets(m, "person")} noun="presence observation" />
     </div>
-    <div className={`lk-tile lk-tile-${camOn ? "ok" : "muted"} ${camOn ? "lk-tile-media" : ""}`}><div className="lk-tile-head"><span className="lk-tile-icon"><CameraOff size={16} /></span><span>Local camera</span><Dot tone={camOn ? "ok" : "muted"} /></div>{camOn ? <img className="lk-tile-cam" src={`/api/security/demo/stream.mjpg?t=${d?.demo?.started_at ?? 0}`} alt="Live M4 camera" /> : <><strong>Off</strong><small>Not used for protection</small></>}</div>
+    <div className={`lk-tile lk-tile-${camOn ? "ok" : "muted"} ${camOn ? "lk-tile-media" : ""}`}><div className="lk-tile-head"><span className="lk-tile-icon"><CameraOff size={16} /></span><span>Local camera</span><Dot tone={camOn ? "ok" : "muted"} /></div>{camOn ? <img className="lk-tile-cam" src={`/api/security/demo/stream.mjpg?t=${d?.demo?.started_at ?? 0}`} alt="Live camera on this Mac" /> : <><strong>Off</strong><small>Not used for protection</small></>}</div>
     <div className={`lk-tile lk-tile-${usbTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><Usb size={16} /></span><span>USB watcher</span><Dot tone={usbTone} /></div>{!live ? <strong>Unverified</strong> : usb?.error ? <strong>Error</strong> : <strong className="lk-tile-num"><span className="lk-num">{usb?.connected ?? 0}</span> devices</strong>}<small>{!live ? "Mac backend offline" : usb?.error || "Watching connections"}</small><MiniBars data={sessionBuckets(m, "usb")} noun="USB observation" /></div>
     <div className={`lk-tile lk-tile-${appTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><LayoutDashboard size={16} /></span><span>App watcher</span><Dot tone={appTone} /></div><strong>{!live ? "Unverified" : apps?.error ? "Error" : "Watching"}</strong><small>{!live ? "Mac backend offline" : apps?.error || "Visible apps only"}</small><MiniBars data={sessionBuckets(m, "app")} noun="app observation" /></div>
     <div className={`lk-tile lk-tile-${dbTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><Database size={16} /></span><span>SpacetimeDB</span><Dot tone={dbTone} /></div><strong>{m.db.connected ? "Synced" : "Offline"}</strong><small>{d?.spacetimedb?.authorized ? "Mac publisher authorized" : live ? "Mac publisher not authorized" : "Mac status unknown"}</small></div>
