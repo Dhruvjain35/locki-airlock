@@ -18,6 +18,7 @@ import { RecordedVoicePanel } from "./RecordedVoicePanel";
 import { healthStatus, latestHealth } from "./coverage";
 import { FaceIdCard, SensorHealth } from "./CommandCenter";
 import { useMacSecurity } from "./macSecurity";
+import { FIXTURE_ACTIVE, installFixtureFetch, useFixtureAirlock } from "./fixture";
 import { bySession, liveSession, pastSessions, pickIncident } from "./liveScope";
 import { type InvestigatorAccessContext, changeInvestigatorAccess, investigatorAccessReview } from "./investigatorAccessPolicy";
 import { EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, evidenceGrantState, explainBlocker, explainScope, grantApprovedAt, openGrantIncidentIds, protectionState } from "./protection";
@@ -25,6 +26,10 @@ import { type ConsoleActions, type ConsoleModel, type ConsoleView, type ExplainR
 import { api } from "../services/api";
 import "./airlock.css";
 import "./commandCenter.css";
+
+// Dev-only design review data (?fixture=… under `vite dev`); production builds always use the live subscription.
+if (import.meta.env.DEV && FIXTURE_ACTIVE) installFixtureFetch();
+const useLive = import.meta.env.DEV && FIXTURE_ACTIVE ? useFixtureAirlock : useAirlock;
 
 type Dialog = "connect" | "register" | "arm" | "start" | "access" | "policy" | "action" | "recover" | null;
 
@@ -63,7 +68,7 @@ function FixturePanel({ station, session, devices, owner, role, connected, pendi
 
 function ControlRoom() {
   const [config, setConfig] = useState<ConnectionConfig>(readConfig);
-  const live = useAirlock(config);
+  const live = useLive(config);
   const mac = useMacSecurity();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [stationId] = useState(new URLSearchParams(location.search).get("workstation") || "");
@@ -264,7 +269,7 @@ function ControlRoom() {
     {dialog === "policy" && station && <div className="airlock-app lk-legacy"><PolicyForm station={station} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
     {dialog === "action" && station && <div className="airlock-app lk-legacy"><RequestActionForm station={station} service={role === "service"} incidentId={incident?.id || ""} perform={perform} pending={pending} onClose={() => setDialog(null)} /></div>}
   </>;
-  return <Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} />;
+  return <>{import.meta.env.DEV && FIXTURE_ACTIVE && <div className="lk-fixture-banner" role="status">Fixture data for design review. Not live: every action is refused. Remove ?fixture from the URL for the real console.</div>}<Console m={model_} a={actions} view={cview} history={historyNode} drawer={drawerNode} drawerOpen={drawer} closeDrawer={() => setDrawer(false)} notice={noticeNode} dialogs={dialogs} /></>;
 }
 
 export default function AirlockApp() { return <ToastProvider><ControlRoom /></ToastProvider>; }

@@ -49,6 +49,7 @@ const STATE_COPY: Record<ProtectionState, { word: string; tone: string }> = {
   UNVERIFIED: { word: "Not verified", tone: "muted" }, OFF: { word: "Protection off", tone: "muted" }, PROTECTED: { word: "Protected", tone: "ok" },
   INVESTIGATING: { word: "Investigating", tone: "ok" }, ATTENTION: { word: "Attention required", tone: "alert" },
 };
+const VIEW_LABEL: Record<ConsoleView, string> = { protection: "Protection", investigation: "Investigation", history: "History" };
 const WARNING_TEXT: Record<string, string> = { person_at_desk: "Person at the desk", unknown_usb: "Unknown USB device", correlated: "Intrusion: person and unknown USB", watchlist_app: "Watched app opened", camera_covered: "Camera covered", owner_panic: "Owner security alert" };
 const warningText = (w: any) => WARNING_TEXT[String(w?.reason)] ?? words(w?.reason);
 const sentence = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -56,6 +57,7 @@ const sessionShort = (id: unknown) => String(id ?? "").replace(/^session-/, "").
 const sevTone = (s: unknown) => s === "critical" || s === "high" ? "alert" : s === "medium" ? "warn" : "muted";
 const secondsToMs = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? (n < 1e11 ? n * 1000 : milliseconds(n)) : 0; };
 const fmtDuration = (ms: unknown) => { const v = Number(ms); return Number.isFinite(v) && v > 0 ? v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms` : "—"; };
+const fmtLength = (ms: number) => { const min = Math.round(ms / 60000); return min >= 60 && min % 60 === 0 ? `${min / 60} h` : `${min} min`; };
 
 function Mark({ size = 22 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M7 7h22v22H7V7Z" stroke="currentColor" strokeWidth="2.4" /><path d="M13 2v32M23 2v32" stroke="currentColor" strokeWidth="2.4" /><path d="m17 14 4 4-4 4" stroke="currentColor" strokeWidth="2.4" /></svg>;
@@ -73,26 +75,45 @@ function jetsonStatus(m: ConsoleModel): { tone: "ok" | "warn" | "alert" | "muted
   return { tone: "ok", label: "Jetson", detail: `jetson-01 online · heartbeat ${ago(h.lastSeenMs, m.now)}` };
 }
 
-function TopBar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView }) {
-  const [menu, setMenu] = useState(false);
+/** Sidebar: brand, the three views, and the three links this console depends on. */
+function Sidebar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView }) {
   const macTone = m.mac.status === "live" ? "ok" : m.mac.status === "offline" ? "alert" : "muted";
   const st = m.mac.data?.spacetimedb;
   const dbTone = m.db.connected && st?.connected && st?.authorized ? "ok" : m.db.connected || st?.connected ? "warn" : "alert";
   const jet = jetsonStatus(m);
-  const tabs: { id: ConsoleView; label: string; icon: ReactNode; count?: string }[] = [
-    { id: "protection", label: "Protection", icon: <ShieldCheck size={15} /> },
-    { id: "investigation", label: "Investigation", icon: <ScanSearch size={15} />, count: m.incident ? "1" : undefined },
-    { id: "history", label: "History", icon: <History size={15} />, count: m.history.open ? String(m.history.open) : undefined },
+  const tabs: { id: ConsoleView; icon: ReactNode; count?: string; countTone?: string }[] = [
+    { id: "protection", icon: <ShieldCheck size={17} /> },
+    { id: "investigation", icon: <ScanSearch size={17} />, count: m.incident ? "1" : undefined, countTone: "alert" },
+    { id: "history", icon: <History size={17} />, count: m.history.open ? String(m.history.open) : undefined, countTone: "muted" },
   ];
-  return <header className="lk-top">
+  return <aside className="lk-side">
     <div className="lk-brand"><span className="lk-mark"><Mark /></span><span className="lk-wordmark">LOCKI <b>AIRLOCK</b></span></div>
-    <nav className="lk-tabs" role="tablist" aria-label="Views">{tabs.map(t => <button key={t.id} role="tab" aria-selected={view === t.id} className={view === t.id ? "is-active" : ""} onClick={() => a.setView(t.id)}>{t.icon}{t.label}{t.count && <span className="lk-count">{t.count}</span>}</button>)}</nav>
-    <div className="lk-top-right">
+    <nav className="lk-nav" aria-label="Views">
+      <span className="lk-nav-label">Views</span>
+      <div className="lk-tabs" role="tablist" aria-label="Views" aria-orientation="vertical">{tabs.map(t => <button key={t.id} role="tab" aria-selected={view === t.id} className={view === t.id ? "is-active" : ""} onClick={() => a.setView(t.id)}>{t.icon}<span>{VIEW_LABEL[t.id]}</span>{t.count && <span className={`lk-count lk-count-${t.countTone}`}>{t.count}</span>}</button>)}</div>
+    </nav>
+    <div className="lk-nav lk-nav-links">
+      <span className="lk-nav-label">Connections</span>
       <ul className="lk-links" aria-label="Sensor connections">
-        <li title={m.mac.status === "live" ? "This Mac's security backend is responding" : m.mac.error || "Waiting for this Mac's security backend"}><Dot tone={macTone} />Mac</li>
-        <li title={jet.detail}><Dot tone={jet.tone} />{jet.label}</li>
-        <li title={`Owner console ${m.db.connected ? "subscribed" : m.db.status} · Mac publisher ${st?.connected ? st?.authorized ? "authorized" : "not authorized" : "offline"} · ${m.db.database}`}><Dot tone={dbTone} />SpacetimeDB</li>
+        <li title={m.mac.status === "live" ? "This Mac's security backend is responding" : m.mac.error || "Waiting for this Mac's security backend"}><Server size={16} /><span>Mac</span><Dot tone={macTone} /></li>
+        <li title={jet.detail}><Radar size={16} /><span>{jet.label}</span><Dot tone={jet.tone} /></li>
+        <li title={`Owner console ${m.db.connected ? "subscribed" : m.db.status} · Mac publisher ${st?.connected ? st?.authorized ? "authorized" : "not authorized" : "offline"} · ${m.db.database}`}><Database size={16} /><span>SpacetimeDB</span><Dot tone={dbTone} /></li>
       </ul>
+    </div>
+    <div className="lk-side-card">
+      <span className="lk-side-card-icon"><Settings2 size={16} /></span>
+      <strong>Advanced controls</strong>
+      <span>Arming options, enrollment, response policy, sensor health and rehearsal fixtures.</span>
+      <button className="lk-btn lk-btn-block" onClick={a.openAdvanced}><PanelRight size={14} />Open controls</button>
+    </div>
+  </aside>;
+}
+
+function TopBar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView }) {
+  const [menu, setMenu] = useState(false);
+  return <header className="lk-top">
+    <div className="lk-title"><span className="lk-crumb">{m.stationLabel} <i>/</i> {VIEW_LABEL[view]}</span><h1>{VIEW_LABEL[view]}</h1></div>
+    <div className="lk-top-right">
       <div className="lk-owner">
         <button className="lk-owner-button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}><span className="lk-avatar">{(m.owner ? "O" : m.profile.slice(0, 1) || "?").toUpperCase()}</span><span className="lk-owner-text"><strong>{m.owner ? "Owner" : words(m.role)}</strong><small>{m.stationLabel}</small></span><ChevronDown size={14} /></button>
         {menu && <div className="lk-menu" role="menu" onMouseLeave={() => setMenu(false)}>
@@ -108,25 +129,59 @@ function TopBar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: Cons
   </header>;
 }
 
+/** The four escalation stages drawn as a segmented arc, filled up to the stage the Mac reports. Owner returned and an
+ *  unreadable stage fill nothing: the arc never shows a level the backend did not report. */
+const ARC_STAGES: Stage[] = ["NORMAL", "WATCHFUL", "DEFENSIVE", "CRITICAL"];
+const STAGE_COLOR: Record<Stage, string> = { NORMAL: "var(--green)", WATCHFUL: "var(--amber)", DEFENSIVE: "var(--orange)", CRITICAL: "var(--red)", OWNER_RETURNED: "var(--green)" };
+function StageArc({ stage, fresh }: { stage: Stage | null; fresh: boolean }) {
+  const per = 7, total = ARC_STAGES.length * per;
+  const level = stage ? ARC_STAGES.indexOf(stage) : -1;
+  const filled = level >= 0 ? (level + 1) * per : 0;
+  const cx = 130, cy = 120, r1 = 80, r2 = 116, from = (196 * Math.PI) / 180, span = (212 * Math.PI) / 180;
+  return <svg className={`lk-arc ${fresh ? "is-fresh" : ""}`} viewBox="0 0 260 158" aria-hidden="true">
+    {Array.from({ length: total }, (_, i) => {
+      const t = from - (i * span) / (total - 1), cos = Math.cos(t), sin = Math.sin(t);
+      const on = i < filled;
+      return <line key={i} x1={(cx + r1 * cos).toFixed(2)} y1={(cy - r1 * sin).toFixed(2)} x2={(cx + r2 * cos).toFixed(2)} y2={(cy - r2 * sin).toFixed(2)} className={on ? "is-on" : ""} style={{ stroke: on && stage ? STAGE_COLOR[stage] : undefined, ["--i" as any]: i }} />;
+    })}
+  </svg>;
+}
+
 function StageTrack({ m }: { m: ConsoleModel }) {
   const stage = reportedStage(m.mac);
   const vs = m.mac.data?.visual_state;
   const since = secondsToMs(vs?.mode_since);
   const fresh = Boolean(stage && since && m.now - since < 6000);
-  return <div className="lk-stage" aria-live="polite">
-    <div className="lk-stage-head"><span className="lk-eyebrow">Local security mode · M4</span>{stage ? <span className="lk-stage-reason">{words(vs?.mode_reason) !== "Unknown" ? words(vs?.mode_reason) : "Reported by this Mac"}{since ? ` · since ${clock(since)}` : ""}</span> : <span className="lk-stage-reason">{m.mac.status === "offline" ? "Unavailable: this Mac's backend is not responding" : "Waiting for this Mac"}</span>}</div>
+  return <section className="lk-card lk-stage" aria-live="polite">
+    <header className="lk-card-head"><h2>Local security mode · M4</h2></header>
+    <div className={`lk-gauge ${stage ? `lk-gauge-${stage.toLowerCase()}` : "is-unknown"}`}>
+      <StageArc stage={stage} fresh={fresh} />
+      <div className="lk-gauge-center"><span>Mode</span><strong>{stage ? STAGE_LABEL[stage] : "Unavailable"}</strong><small>{stage ? STAGE_NOTE[stage] : m.mac.status === "offline" ? "Mac backend offline" : "Waiting for this Mac"}</small></div>
+      <span className="lk-gauge-end lk-gauge-min">Normal</span><span className="lk-gauge-end lk-gauge-max">Critical</span>
+    </div>
+    <p className="lk-stage-reason">{stage ? <>{words(vs?.mode_reason) !== "Unknown" ? words(vs?.mode_reason) : "Reported by this Mac"}{since ? ` · since ${clock(since)}` : ""}</> : m.mac.status === "offline" ? "Unavailable: this Mac's backend is not responding" : "Waiting for this Mac"}</p>
     <ol className="lk-stage-track">{STAGES.map((s, i) => {
       const active = stage === s;
       return <li key={s} className={`lk-step lk-step-${s.toLowerCase()} ${active ? "is-active" : ""} ${active && fresh ? "is-fresh" : ""}`} aria-current={active ? "step" : undefined}>
         <span className="lk-step-bar" /><span className="lk-step-label"><b>{String(i + 1).padStart(2, "0")}</b>{STAGE_LABEL[s]}</span><small>{STAGE_NOTE[s]}</small>
       </li>;
     })}</ol>
+  </section>;
+}
+
+/** Time left in the armed session as a ring: the real expiry against the real armed time. */
+function SessionRing({ left, total }: { left: number; total: number }) {
+  const r = 50, c = 2 * Math.PI * r, v = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;
+  return <div className="lk-ring" role="img" aria-label={`${countdown(left)} remaining of a ${fmtLength(total)} session`}>
+    <svg viewBox="0 0 124 124" aria-hidden="true"><circle cx="62" cy="62" r={r + 9} className="lk-ring-guide" /><circle cx="62" cy="62" r={r} className="lk-ring-track" /><circle cx="62" cy="62" r={r} className="lk-ring-value" strokeDasharray={`${(c * v).toFixed(1)} ${c.toFixed(1)}`} transform="rotate(-90 62 62)" /></svg>
+    <div className="lk-ring-label"><strong className="lk-mono">{countdown(left)}</strong><small>left of {fmtLength(total)}</small></div>
   </div>;
 }
 
 function Hero({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
   const copy = STATE_COPY[m.state];
   const left = m.live ? milliseconds(m.live.expiresAtMs) - m.now : 0;
+  const total = m.live ? milliseconds(m.live.expiresAtMs) - milliseconds(m.live.armedAtMs) : 0;
   const armed = Boolean(m.live);
   const investigating = ["granting", "waiting_grant", "investigating"].includes(m.run.phase);
   const meta = !m.db.connected ? (m.db.error || "Connecting to SpacetimeDB…")
@@ -134,10 +189,9 @@ function Hero({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
     : armed ? <>Live session · <span className="lk-mono">{countdown(left)}</span> remaining · auto-lock {m.live?.autoLockEnabled ? "on" : "off"}</>
     : m.lastSession ? `Last session ${m.lastSession.state === "armed" ? `expired ${clock(m.lastSession.expiresAtMs)}` : `ended ${clock(m.lastSession.disarmedAtMs || m.lastSession.expiresAtMs)}`}`
     : "No protected session yet.";
-  return <section className={`lk-hero lk-tone-${copy.tone}`}>
+  return <section className={`lk-card lk-hero lk-tone-${copy.tone}`}>
     <div className="lk-hero-main">
-      <span className="lk-eyebrow"><span className="lk-ws">{m.stationLabel}</span></span>
-      <h1 className="lk-state" aria-live="polite"><span className={`lk-state-dot lk-dot-${copy.tone}`} />{copy.word}</h1>
+      <h2 className="lk-state" aria-live="polite"><span className={`lk-state-dot lk-dot-${copy.tone}`} />{copy.word}</h2>
       <p className="lk-hero-meta">{meta}</p>
       <div className="lk-hero-actions">
         {!m.db.connected ? <button className="lk-btn" onClick={a.reconnect}><RefreshCw size={16} />Retry connection</button>
@@ -146,12 +200,41 @@ function Hero({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
           : <>{m.incident && <button className="lk-btn lk-btn-primary lk-btn-xl" disabled={investigating || m.pending} onClick={a.explain}>{investigating ? <LoaderCircle size={18} className="lk-spin" /> : <Brain size={18} />}{investigating ? "Investigating…" : "Explain incident"}</button>}
             <button className={`lk-btn ${m.incident ? "" : "lk-btn-xl"}`} disabled={m.pending} onClick={a.stop}><ShieldOff size={17} />Stop protection</button></>}
       </div>
+      {!armed && m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}
     </div>
-    <div className="lk-hero-side">
-      <StageTrack m={m} />
+    {(armed && total > 0) || m.incident ? <div className="lk-hero-side">
+      {armed && total > 0 && <SessionRing left={left} total={total} />}
       {m.incident && <div className={`lk-severity lk-sev-${sevTone(m.incident.severity)}`}><span className="lk-eyebrow">Incident severity · SpacetimeDB</span><strong>{words(m.incident.severity)}</strong><span>{words(m.incident.state)} · {clock(m.incident.createdAtMs)}</span></div>}
-    </div>
+    </div> : null}
   </section>;
+}
+
+/** Observations of one kind in this session, counted into equal time slices from arming until now. */
+function sessionBuckets(m: ConsoleModel, tone: string, n = 18): { counts: number[]; total: number; from: number } | null {
+  if (!m.live) return null;
+  const from = milliseconds(m.live.armedAtMs), to = Math.max(from + 60_000, m.now);
+  const width = (to - from) / n;
+  const counts = new Array<number>(n).fill(0);
+  let total = 0;
+  for (const e of m.events) {
+    if (describeEvent(e).tone !== tone) continue;
+    const t = milliseconds(e.observedAtMs);
+    if (t < from || t > to) continue;
+    counts[Math.min(n - 1, Math.floor((t - from) / width))]++; total++;
+  }
+  return { counts, total, from };
+}
+
+function MiniBars({ data, noun }: { data: { counts: number[]; total: number; from: number } | null; noun: string }) {
+  if (!data) return null;
+  const max = Math.max(1, ...data.counts);
+  const last = data.counts.reduce((acc, c, i) => (c > 0 ? i : acc), -1);
+  return <div className="lk-bars-wrap">
+    <div className="lk-bars" role="img" aria-label={`${data.total} ${noun}${data.total === 1 ? "" : "s"} since arming at ${clock(data.from)}`}>
+      {data.counts.map((c, i) => <i key={i} className={i === last ? "is-last" : c ? "is-on" : ""} style={{ height: c ? `${Math.max(18, (c / max) * 100)}%` : undefined }} />)}
+    </div>
+    <span className="lk-bars-axis" aria-hidden="true"><span>Armed {clock(data.from)}</span><span>Now</span></span>
+  </div>;
 }
 
 function EventRow({ e, now }: { e: Row; now: number }) {
@@ -160,20 +243,19 @@ function EventRow({ e, now }: { e: Row; now: number }) {
   return <li className={`lk-event lk-event-${d.tone}`}><span className="lk-event-icon">{icon}</span><span className="lk-event-text"><strong>{d.title}</strong><small>{d.source}{d.detail ? ` · ${d.detail}` : ""}</small></span><time title={clock(e.observedAtMs)}>{clock(e.observedAtMs)}<small>{ago(e.observedAtMs, now)}</small></time></li>;
 }
 
-function LiveActivity({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
+function LiveActivity({ m }: { m: ConsoleModel }) {
   const feed = [...m.events].sort((x, y) => milliseconds(y.observedAtMs) - milliseconds(x.observedAtMs)).slice(0, 7);
   const linked = m.scope?.events ?? [];
   return <section className="lk-card lk-activity">
     <header className="lk-card-head"><h2>Live activity</h2><span className="lk-card-note">{m.live ? `This session · since ${clock(m.live.armedAtMs)}` : "No protected session"}</span></header>
     {m.incident ? <div className="lk-incident" role="alert">
-      <div className="lk-incident-top"><ShieldAlert size={20} /><div><span className="lk-eyebrow lk-text-alert">Incident · {words(m.incident.severity)} severity</span><h3>{m.incident.summary || words(m.incident.ruleId)}</h3></div><time>{clock(m.incident.createdAtMs)}</time></div>
+      <div className="lk-incident-top"><span className="lk-incident-icon"><ShieldAlert size={18} /></span><div><span className="lk-eyebrow lk-text-alert">Incident · {words(m.incident.severity)} severity</span><h3>{m.incident.summary || words(m.incident.ruleId)}</h3></div><time>{clock(m.incident.createdAtMs)}</time></div>
       {linked.length > 0 && <ul className="lk-events lk-events-tight">{linked.map(e => <EventRow key={String(e.id)} e={e} now={m.now} />)}</ul>}
       {m.explainBlocked && <p className="lk-hint">{m.explainBlocked}</p>}
     </div>
-      : m.live ? <div className="lk-calm"><ShieldCheck size={26} strokeWidth={1.6} /><div><strong>Your workstation is protected.</strong><span>No incidents in this session.</span></div></div>
-      : <div className="lk-calm lk-calm-off"><ShieldOff size={26} strokeWidth={1.6} /><div><strong>{m.owner ? "Protection is off." : "Owner sign-in required."}</strong><span>{m.owner ? "Start protection to watch this desk with the Jetson camera and this Mac's USB and app sensors." : "Recover owner access to see this workstation's live activity."}</span></div></div>}
-    {!m.live && m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}
-    {m.live && <><h4 className="lk-sub">Observations this session</h4>{feed.length ? <ul className="lk-events">{feed.map(e => <EventRow key={String(e.id)} e={e} now={m.now} />)}</ul> : <p className="lk-empty">No sensor observations yet in this session.</p>}</>}
+      : m.live ? <div className="lk-calm"><span className="lk-calm-icon"><ShieldCheck size={22} strokeWidth={1.8} /></span><div><strong>Your workstation is protected.</strong><span>No incidents in this session.</span></div></div>
+      : <div className="lk-calm lk-calm-off"><span className="lk-calm-icon"><ShieldOff size={22} strokeWidth={1.8} /></span><div><strong>{m.owner ? "Protection is off." : "Owner sign-in required."}</strong><span>{m.owner ? "Start protection to watch this desk with the Jetson camera and this Mac's USB and app sensors." : "Recover owner access to see this workstation's live activity."}</span></div></div>}
+    {m.live && <><h4 className="lk-sub">Observations this session</h4>{feed.length ? <ul className="lk-events lk-timeline">{feed.map(e => <EventRow key={String(e.id)} e={e} now={m.now} />)}</ul> : <p className="lk-empty">No sensor observations yet in this session.</p>}</>}
   </section>;
 }
 
@@ -190,7 +272,7 @@ function ResponseCard({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
   return <section className="lk-card lk-response">
     <header className="lk-card-head"><h2>LOCKI response</h2><span className="lk-card-note">What this Mac actually did</span></header>
     <div className="lk-response-block"><h4 className="lk-sub"><Volume2 size={14} />Spoken warnings</h4>
-      {warnings.length ? <ul className="lk-warnings">{warnings.map((w: any, i: number) => { const p = playbackLabel(w); return <li key={`${w.event_id}-${i}`}><span className="lk-warning-text">{warningText(w)}</span><span className={p.ok ? "lk-text-ok" : "lk-text-muted"}>{p.text}</span><time>{clock(Number(w.at) * 1000)}</time></li>; })}</ul>
+      {warnings.length ? <ul className="lk-warnings">{warnings.map((w: any, i: number) => { const p = playbackLabel(w); return <li key={`${w.event_id}-${i}`}><span className={`lk-warning-mark ${p.ok ? "is-ok" : ""}`}>{p.ok ? <Check size={12} /> : <Volume2 size={12} />}</span><span className="lk-warning-text">{warningText(w)}<small className={p.ok ? "lk-text-ok" : "lk-text-muted"}>{p.text}</small></span><time>{clock(Number(w.at) * 1000)}</time></li>; })}</ul>
         : <p className="lk-empty">{!live ? "Unavailable while this Mac's backend is offline." : m.live ? "No warning needed so far." : "Warnings play while protection is on."}</p>}
       {m.voiceOutput && <p className="lk-output"><Volume2 size={13} />Speaking on <strong>{m.voiceOutput}</strong></p>}
       {m.voiceWarning && <p className="lk-blocker" role="alert"><TriangleAlert size={14} />Voice output {m.voiceWarning}</p>}
@@ -214,15 +296,19 @@ function SensorTiles({ m }: { m: ConsoleModel }) {
   const jet = jetsonStatus(m);
   const usb = d?.monitor?.usb; const apps = d?.monitor?.apps;
   const camOn = live && d?.demo?.camera_running === true;
+  const usbTone = !live ? "muted" : usb && !usb.error && d?.monitor?.running ? "ok" : "warn";
+  const appTone = !live ? "muted" : apps && !apps.error && d?.monitor?.running ? "ok" : "warn";
+  const dbTone = m.db.connected && d?.spacetimedb?.authorized ? "ok" : m.db.connected ? "warn" : "alert";
   return <section className="lk-tiles" aria-label="Sensors">
-    <div className={`lk-tile lk-tile-wide ${fresh === "fresh" ? "is-pulse" : ""}`}><div className="lk-tile-head"><Radar size={15} /><span>Jetson presence</span><Dot tone={jet.tone} /></div>
+    <div className={`lk-tile lk-tile-wide lk-tile-${jet.tone} ${fresh === "fresh" ? "is-pulse" : ""}`}><div className="lk-tile-head"><span className="lk-tile-icon"><Radar size={16} /></span><span>Jetson presence</span><Dot tone={jet.tone} /></div>
       {inSession ? <><strong>{sentence(words(rc.kind))}{camEvent?.zone ? ` · ${words(camEvent.zone)} zone` : ""}</strong><small>{typeof camEvent?.confidence === "number" ? `${Math.round(camEvent.confidence * 100)}% confidence · ` : ""}{ago(rc.server_received_at_ms, m.now)}{rc.acted_on ? " · acted on" : ""}</small></>
         : <><strong>{jet.tone === "ok" ? "Watching the desk" : jet.tone === "muted" ? "Unverified" : "Not reporting"}</strong><small>{m.live ? "No presence observed this session" : jet.detail}</small></>}
+      <MiniBars data={sessionBuckets(m, "person")} noun="presence observation" />
     </div>
-    <div className="lk-tile"><div className="lk-tile-head"><CameraOff size={15} /><span>Local camera</span><Dot tone={camOn ? "ok" : "muted"} /></div>{camOn ? <img className="lk-tile-cam" src={`/api/security/demo/stream.mjpg?t=${d?.demo?.started_at ?? 0}`} alt="Live M4 camera" /> : <><strong>Off</strong><small>Not used for protection</small></>}</div>
-    <div className="lk-tile"><div className="lk-tile-head"><Usb size={15} /><span>USB watcher</span><Dot tone={!live ? "muted" : usb && !usb.error && d?.monitor?.running ? "ok" : "warn"} /></div><strong>{!live ? "Unverified" : usb?.error ? "Error" : `${usb?.connected ?? 0} devices`}</strong><small>{!live ? "Mac backend offline" : usb?.error || "Watching connections"}</small></div>
-    <div className="lk-tile"><div className="lk-tile-head"><LayoutDashboard size={15} /><span>App watcher</span><Dot tone={!live ? "muted" : apps && !apps.error && d?.monitor?.running ? "ok" : "warn"} /></div><strong>{!live ? "Unverified" : apps?.error ? "Error" : "Watching"}</strong><small>{!live ? "Mac backend offline" : apps?.error || "Visible apps only"}</small></div>
-    <div className="lk-tile"><div className="lk-tile-head"><Database size={15} /><span>SpacetimeDB</span><Dot tone={m.db.connected && d?.spacetimedb?.authorized ? "ok" : m.db.connected ? "warn" : "alert"} /></div><strong>{m.db.connected ? "Synced" : "Offline"}</strong><small>{d?.spacetimedb?.authorized ? "Mac publisher authorized" : live ? "Mac publisher not authorized" : "Mac status unknown"}</small></div>
+    <div className={`lk-tile lk-tile-${camOn ? "ok" : "muted"} ${camOn ? "lk-tile-media" : ""}`}><div className="lk-tile-head"><span className="lk-tile-icon"><CameraOff size={16} /></span><span>Local camera</span><Dot tone={camOn ? "ok" : "muted"} /></div>{camOn ? <img className="lk-tile-cam" src={`/api/security/demo/stream.mjpg?t=${d?.demo?.started_at ?? 0}`} alt="Live M4 camera" /> : <><strong>Off</strong><small>Not used for protection</small></>}</div>
+    <div className={`lk-tile lk-tile-${usbTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><Usb size={16} /></span><span>USB watcher</span><Dot tone={usbTone} /></div>{!live ? <strong>Unverified</strong> : usb?.error ? <strong>Error</strong> : <strong className="lk-tile-num"><span className="lk-num">{usb?.connected ?? 0}</span> devices</strong>}<small>{!live ? "Mac backend offline" : usb?.error || "Watching connections"}</small><MiniBars data={sessionBuckets(m, "usb")} noun="USB observation" /></div>
+    <div className={`lk-tile lk-tile-${appTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><LayoutDashboard size={16} /></span><span>App watcher</span><Dot tone={appTone} /></div><strong>{!live ? "Unverified" : apps?.error ? "Error" : "Watching"}</strong><small>{!live ? "Mac backend offline" : apps?.error || "Visible apps only"}</small><MiniBars data={sessionBuckets(m, "app")} noun="app observation" /></div>
+    <div className={`lk-tile lk-tile-${dbTone}`}><div className="lk-tile-head"><span className="lk-tile-icon"><Database size={16} /></span><span>SpacetimeDB</span><Dot tone={dbTone} /></div><strong>{m.db.connected ? "Synced" : "Offline"}</strong><small>{d?.spacetimedb?.authorized ? "Mac publisher authorized" : live ? "Mac publisher not authorized" : "Mac status unknown"}</small></div>
   </section>;
 }
 
@@ -247,7 +333,7 @@ function NemotronPanel({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
   const live = n?.evidence_badge === "LIVE";
   const elapsed = run.startedAt ? (run.finishedAt ?? m.now) - run.startedAt : 0;
   const gaps = (rec?.tools ?? []).filter((t: any) => !["ok", "finished"].includes(t.status));
-  return <section className="lk-nemotron">
+  return <section className="lk-card lk-nemotron">
     <header className="lk-nemo-head"><div className="lk-nemo-title"><span className="lk-nemo-icon"><Brain size={18} /></span><div><h2>Nemotron investigation</h2><span className="lk-powered">Powered by NVIDIA Nemotron · runs on the M5 investigator</span></div></div>
       {run.phase === "done" && <span className={`lk-pill ${live ? "lk-pill-ok" : "lk-pill-warn"}`}>{live ? "LIVE evidence" : words(n?.status)}</span>}</header>
     <div className="lk-access"><LockKeyhole size={14} />{m.grant === "granted" ? <>Read-only access approved {m.grantAt ? clock(m.grantAt) : ""} for this incident only</> : m.grant === "revoked" ? "Access was revoked. Explaining asks you again." : "No access yet. Explaining asks for your one-time approval."}</div>
@@ -269,21 +355,26 @@ function NemotronPanel({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
           <h4 className="lk-sub">Grounded findings</h4>
           <ol className="lk-findings">{(rec.observed_facts ?? []).map((f: any, i: number) => <li key={i}><span>{f.fact}</span>{(f.evidence_ids ?? []).length > 0 && <details><summary>{f.evidence_ids.length} evidence id{f.evidence_ids.length === 1 ? "" : "s"}</summary>{f.evidence_ids.map((e: string) => <code key={e}>{e}</code>)}</details>}</li>)}</ol>
           <h4 className="lk-sub">Tool execution</h4>
-          <ul className="lk-tools">{(rec.tools ?? []).map((t: any, i: number) => <li key={i} className={["ok", "finished"].includes(t.status) ? "is-ok" : "is-gap"}>{["ok", "finished"].includes(t.status) ? <Check size={13} /> : <X size={13} />}<code>{t.tool}</code><span>{words(t.status)}{t.live_data ? " · live data" : t.live_data === false ? " · not live" : ""}</span></li>)}</ul>
+          <ul className="lk-tools">{(rec.tools ?? []).map((t: any, i: number) => <li key={i} className={["ok", "finished"].includes(t.status) ? "is-ok" : "is-gap"}><span className="lk-tool-mark">{["ok", "finished"].includes(t.status) ? <Check size={13} /> : <X size={13} />}</span><code>{t.tool}</code><span>{words(t.status)}{t.live_data ? " · live data" : t.live_data === false ? " · not live" : ""}</span></li>)}</ul>
         </>}
       </div>}
   </section>;
 }
 
 function InvestigationView({ m, a }: { m: ConsoleModel; a: ConsoleActions }) {
-  if (!m.incident) return <section className="lk-card lk-empty-view"><ScanSearch size={30} strokeWidth={1.5} /><h2>No incident in this session</h2><p>{m.live ? "When the Jetson and this Mac's sensors correlate into an incident, it appears here with its evidence." : "Start protection to monitor this workstation. Past incidents are in History."}</p><button className="lk-btn" onClick={() => a.setView("history")}><History size={15} />Open history</button></section>;
+  if (!m.incident) return <section className="lk-card lk-empty-view"><span className="lk-empty-icon"><ScanSearch size={26} strokeWidth={1.6} /></span><h2>No incident in this session</h2><p>{m.live ? "When the Jetson and this Mac's sensors correlate into an incident, it appears here with its evidence." : "Start protection to monitor this workstation. Past incidents are in History."}</p><button className="lk-btn" onClick={() => a.setView("history")}><History size={15} />Open history</button></section>;
   const ev = m.scope?.events ?? [];
   return <div className="lk-investigation">
     <section className="lk-card lk-case">
       <header className="lk-case-head"><span className="lk-eyebrow lk-text-alert">Current incident · {words(m.incident.state)}</span><h2>{m.incident.summary || words(m.incident.ruleId)}</h2>
-        <div className="lk-case-meta"><span className={`lk-pill lk-pill-${sevTone(m.incident.severity)}`}>{words(m.incident.severity)} severity</span><span>Raised {clock(m.incident.createdAtMs)}</span><span>Rule: {words(m.incident.ruleId)}</span><span title={String(m.incident.sessionId)}>Session {sessionShort(m.incident.sessionId)}</span></div></header>
+        <dl className="lk-case-meta">
+          <div><dt>Severity</dt><dd><span className={`lk-pill lk-pill-${sevTone(m.incident.severity)}`}>{words(m.incident.severity)} severity</span></dd></div>
+          <div><dt>Raised</dt><dd>{clock(m.incident.createdAtMs)}</dd></div>
+          <div><dt>Rule</dt><dd>{words(m.incident.ruleId)}</dd></div>
+          <div><dt>Session</dt><dd title={String(m.incident.sessionId)} className="lk-mono">{sessionShort(m.incident.sessionId)}</dd></div>
+        </dl></header>
       <h4 className="lk-sub">Evidence sequence</h4>
-      {ev.length ? <ol className="lk-sequence">{ev.map(e => { const d = describeEvent(e); return <li key={String(e.id)}><time>{clock(e.observedAtMs)}</time><div><strong>{d.title}</strong><small>{d.source}{d.detail ? ` · ${d.detail}` : ""}</small><details><summary>Event id</summary><code>{String(e.id)}</code></details></div></li>; })}
+      {ev.length ? <ol className="lk-sequence">{ev.map(e => { const d = describeEvent(e); return <li key={String(e.id)} className={`lk-seq-${d.tone}`}><time>{clock(e.observedAtMs)}</time><div><strong>{d.title}</strong><small>{d.source}{d.detail ? ` · ${d.detail}` : ""}</small><details><summary>Event id</summary><code>{String(e.id)}</code></details></div></li>; })}
         <li className="lk-sequence-end"><time>{clock(m.incident.createdAtMs)}</time><div><strong>Correlated into an incident</strong><small>SpacetimeDB rule {words(m.incident.ruleId)} · {words(m.incident.severity)} severity</small></div></li></ol>
         : <p className="lk-empty">This incident's linked events aren't visible to the console.</p>}
       <h4 className="lk-sub">What the investigator can read</h4>
@@ -380,13 +471,16 @@ export function StopDialog({ state, onConfirm, onClose }: { state: StopState; on
 
 export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, notice, dialogs }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView; history: ReactNode; drawer: ReactNode; drawerOpen: boolean; closeDrawer: () => void; notice?: ReactNode; dialogs?: ReactNode }) {
   return <div className={`lk-app lk-state-${m.state.toLowerCase()}`}>
-    <TopBar m={m} a={a} view={view} />
-    <main className="lk-main">
-      {view === "protection" && <><Hero m={m} a={a} /><SensorTiles m={m} /><div className="lk-grid"><LiveActivity m={m} a={a} /><ResponseCard m={m} a={a} /></div></>}
-      {view === "investigation" && <InvestigationView m={m} a={a} />}
-      {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}
-      <footer className="lk-foot"><span><Mark size={13} />LOCKI AIRLOCK</span><span>SpacetimeDB holds the security record · this Mac reports its sensors · screen lock {m.mac.data?.lock_mode === "dry_run" ? "dry run" : "per policy"}</span><span><Server size={12} />{m.mac.status === "live" ? "Mac backend live" : "Mac backend unreachable"}</span></footer>
-    </main>
+    <Sidebar m={m} a={a} view={view} />
+    <div className="lk-body">
+      <TopBar m={m} a={a} view={view} />
+      <main className="lk-main">
+        {view === "protection" && <div className="lk-overview"><Hero m={m} a={a} /><StageTrack m={m} /><SensorTiles m={m} /><LiveActivity m={m} /><ResponseCard m={m} a={a} /></div>}
+        {view === "investigation" && <InvestigationView m={m} a={a} />}
+        {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}
+        <footer className="lk-foot"><span><Mark size={13} />LOCKI AIRLOCK</span><span>SpacetimeDB holds the security record · this Mac reports its sensors · screen lock {m.mac.data?.lock_mode === "dry_run" ? "dry run" : "per policy"}</span><span><Server size={12} />{m.mac.status === "live" ? "Mac backend live" : "Mac backend unreachable"}</span></footer>
+      </main>
+    </div>
     {drawerOpen && <div className="lk-drawer-scrim" onClick={closeDrawer} />}
     <aside className={`lk-drawer ${drawerOpen ? "is-open" : ""}`} aria-hidden={!drawerOpen} aria-label="Advanced controls">
       <header><div><Settings2 size={16} /><strong>Advanced controls</strong></div><button className="lk-icon-button" aria-label="Close advanced controls" onClick={closeDrawer}><X size={16} /></button></header>

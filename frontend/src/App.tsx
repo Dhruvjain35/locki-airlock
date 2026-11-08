@@ -167,7 +167,7 @@ function readRoute(): "airlock" | "setup" | "legacy" {
 }
 
 function SetupPage() {
-  return <div className="min-h-dvh" style={{ background: "#070d11" }}>
+  return <div className="min-h-dvh" style={{ background: "#000" }}>
     <div className="mx-auto max-w-[1500px] px-5 pt-4 text-[12px] text-ink-3">LOCKI AIRLOCK · Face setup and labelled rehearsal. Live mode uses this Mac's real camera; rehearsal fixtures are labelled and never spoken.</div>
     <AirlockDemo onExit={() => { history.replaceState(null, "", location.pathname + location.search); window.dispatchEvent(new HashChangeEvent("hashchange")); }} />
   </div>;
