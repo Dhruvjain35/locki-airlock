@@ -283,6 +283,9 @@ class LockedInRuntime:
         self.recorded_turns: deque = deque(maxlen=30)  # recorded commands: transcript, timings and result, labelled source=recorded
         self._recorded_busy = False
         self._recorded_tr = None
+        from .intelligence.nemotron_service import NemotronService
+
+        self.nemotron_service = NemotronService()  # Mustafa's investigator through the M4 tunnel; used only when its key file exists
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -2179,6 +2182,7 @@ class LockedInRuntime:
                 record["confidence"] = round(float(result.get("confidence", 0.0)), 3)
                 r = await self.handle_utterance(text, source="recorded", stt_confidence=record["confidence"], stt_ms=record["stt_ms"], heard_mono=time.monotonic())
                 record.update(ok=r.ok, message=r.message, reply=r.reply or (self.last_reply or {}).get("text"), intent=(self.last_utterance or {}).get("intent"),
+                              nemotron=(r.data or {}).get("nemotron"),
                               handled_ms=round((time.monotonic() - t0) * 1000, 1))
         finally:
             self._recorded_busy = False
@@ -2196,6 +2200,26 @@ class LockedInRuntime:
         await asyncio.sleep(0.5)
         if self.voice is held_voice and not self._recorded_busy:
             held_voice.hold_input(False)
+
+    async def _what_happened_from_nemotron(self, incident_id: str) -> CommandResult:
+        """"What happened?" about a real SpacetimeDB incident: Mustafa's Nemotron investigator reviews the live evidence and LOCKI speaks
+        the service's own spoken summary. If it can't, LOCKI says so and reads only the local record, never presented as Nemotron's."""
+        from .intelligence.nemotron_service import InvestigatorUnavailable
+
+        self._say("security_checking_nemotron")
+        try:
+            view = await self.nemotron_service.investigate(incident_id)
+        except InvestigatorUnavailable as exc:
+            reply = self._say("security_report", report=f"Nemotron couldn't review this one: {exc}. From the local record: {self.security.describe_record()}")
+            return self._result(False, f"Nemotron unavailable ({exc}); answered from the local record", reply, nemotron=self.nemotron_service.last)
+        text = str(view["spoken_summary"])
+        turn = _TURN.get()
+        trace = {"kind": "turn", "id": turn["id"], "t0": turn["heard_mono"]} if turn is not None else None
+        audible = self.speaker.say(text, priority=1, category="nemotron_investigation", trace=trace)
+        self.last_reply = {"text": text, "category": "nemotron_investigation", "at": time.time(), "audible": audible, "priority": 1}
+        self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, {"category": "nemotron_investigation", "text": text, "audible": audible,
+                                                                                 "investigation_id": view.get("investigation_id"), "evidence_badge": view.get("evidence_badge")})
+        return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=self.nemotron_service.last)
 
     def stop_speaking(self) -> dict:
         """The STOP SPEAKING control: stop LOCKI's current and queued lines now. P0 security warnings still play."""
@@ -2419,6 +2443,9 @@ class LockedInRuntime:
         if n == IntentName.DISARM_WORKSTATION:
             return self.security.request_disarm_by_voice()
         if n == IntentName.SECURITY_WHAT_HAPPENED:
+            incident = self.security.incident or {}
+            if incident.get("authoritative") and self.nemotron_service.configured() and self.nemotron_service.accepts(incident.get("incident_id")):
+                return await self._what_happened_from_nemotron(incident["incident_id"])
             return await self.security.what_happened(origin=origin)
         if n == IntentName.SECURITY_DESK:
             return self.security.desk_question(intent.raw or intent.text)
