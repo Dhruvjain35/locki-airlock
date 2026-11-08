@@ -128,7 +128,7 @@ class SystemStats(object):
         try:
             with open(self.gpu_path) as f:
                 return round(int(f.read().strip()) / 10.0, 1)  # Jetson reports per-mille
-        except (IOError, OSError, ValueError):
+        except (IOError, OSError, ValueError, TypeError):
             return None
 
     @staticmethod
@@ -140,7 +140,8 @@ class SystemStats(object):
                     t = int(f.read().strip()) / 1000.0
                 if 0 < t < 150:
                     temps.append(t)
-            except (IOError, OSError, ValueError):
+            # Orin: some thermal zones return no data on read (TypeError inside the decoder); skip them.
+            except (IOError, OSError, ValueError, TypeError):
                 pass
         return round(max(temps), 1) if temps else None
 

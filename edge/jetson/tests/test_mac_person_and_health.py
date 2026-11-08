@@ -106,5 +106,37 @@ class WireMetadataTest(unittest.TestCase):
         self.assertEqual(Contract(metadata_strings=False).wire_metadata({"n": 3}), {"n": 3})
 
 
+class SystemStatsTest(unittest.TestCase):
+    """Orin: some thermal zones (and the GPU load node) raise TypeError on read instead of returning a number."""
+
+    def test_unreadable_nodes_are_skipped_not_fatal(self):
+        from unittest import mock
+        from locki_edge.api import SystemStats
+
+        class Node(object):
+            def __init__(self, text):
+                self.text = text
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                if self.text is None:
+                    raise TypeError("decoder got no data")
+                return self.text
+
+        nodes = {"/tz0/temp": Node(None), "/tz1/temp": Node("45000\n"), "/tz2/temp": Node("51500\n"),
+                 "/gpu/load": Node(None)}
+        stats = SystemStats.__new__(SystemStats)
+        stats.gpu_path = "/gpu/load"
+        with mock.patch("locki_edge.api.glob.glob", return_value=["/tz0/temp", "/tz1/temp", "/tz2/temp"]), \
+                mock.patch("locki_edge.api.open", side_effect=lambda path, *a, **k: nodes[path], create=True):
+            self.assertEqual(stats._temp(), 51.5)
+            self.assertIsNone(stats._gpu())
+
+
 if __name__ == "__main__":
     unittest.main()
