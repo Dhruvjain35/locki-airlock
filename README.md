@@ -1,43 +1,51 @@
 # LOCKI AIRLOCK
 
-LOCKI AIRLOCK helps engineers monitor an unattended workstation in a shared workspace. It combines desk-camera observations with Mac USB changes and visible app launches in a shared incident timeline. Owners configure the response; authorized reviewers can inspect and acknowledge incidents. Local warnings run independently of the investigation model; an ordinary macOS screen lock requires the owner's response policy and local consent.
+**Workspace security for shared engineering desks.**
 
-Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan.
+[![AIRLOCK software checks](https://github.com/Dhruvjain35/locki-airlock/actions/workflows/airlock.yml/badge.svg)](https://github.com/Dhruvjain35/locki-airlock/actions/workflows/airlock.yml)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
+[![React 18.3](https://img.shields.io/badge/React-18.3-149ECA?logo=react&logoColor=white)](frontend/package.json)
+[![SpacetimeDB 2.14.1](https://img.shields.io/badge/SpacetimeDB-2.14.1-7855FA)](spacetime/package.json)
 
-**Status: integration prototype.** Source is available for the Mac runtime, dashboard, database module, Jetson adapter and Nemotron investigator service. Running-device configuration, physical accuracy, actual lock/unlock behavior and model integration require the evidence listed in [release acceptance](docs/airlock/RELEASE_ACCEPTANCE.md).
+[Workflow](#workflow) · [Architecture](#architecture) · [Quick start](#quick-start) · [Boundaries](#boundaries) · [Development](#development)
 
-## What it does
+Airlock combines Mac USB changes, visible app launches and desk-camera observations in a shared incident timeline. Owners configure the response; authorized reviewers inspect the evidence. Local warnings run independently of the investigation model, and automatic screen locking requires owner policy and local consent.
 
-- Authenticated arming captures a fresh device baseline and freezes the session's response policy. Disarming requires owner authority; speech alone grants no permission.
-- Mac watchers report USB changes and visible app launches. An optional camera reports desk presence and configured zone observations.
-- Deterministic rules create incidents for unapproved digital observations and correlate nearby physical observations. Presence alone does not request an automatic lock. An unfamiliar device or person is not proof of malicious intent.
-- The Mac produces local warnings, while authorized consoles share incidents, evidence, acknowledgements and recovery state. Configured phone notifications report their actual delivery stage.
-- Nemotron investigates through scoped, read-only evidence tools. A separate managed-workflow gate requires authorization before selected protected callbacks execute; it does not control arbitrary apps or agents.
+**Integration prototype.** Mac, dashboard, database, Jetson and investigator source are present. Physical accuracy, deployed configuration, actual lock/unlock behavior and model integration remain subject to [release acceptance](docs/airlock/RELEASE_ACCEPTANCE.md).
+
+## Workflow
+
+1. **Arm.** The authenticated owner captures a fresh device baseline and freezes the session policy. Speech alone grants no permission.
+2. **Leave.** Lock the Mac normally. Airlock monitors selected events and adds camera context; compatibility with locked engineering workloads remains an acceptance requirement.
+3. **Review.** Open the shared timeline from an authorized console. Inspect observations, acknowledge the incident and request an evidence-based explanation from Nemotron.
+4. **Return.** Unlock through macOS and disarm through owner controls. Resolving an incident does not grant future trust to a device or person.
+
+A friend approaching the desk must not become an accusation. Presence alone does not request an automatic lock, but the local presence-warning path still needs work to meet the intended quiet behavior. See [product behavior](docs/airlock/PRODUCT.md) and the [demo walkthrough](docs/airlock/DEMO.md#product-walkthrough).
 
 ## Architecture
 
-```text
-Mac USB/app monitors ────┐
-                        ├──► SpacetimeDB ──► owner / reviewer consoles
-Jetson or desk camera ──┘      sessions, incidents, permissions
-                                   │
-                                   └──► scoped evidence ──► Nemotron investigator
-Mac runtime: local voice + consented screen-lock adapter
+```mermaid
+flowchart LR
+    Mac["Mac runtime<br/>USB · apps · local speech"] -->|events| DB[("SpacetimeDB<br/>sessions · policy · incidents")]
+    Camera["Desk camera / Jetson<br/>presence observations"] -->|observations| DB
+    DB -->|scoped state| Console["Owner / reviewer<br/>console"]
+    Console -->|authorized controls| DB
+    DB -->|scoped evidence| Model["Nemotron<br/>read-only investigation"]
+    DB -->|consented lock requests| Mac
+
+    classDef device fill:#172554,stroke:#60a5fa,color:#eff6ff
+    classDef authority fill:#312e81,stroke:#a5b4fc,color:#eef2ff
+    classDef client fill:#134e4a,stroke:#5eead4,color:#f0fdfa
+    class Mac,Camera device
+    class DB authority
+    class Console,Model client
 ```
 
-SpacetimeDB owns enrollment, session state, incident rules and action permissions. The Mac applies approved responses; the model explains evidence and cannot establish guilt. See the [database contract](spacetime/CONTRACT.md) and [device contracts](docs/airlock/CONTRACTS.md) for the exact boundaries.
+SpacetimeDB owns incident rules and action permissions. Nemotron uses scoped, read-only evidence tools. A separate managed-workflow gate authorizes selected protected callbacks before execution; it does not control arbitrary applications or agents. See the [database contract](spacetime/CONTRACT.md) and [device contracts](docs/airlock/CONTRACTS.md).
 
-## Product boundaries
+## Quick start
 
-This prototype detects and reports selected events. It does not promise theft prevention, complete process monitoring, malware detection, recovery of copied data, or protection for tools outside its managed gateway. Someone using an already-open application may produce no new app-launch event. Temporal correlation does not identify who performed an action.
-
-Face identification is disabled by default. Real screen locks are opt-in; the default is a dry run, and a request is distinct from confirmed OS lock. Screen locking is not shutdown. Local presence speech still needs evaluation against the desired quiet behavior around coworkers. Robot motion and firmware changes are outside this product's operating scope.
-
-The [product specification](docs/airlock/PRODUCT.md) separates intended behavior from current capability. [Scenarios](docs/airlock/SCENARIOS.md) and the [test plan](docs/airlock/TEST_PLAN.md) define the failures and recovery paths to evaluate; planned cases are not passing results.
-
-## Getting started
-
-For a local database and dashboard rehearsal, install Node 24.22.1+ in the Node 24 line and SpacetimeDB CLI 2.14.1, then run:
+For a local database and dashboard rehearsal, install **Node 24.22.1+ in the Node 24 line** and **SpacetimeDB CLI 2.14.1**, then run from this repository:
 
 ```sh
 npm ci --prefix spacetime
@@ -45,25 +53,31 @@ npm ci --prefix frontend
 make airlock
 ```
 
-Open the URL printed by the launcher. This path uses explicitly labelled synthetic observations; it does not start a camera, microphone, model, robot or real screen-lock adapter. Follow the [local integration guide](docs/airlock/README.md) for identities, two-console review and persistence.
+Open the URL printed by the launcher. This path uses labelled synthetic observations; it starts no camera, microphone, model, robot or real screen-lock adapter.
 
-For the physical Mac, camera, voice and investigator paths, follow [setup and operation](docs/airlock/SETUP.md).
+- [Local integration](docs/airlock/README.md): identities, two-console review and persistence.
+- [Mac and hardware setup](docs/airlock/SETUP.md): cameras, voice, enrollment and model connections.
+- [Investigator service](services/nemotron-investigator/README.md): evidence tools and service integration.
 
-## Repository layout
+## Boundaries
+
+- **Native locking is the access baseline.** Real Airlock locks are opt-in and default to dry run. A request is not confirmed OS lock; screen locking is not shutdown.
+- **Observation is limited.** Already-open apps can be misused without a new launch event. Airlock does not establish malware, theft, copied data or who caused a temporally correlated event.
+- **Face identification defaults off.** The Jetson presence adapter does not establish identity or permission. Robot motion is outside this product's operating scope.
+
+[108 scenarios](docs/airlock/SCENARIOS.md) and the [test plan](docs/airlock/TEST_PLAN.md) cover ordinary collaboration, failures and recovery. These are planned acceptance cases, not passing results.
+
+## Development
 
 | Path | Responsibility |
 |---|---|
-| `backend/app/` | Mac security runtime, vision, voice and conversation |
-| `frontend/` | Owner/reviewer console, Mac demo view and generated bindings |
-| `spacetime/` | Authoritative state, incident rules, permissions and scoped views |
-| `edge/jetson/` | Independent camera publisher adapter |
-| `services/nemotron-investigator/` | Scoped investigation service, tools and integration API |
-| `scripts/` | Setup, bridges, publishers, adapters and verification utilities |
-| `examples/` | Managed-workflow and sandbox examples |
-| `docs/airlock/` | Product behavior, operation, contracts and acceptance evidence |
+| [backend/app](backend/app/) | Mac monitoring, vision, voice and conversation |
+| [frontend](frontend/) | Owner/reviewer console and Mac demo |
+| [spacetime](spacetime/) | Sessions, policy, incidents and permissions |
+| [edge/jetson](edge/jetson/) | Edge runtime and standalone camera adapter |
+| [services/nemotron-investigator](services/nemotron-investigator/) | Investigation service and evidence tools |
+| [scripts](scripts/) · [examples](examples/) | Setup, adapters, verification and managed-workflow examples |
 
-## Tests and contributing
+Use the [software checks](docs/airlock/SETUP.md#software-checks) and [physical accuracy protocol](docs/airlock/ACCURACY_TRIALS.md). Follow [CONTRIBUTING.md](CONTRIBUTING.md) for branches, review and private-data exclusions.
 
-Use the [software check commands](docs/airlock/SETUP.md#software-checks), [physical accuracy protocol](docs/airlock/ACCURACY_TRIALS.md) and [release gates](docs/airlock/RELEASE_ACCEPTANCE.md). Automated software checks do not substitute for real hardware, audio, model or recovery trials.
-
-Follow [CONTRIBUTING.md](CONTRIBUTING.md) for branches, review and private-data exclusions. Historical migration notes remain in [docs/MIGRATION.md](docs/MIGRATION.md) and `docs/legacy/`. Authorship, upstream provenance and licensing are recorded in [SOURCE_NOTICE.md](SOURCE_NOTICE.md).
+Built for **HackUTD 2026** by **Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan**. [SOURCE_NOTICE.md](SOURCE_NOTICE.md) records authorship, upstream provenance and licensing; [migration notes](docs/MIGRATION.md) preserve the integration history.

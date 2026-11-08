@@ -22,7 +22,7 @@ Start a local SpacetimeDB server in a separate terminal, then publish without de
 ```sh
 spacetime start --listen-addr 127.0.0.1:3000
 spacetime publish --server http://127.0.0.1:3000 --module-path spacetime --delete-data=never --yes locki-airlock-sid
-spacetime generate --lang typescript --module-path spacetime --out-dir frontend/src/airlock/module_bindings
+spacetime generate --lang typescript --module-path spacetime --out-dir frontend/src/airlock-bindings
 ```
 
 The current local fallback database is `locki-airlock-sid`; the previously used `locki-airlock` fixture database is preserved. The primary cloud database is `locki-w91bw` on `https://maincloud.spacetimedb.com`. The repository integration scripts and frontend configuration select the actual URI and database. A cloud database needs the deployment owner's authenticated permission; a supplied URL alone does not grant publish authority. Do not use `--delete-data` to work around migration errors. No reducer performs a filesystem, network, OS-lock or motor operation.

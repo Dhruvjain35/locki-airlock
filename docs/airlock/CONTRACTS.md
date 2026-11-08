@@ -1,8 +1,4 @@
-<!-- Integration (locki-airlock migration): this file was added on both branches. Both texts are kept whole. Sid's server answers come first
-     because his module is the authoritative contract (spacetime/CONTRACT.md); the Mac side follows. Where they differ, the module wins and
-     the Mac section is the question it answered. See docs/INTEGRATION_DECISIONS.md. -->
-
-# Mac integration contract — Sid's server answers
+# AIRLOCK integration contracts
 
 These answers describe the current Sid module in `spacetime/src/index.ts`.
 The original answers were written before Dhruv's local `4277d99` branch was
@@ -10,6 +6,34 @@ available. The new repository now contains the audited M4 integration snapshot;
 [INTEGRATION_DECISIONS.md](../INTEGRATION_DECISIONS.md) records Sid's current review.
 The older Mac questions below remain historical context. The complete authoritative
 reducer and row contract is [spacetime/CONTRACT.md](../../spacetime/CONTRACT.md).
+
+## Message formats and transport
+
+The repository has two `SecurityEventV1` schemas for different boundaries:
+
+| Schema | Used by | Format |
+|---|---|---|
+| [Portable publisher envelope](SecurityEventV1.schema.json) | [JavaScript publisher](../../scripts/airlock_publisher.mjs) and external integrations | Top-level `workstation_id`, `session_id` and `simulated`; module kinds such as `usb_added`; bounded string metadata. |
+| [Mac local message](contracts/SecurityEventV1.schema.json) | [Python contracts](../../backend/app/security/contracts.py) and local consumers | `is_fixture`; local sources such as `mac_usb`; kinds such as `usb_device_added`; typed local metadata. Workstation/session context is supplied by the adapter. |
+
+These schemas are not interchangeable. The
+[Mac adapter](../../backend/app/security/spacetime_adapter.py) maps supported local
+kinds and metadata into the current reducer contract, including `is_fixture` to
+`simulated`. Unsupported kinds remain local.
+
+The generated TypeScript SDK accepts named arguments. Direct HTTP calls to
+`ingest_device_event` send this JSON array in declaration order:
+
+```text
+[workstationId, sessionId, deviceId, eventId, kind, observedAtMs, seq, confidence, metadataJson, simulated, schemaVersion]
+```
+
+`metadataJson` is a serialized object inside that array. The portable envelope's
+`source` is validated by the publisher; it is not a reducer argument. The server
+checks the authenticated sender's enrolled role. Sending either whole event object
+as a single JSON-string argument is the historical transport described below,
+not the current API. Other reducers use their own signatures in
+[spacetime/CONTRACT.md](../../spacetime/CONTRACT.md).
 
 ## Enrolled Mac subscriptions
 
@@ -161,19 +185,21 @@ may be intentionally suppressed by the voice bridge's age/dedup rules.
 
 ---
 
-# The Mac side of the contracts (Dhruv)
+## Mac-side message models
 
-These are the messages between Dhruv's Mac agent, Areeb's Jetson publisher and Sid's SpacetimeDB module. Each has a JSON Schema and
-sample messages in [`contracts/`](contracts/), so you don't need Python to use them. Tell Dhruv if a field doesn't fit your SDK.
+These are the Mac backend's local messages, including models populated from server
+rows. Their schemas and samples in [`contracts/`](contracts/) are generated from
+Python by `make airlock-contracts`. The adapter translates them to and from the
+server contract; they are not raw reducer request or view-row schemas.
 
 | Contract | From | To | Schema | Sample |
 |---|---|---|---|---|
-| `SecurityEventV1` | Mac, Jetson | SpacetimeDB `ingest_device_event` | [schema](contracts/SecurityEventV1.schema.json) | [USB](contracts/fixtures/security_event_usb_unknown.json), [app](contracts/fixtures/security_event_app_watchlist.json), [person](contracts/fixtures/security_event_person_in_zone.json), [camera lost](contracts/fixtures/security_event_camera_unavailable.json) |
-| `IncidentUpdateV1` | SpacetimeDB | Mac voice and agent, consoles | [schema](contracts/IncidentUpdateV1.schema.json) | [sample](contracts/fixtures/incident_update.json) |
-| `LockRequestV1` | SpacetimeDB | Mac lock adapter | [schema](contracts/LockRequestV1.schema.json) | [sample](contracts/fixtures/lock_request.json) |
-| `AgentStepV1` | Mac agent | SpacetimeDB, dashboard | [schema](contracts/AgentStepV1.schema.json) | [sample](contracts/fixtures/agent_step.json) |
+| `SecurityEventV1` | Mac observers and camera adapters | Local consumers and publisher adapter | [schema](contracts/SecurityEventV1.schema.json) | [USB](contracts/fixtures/security_event_usb_unknown.json), [app](contracts/fixtures/security_event_app_watchlist.json), [person](contracts/fixtures/security_event_person_in_zone.json), [camera lost](contracts/fixtures/security_event_camera_unavailable.json) |
+| `IncidentUpdateV1` | Server-row adapter | Mac voice and agent | [schema](contracts/IncidentUpdateV1.schema.json) | [sample](contracts/fixtures/incident_update.json) |
+| `LockRequestV1` | Server-row adapter | Mac lock adapter | [schema](contracts/LockRequestV1.schema.json) | [sample](contracts/fixtures/lock_request.json) |
+| `AgentStepV1` | Mac agent | Publisher adapter | [schema](contracts/AgentStepV1.schema.json) | [sample](contracts/fixtures/agent_step.json) |
 
-## Rules for every message
+## Rules for local messages
 
 - **Times** are integer milliseconds since the Unix epoch.
 - **`seq`** only ever rises for a given `device_id`, including across restarts.
@@ -244,7 +270,11 @@ Areeb, send your metadata fields and I'll add a typed model.
 - USB serial numbers never leave the Mac. `fingerprint` is a salted hash.
 - A disarmed Mac publishes only its monitor health (`monitor_health`). USB and app observations are counted locally and not sent.
 
-## The Mac and Sid's module (locki-w91bw on maincloud)
+## Historical Mac integration notes
+
+The following notes preserve the pre-merge handoff and questions. The current
+metadata rules, scoped views and transport are documented above; statements here
+about missing access or proposed APIs are not current setup instructions.
 
 The Mac speaks the documented HTTP and WebSocket APIs with its own identity, because SpacetimeDB has no official Python SDK. Before it sends anything, it checks the live module's reducer signatures against its own copy (`EXPECTED_REDUCERS` in `backend/app/security/spacetime_adapter.py`). If they differ, it stops sending and reports why, while local warnings carry on.
 
@@ -270,7 +300,7 @@ The Mac speaks the documented HTTP and WebSocket APIs with its own identity, bec
 
 **Arming:** while connected, only the owner arms, through the dashboard or `scripts/airlock.py owner-commands`. A spoken "arm" sends a fresh baseline and asks the owner to arm. A local disarm code doesn't apply to a session that SpacetimeDB armed.
 
-## Sid: what the Mac expects from SpacetimeDB
+## Historical single-string transport
 
 The Mac uses the documented HTTP and WebSocket APIs, because SpacetimeDB has no official Python SDK. Reducer and table names are settings (`LOCKEDIN_SPACETIME_*`), so they can follow your module.
 
@@ -296,17 +326,29 @@ If a reducer throws, the Mac treats that as final and records the reason. It ret
 2. **Reading events.** The investigator should read events through your authorized view, so it also sees Jetson events. Which table or view should it use?
 3. **Identities.** The Mac creates its own identity with `POST /v1/identity`. Tell me how to register it as this workstation's device.
 
-**Check your module against the Mac** with this. It's a dry run, so it never locks the screen:
+**Current contract check.** The
+[checker](../../backend/scripts/airlock_spacetime_check.py) now reads the Mac's
+stored configuration in `data/security/spacetime.json`, checks reducer signatures
+and subscribes to scoped views. It does not request a lock:
 
 ```
-cd backend && .venv/bin/python scripts/airlock_spacetime_check.py --url <server> --database <name>
+cd backend && .venv/bin/python scripts/airlock_spacetime_check.py
 ```
 
-It currently calls `request_workstation_lock(session_id, action_id, expiry, reason, owner_policy_hash)` and reads a `device_event` table, as in [the test module](../../backend/tests/fixtures/spacetime_test_module/index.ts). That module is only for checking the adapter. It isn't a suggested design.
+Add `--event EVENT_ID` to look up an event in `my_device_events`. The earlier
+checker used `request_workstation_lock` and a `device_event` table from a test
+module that is not included in this snapshot. Those names are historical; use
+[the current module contract](../../spacetime/CONTRACT.md) for integration.
 
 **Your screenshot shows `maincloud`.** If events go there, they leave the local network, including app names, device names and paths with the home folder shortened. USB serials never do. The PRD says "local", so please decide this with Dhruv.
 
-## Voice-initiated arming: proposal for Sid
+## Historical voice-arming proposal
+
+This proposal was superseded by `authorize_arm`, `revoke_arm_authorization`,
+`arm_session_delegated` and `my_arm_authorizations`. Use
+[ARM_DELEGATION.md](ARM_DELEGATION.md) for the current server API and
+[M4_VOICE_ARM.md](M4_VOICE_ARM.md) for the Mac integration. The proposed names and
+ten-minute permission window below are retained only as design history.
 
 **Goal.** The owner says "LOCKI, secure my workstation" and the workstation arms without a click. The Mac never gets owner powers, and a voice alone never counts as authorization.
 
