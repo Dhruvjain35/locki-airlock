@@ -3,10 +3,12 @@ SSH tunnel at 127.0.0.1:18787.
 
 Only real SpacetimeDB incidents (incident:<32 hex>) are sent, always with evidence_mode "live"; the service never falls back to test
 data, and neither does this client. LOCKI speaks the service's own spoken_summary (deterministic, grounded and severity-guarded on the
-service side) and nothing else as Nemotron's result. Any error is reported as unavailable; the alert path never waits on this.
+service side) and nothing else as Nemotron's result, and only after checking that the answer is a live, answered run for exactly the
+incident and investigation it asked about. Each run keeps its own record, so overlapping runs never mix. Any error is reported as
+unavailable; the alert path never waits on this.
 
-Settings (environment): LOCKI_INVESTIGATOR_URL (default http://127.0.0.1:18787), LOCKI_INVESTIGATOR_KEY_FILE (default
-~/.locki/investigator.key, the requester key collected once over SSH; read per call, never logged).
+Settings (environment): LOCKI_INVESTIGATOR_URL (default http://127.0.0.1:18787, loopback only), LOCKI_INVESTIGATOR_KEY_FILE (default
+~/.locki/investigator.key, the requester key collected once over SSH; owner-only, read once per run without following links, never logged).
 """
 
 from __future__ import annotations
@@ -23,20 +25,27 @@ from urllib.parse import urlsplit
 
 import httpx
 
-LIVE_INCIDENT = re.compile(r"^incident:[0-9a-f]{32}$")
+LIVE_INCIDENT = re.compile(r"incident:[0-9a-f]{32}")
+KEY_TEXT = re.compile(r"[\x21-\x7e]{8,512}")
 TERMINAL = {"completed", "completed_with_warnings", "degraded", "failed", "timeout", "rejected", "interrupted"}
 ANSWERED = {"completed", "completed_with_warnings", "degraded"}  # statuses that carry an assessment
+MAX_SPOKEN_CHARS = 1500
 POLL_S = 0.75
 DEADLINE_S = 45.0  # warm runs take ~9-10 s, cold ~13 s; the service bounds a run itself
 MAX_RESPONSE_BYTES = 65_536
 MAX_KEY_BYTES = 4096
 MAX_SUMMARY_CHARS = 2000
-RUN_ID = re.compile(r"inv_[A-Za-z0-9]{1,36}")
+RUN_ID = re.compile(r"inv_[A-Za-z0-9_-]{1,80}")
+_READ_ERRORS = (ValueError, KeyError, TypeError, AttributeError, UnicodeError, httpx.InvalidURL)
 SEVERITIES = ("low", "medium", "high", "critical")
 
 
 class InvestigatorUnavailable(RuntimeError):
-    """Nemotron could not produce an assessment for this request; the message says why, in a few words."""
+    """Nemotron could not produce an assessment for this request; the message says why, in a few words. ``run`` is that run's record."""
+
+    def __init__(self, message: str, run: dict | None = None):
+        super().__init__(message)
+        self.run = run
 
 
 class NemotronService:
@@ -44,8 +53,14 @@ class NemotronService:
         self.url = (url or os.environ.get("LOCKI_INVESTIGATOR_URL") or "http://127.0.0.1:18787").rstrip("/")
         self.key_file = Path(os.path.expanduser(key_file or os.environ.get("LOCKI_INVESTIGATOR_KEY_FILE") or "~/.locki/investigator.key"))
         self._client = client
-        self._call_id = 0
-        self.last: dict | None = None  # the last run: ids, status, badge and timings (no evidence text)
+        self.last: dict | None = None  # most recently started run; each caller receives its own copied metadata
+
+    def loopback(self) -> bool:
+        try:
+            self._endpoint()
+            return True
+        except InvestigatorUnavailable:
+            return False
 
     def configured(self) -> bool:
         """A loopback URL and an owner-only, regular, non-empty key file (a symlink or a group/world-readable file is refused)."""
@@ -88,7 +103,7 @@ class NemotronService:
                 raise ValueError("invalid key size")
             raw = os.read(fd, MAX_KEY_BYTES + 1)
             key = raw.decode("ascii").strip()
-            if len(raw) > MAX_KEY_BYTES or not key or any(not 33 <= ord(c) <= 126 for c in key):
+            if len(raw) > MAX_KEY_BYTES or not KEY_TEXT.fullmatch(key):
                 raise ValueError("invalid key")
         except (OSError, ValueError):
             raise InvestigatorUnavailable("the investigator key must be a readable, private owned regular file with a bounded valid token") from None
@@ -117,21 +132,26 @@ class NemotronService:
 
     async def investigate(self, incident_id: str, note: str = "owner asked by voice: what happened?") -> dict:
         """Start a live investigation of one real incident and wait for its voice view. Returns the voice view plus timings."""
-        self._call_id += 1
-        call_id = self._call_id
-        self.last = {"incident_id": incident_id, "status": "starting", "evidence_badge": None}
+        run = {"incident_id": incident_id, "status": "starting", "evidence_badge": None}
+        self.last = run
         try:
-            return await self._investigate(incident_id, note, call_id)
+            return await self._investigate(incident_id, note, run)
         except InvestigatorUnavailable as exc:
-            if call_id == self._call_id:
-                self.last = {"incident_id": incident_id, "status": "unavailable", "error": str(exc), "evidence_badge": None}
+            run.update(status="unavailable", error=str(exc), evidence_badge=None)
+            exc.run = dict(run)
             raise
         except asyncio.CancelledError:
-            if call_id == self._call_id:
-                self.last = {"incident_id": incident_id, "status": "cancelled", "evidence_badge": None}
+            run.update(status="cancelled", evidence_badge=None)
             raise
+        except _READ_ERRORS:
+            run.update(status="unavailable", error="the investigator's reply could not be read", evidence_badge=None)
+            raise InvestigatorUnavailable("the investigator's reply could not be read", dict(run)) from None
+        except httpx.HTTPError as exc:
+            reason = f"the investigator service is unreachable ({type(exc).__name__})"
+            run.update(status="unavailable", error=reason, evidence_badge=None)
+            raise InvestigatorUnavailable(reason, dict(run)) from None
 
-    async def _investigate(self, incident_id: str, note: str, call_id: int) -> dict:
+    async def _investigate(self, incident_id: str, note: str, run: dict) -> dict:
         if not self.accepts(incident_id):
             raise InvestigatorUnavailable("that incident isn't a live SpacetimeDB incident")
         base, headers = self._endpoint(), self._headers()
@@ -147,9 +167,7 @@ class NemotronService:
                     raise InvestigatorUnavailable("the service returned an invalid investigation ID or status")
                 if inv.get("evidence_mode") != "live" or inv.get("evidence_badge") != "LIVE":
                     raise InvestigatorUnavailable("the service did not accept the run as live evidence")
-                record = {"investigation_id": inv_id, "incident_id": incident_id, "status": inv["status"], "started_ms": round((time.monotonic() - t0) * 1000, 1)}
-                if call_id == self._call_id:
-                    self.last = record
+                run.update(investigation_id=inv_id, status=inv["status"], started_ms=round((time.monotonic() - t0) * 1000, 1))
                 while True:
                     await asyncio.sleep(POLL_S)
                     view = await self._request(client, "GET", f"{base}/investigations/{inv_id}", headers, params={"view": "voice"})
@@ -169,15 +187,15 @@ class NemotronService:
                 summary = view.get("spoken_summary")
                 if (official not in SEVERITIES or effective not in SEVERITIES
                         or SEVERITIES.index(effective) < SEVERITIES.index(official)
-                        or not isinstance(summary, str) or not 0 < len(summary) <= MAX_SUMMARY_CHARS
+                        or not isinstance(summary, str) or not 0 < len(summary) <= MAX_SPOKEN_CHARS
                         or any(ord(c) < 32 or ord(c) == 127 for c in summary)
                         or not summary.startswith(f"LOCKI rated this incident {official} severity.")
                         or not isinstance(view.get("spoken_summary_source"), str)
                         or view["spoken_summary_source"] in ("", "status_template")):
                     raise InvestigatorUnavailable("the investigator returned no valid severity-bound assessment")
-                record.update(status=status, evidence_badge="LIVE", total_ms=round((time.monotonic() - t0) * 1000, 1),
+                run.update(status=status, evidence_badge="LIVE", total_ms=round((time.monotonic() - t0) * 1000, 1),
                               needs_review=view.get("needs_review"), spoken_summary_source=view.get("spoken_summary_source"))
-                return {**view, "total_ms": record["total_ms"]}
+                return {**view, "total_ms": run["total_ms"], "run": dict(run)}
         except TimeoutError:
             raise InvestigatorUnavailable(f"no result within {DEADLINE_S:.0f} s") from None
         except httpx.HTTPError as exc:
@@ -187,7 +205,6 @@ class NemotronService:
         finally:
             if self._client is None:
                 await client.aclose()
-
 
     async def record(self, investigation_id: str) -> dict:
         """Fetch an authorized record afresh through the same bounded private tunnel as voice."""
@@ -223,9 +240,9 @@ class NemotronService:
         except TimeoutError:
             raise InvestigatorUnavailable("the investigator record request timed out") from None
         except httpx.HTTPError as exc:
-            raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from exc
-        except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
-            raise InvestigatorUnavailable("the investigator's reply could not be read") from exc
+            raise InvestigatorUnavailable(f"the investigator service is unreachable ({type(exc).__name__})") from None
+        except _READ_ERRORS:
+            raise InvestigatorUnavailable("the investigator's reply could not be read") from None
         finally:
             if self._client is None:
                 await client.aclose()

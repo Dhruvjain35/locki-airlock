@@ -49,6 +49,16 @@ def _no_real_cloud_voice(monkeypatch):
     monkeypatch.setenv("LOCKEDIN_LLM_PROVIDER", "none")
 
 
+@pytest.fixture(autouse=True)
+def _no_real_models_or_investigator(monkeypatch, tmp_path):
+    """Tests never reach this Mac's real Ollama, the Nemotron tunnel or the real investigator key: both model URLs point at a closed
+    local port and the key file at an empty temporary path (tests that need a key make their own)."""
+    for name in ("LOCKEDIN_AIRLOCK_OLLAMA_URL", "LOCKEDIN_OLLAMA_URL"):
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    monkeypatch.setenv("LOCKI_INVESTIGATOR_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("LOCKI_INVESTIGATOR_KEY_FILE", str(tmp_path / "no-investigator.key"))
+
+
 @pytest.fixture
 def clock() -> FakeClock:
     return FakeClock()

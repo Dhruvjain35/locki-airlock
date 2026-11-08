@@ -364,11 +364,13 @@ async def typed_command(body: TypedCommand, request: Request):
 
 @router.post("/voice/start")
 async def voice_start(request: Request):
+    _own_dashboard(request)  # the microphone is opened only from the local dashboard
     return (await rt_of(request).start_voice()).to_dict()
 
 
 @router.post("/voice/stop")
 async def voice_stop(request: Request):
+    _own_dashboard(request)  # the microphone is opened only from the local dashboard
     return (await rt_of(request).stop_voice()).to_dict()
 
 
@@ -432,6 +434,7 @@ async def stop_speaking(request: Request):
 
 @router.post("/voice/ptt")
 async def voice_ptt(body: Ptt, request: Request):
+    _own_dashboard(request)
     rt = rt_of(request)
     if rt.voice is None or not rt.voice.running:
         raise HTTPException(400, "voice input is not running")

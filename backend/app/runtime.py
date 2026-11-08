@@ -2229,15 +2229,18 @@ class LockedInRuntime:
                 tuple(sorted(update.evidence_ids)), update.updated_at, update.created_at,
                 session.armed_at_ms, session.owner_policy_hash)
 
-    def _nemotron_unavailable(self, incident_id: str, reason: str, *, speak: bool = True) -> CommandResult:
+    def _nemotron_unavailable(self, incident_id: str, reason: str, *, speak: bool = True, run: dict | None = None) -> CommandResult:
         incident = self.security.incident or {}
         severity = incident.get("severity")
         official = (f"LOCKI rated the current incident {severity} severity. "
                     if incident.get("authoritative") is True and severity in ("low", "medium", "high", "critical") else "")
         report = f"Nemotron couldn't review this one: {reason}. From the local record: {official}{self.security.describe_record()}"
         reply = self._say("security_report", report=report) if speak else None
-        return self._result(False, f"Nemotron unavailable ({reason}); local record only", reply,
-                            nemotron={"incident_id": incident_id, "status": "unavailable", "error": reason})
+        metadata = {}
+        if isinstance(run, dict) and run.get("incident_id") == incident_id:
+            metadata = {key: run[key] for key in ("investigation_id", "total_ms") if key in run}
+        metadata.update(incident_id=incident_id, status="unavailable", error=reason, evidence_badge=None)
+        return self._result(False, f"Nemotron unavailable ({reason}); local record only", reply, nemotron=metadata)
 
     async def _what_happened_from_nemotron(self, incident_id: str) -> CommandResult:
         """Join one current-case investigation; cancellation of a waiter cannot cancel shared work."""
@@ -2269,8 +2272,10 @@ class LockedInRuntime:
 
         try:
             view = await self.nemotron_service.investigate(incident_id)
-        except InvestigatorUnavailable as exc:
-            return self._nemotron_unavailable(incident_id, str(exc), speak=may_reply())
+        except Exception as exc:  # cancellation still propagates; unexpected provider failures never become model answers
+            reason = str(exc) if isinstance(exc, InvestigatorUnavailable) else "the investigator's answer could not be used"
+            run = exc.run if isinstance(exc, InvestigatorUnavailable) else None
+            return self._nemotron_unavailable(incident_id, reason, speak=may_reply(), run=run)
         if not may_reply():
             return self._nemotron_unavailable(incident_id, "pending reply was interrupted or superseded", speak=False)
         if self._nemotron_incident_snapshot(incident_id) != snapshot:
@@ -2286,6 +2291,8 @@ class LockedInRuntime:
         turn = self._nemotron_reply_lease.get("turn")
         trace = {"kind": "turn", "id": turn["id"], "t0": turn["heard_mono"]} if turn is not None else None
         audible = self.speaker.say(text, priority=1, category="nemotron_investigation", trace=trace)
+        if turn is not None:
+            turn["replies"].append({"category": "nemotron_investigation", "text": text})
         self.last_reply = {"text": text, "category": "nemotron_investigation", "at": time.time(), "audible": audible, "priority": 1}
         self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, {"category": "nemotron_investigation", "text": text, "audible": audible,
                                                                                  "investigation_id": view.get("investigation_id"), "evidence_badge": view.get("evidence_badge")})
