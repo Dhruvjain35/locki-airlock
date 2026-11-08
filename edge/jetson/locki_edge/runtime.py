@@ -26,6 +26,7 @@ from .capture import STATE_DISCONNECTED, STATE_STALLED, STATE_STARTING, STATE_ST
 from .config import ConfigError, load_config
 from .contract import ContractError, make_event, utc_iso_ms
 from .normalizer import EventNormalizer
+from .notify import PUSH_KINDS, VISIT_END_KINDS, PresencePusher
 from .observers import (AppleVisionPersonProvider, BaselineMotionProvider, DetectNetPersonProvider, FixtureProvider,
                         OpenCvDnnPersonProvider,
                         load_plugin)
@@ -34,7 +35,7 @@ from .session import SessionTracker
 from .publish import SequenceStore
 from .stdb import SpacetimePublisher, StdbClient
 
-ALARM_KINDS = ("person_in_zone", "unrecognized_face")
+ALARM_KINDS = ("person_in_zone", "unrecognized_face")   # the optional on-device LocalAlarm only; never a push
 
 
 def log(level, msg, **fields):
@@ -118,6 +119,12 @@ class EdgeRuntime(object):
                                           static_session_id=None if cfg.session_auto else cfg.session_id,
                                           on_change=self._on_session_change)
         self.alarm = LocalAlarm(cfg.alarm_wav, device=cfg.alarm_device) if cfg.local_alarm else None
+        # Presence push: person_in_zone only, after SpacetimeDB accepted it, rate limited, once per visit.
+        # Incident/alarm notifications are the M4 dispatch's job (it reads incidents; this device cannot).
+        self.push = PresencePusher(cfg.push_url, cfg.workstation_id, cfg.device_id, priority=cfg.push_priority,
+                                   min_interval_s=cfg.push_min_interval_s, log=log,
+                                   audit_path=os.path.join(cfg.state_dir, "push_audit.jsonl")) \
+            if cfg.push_url else None
         self.sys = SystemStats()
         self.facts = hardware_facts(cfg.runtime)
         self.token = cfg.api_token
@@ -143,6 +150,10 @@ class EdgeRuntime(object):
         if captured_mono is not None:
             md["capture_to_event_ms"] = round(max(0.0, time.monotonic() - captured_mono) * 1000.0, 1)
         simulated = bool(getattr(self.provider, "simulated", False)) or self.capture.capture_source == "fixture"
+        if self.push is not None and kind in VISIT_END_KINDS:
+            # The LOCAL zone-clear signal ends the visit, whether or not the module accepts this kind
+            # (it refuses person_left_zone for role jetson), so it is handled before any contract/armed check.
+            self.push.visit_ended(md.get("zone_id"))
         if kind not in self.cfg.contract.kinds:
             return self._local_only(kind, confidence, observed_at_ms, md, simulated, "kind_not_in_contract")
         if self.session is not None:
@@ -162,6 +173,8 @@ class EdgeRuntime(object):
             with open(self.audit_path, "a") as f:
                 f.write(json.dumps(event._asdict(), sort_keys=True) + "\n")
             if self.outbox is not None:
+                if self.push is not None and kind in PUSH_KINDS:
+                    self.push.note_event(event.event_id, md.get("zone_id"), observed_at_ms, event.simulated)
                 self.outbox.enqueue(event, captured_mono)
         self.events[kind] = self.events.get(kind, 0) + 1
         if "capture_to_event_ms" in md:
@@ -213,6 +226,10 @@ class EdgeRuntime(object):
         log("info" if r.delivered else ("warn" if r.retry_eligible else "error"), "receipt", event_id=r.event_id,
             seq=r.seq, kind=r.kind, status=r.status, reason=r.reason, http=r.http_status,
             server=r.server_result[:120], latency_ms=r.latency_ms, attempt=r.attempt)
+        # Presence push only for a person_in_zone SpacetimeDB answered "accepted" (armed session, enrolled
+        # device, real event). The pusher only enqueues, so this outbox thread never waits on ntfy.
+        if self.push is not None and r.kind in PUSH_KINDS:
+            self.push.on_receipt(r)
 
     @staticmethod
     def _push(arr, v, cap=500):
@@ -315,6 +332,7 @@ class EdgeRuntime(object):
             "health_reports": self.health_results, "seq": self.seq.value,
             "session": self.session.describe() if self.session is not None else {"mode": "off"},
             "local_only": dict(self.local_only),
+            "push": self.push.describe() if self.push is not None else {"enabled": False},
             "uptime_s": round(time.monotonic() - self.started_mono, 1),
         }
 
@@ -336,6 +354,8 @@ class EdgeRuntime(object):
         return {"receipts": self.outbox.receipts(20) if self.outbox else []}
 
     def local_test_alert(self):
+        """Local alarm check only. The edge pushes presence and nothing else, so there is no test push from here:
+        the M4's `scripts/airlock_notify.py test` checks the phone channel, `alert_listener.py show` the Mac."""
         if self.alarm is None:
             return {"played": False, "reason": "AIRLOCK_LOCAL_ALARM=off"}
         return self.alarm.play(force=True)
@@ -346,7 +366,7 @@ class EdgeRuntime(object):
         log("info", "starting", runtime=self.cfg.runtime, platform=self.cfg.platform,
             camera=self.cfg.camera_source, observer=self.provider.describe(), publish=self.cfg.publish_reason,
             identity=self.cfg.identity, device_id=self.cfg.device_id, workstation_id=self.cfg.workstation_id,
-            hardware=self.facts)
+            hardware=self.facts, push=self.push.destination if self.push is not None else "off")
         if self.session is not None:
             self.session.poll_once()   # know armed/disarmed before the first frame can produce an event
             self.session.start()
@@ -401,6 +421,8 @@ class EdgeRuntime(object):
         self._report_health("camera", "stopped", "clean shutdown")
         self._report_health("edge", "stopped", "clean shutdown")   # dropped unless the contract permits "edge"
         left = self.outbox.stop(flush_s) if self.outbox is not None else 0
+        if self.push is not None:
+            self.push.close()
         if self.server is not None:
             self.server.shutdown()
             self.server.server_close()

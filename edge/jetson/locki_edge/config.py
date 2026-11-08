@@ -14,6 +14,7 @@ import platform
 import stat
 
 from .contract import Contract, DEVICE_ID
+from .notify import PushConfigError, clamp_priority, parse_push_url
 from .observers import parse_zones
 from .stdb import resolve_server, token_identity
 
@@ -58,6 +59,11 @@ DEFAULTS = {
     "AIRLOCK_DETECTNET_THRESHOLD": "0.5",
     "AIRLOCK_DETECTNET_MODEL": "ssd-mobilenet-v2",
     "AIRLOCK_PERSON_THRESHOLD": "0.5",
+    # Presence push (person_in_zone only). Off unless one of the two is set; never both. The topic is the secret.
+    "AIRLOCK_PUSH_URL": "",          # https://<ntfy server>/<secret-topic>; prefer the file below
+    "AIRLOCK_PUSH_URL_FILE": "",     # chmod-600 file holding that URL
+    "AIRLOCK_PUSH_PRIORITY": "3",    # clamped to 1..3: presence never pages
+    "AIRLOCK_PUSH_MIN_INTERVAL_S": "600",   # per workstation+zone, plus at most one push per visit
     "AIRLOCK_MIN_PERSON_AREA": "0",   # fraction of the frame a person box must cover (0 = off)
     "AIRLOCK_DNN_PROTOTXT": "~/models/MobileNetSSD_deploy.prototxt",
     "AIRLOCK_DNN_MODEL": "~/models/MobileNetSSD_deploy.caffemodel",
@@ -169,6 +175,16 @@ class EdgeConfig(object):
         self.detectnet_model = v["AIRLOCK_DETECTNET_MODEL"].strip()
         self.person_threshold = float(v["AIRLOCK_PERSON_THRESHOLD"])
         self.min_person_area = float(v["AIRLOCK_MIN_PERSON_AREA"])
+        self.push_url = self._push_url(v)
+        if v["AIRLOCK_PUSH_URL"].strip():
+            self.raw["AIRLOCK_PUSH_URL"] = "<set>"   # the topic is the secret: keep it out of every copy
+        try:
+            self.push_priority = clamp_priority(v["AIRLOCK_PUSH_PRIORITY"])
+            self.push_min_interval_s = float(v["AIRLOCK_PUSH_MIN_INTERVAL_S"])
+        except ValueError:
+            raise ConfigError("AIRLOCK_PUSH_PRIORITY must be an integer and AIRLOCK_PUSH_MIN_INTERVAL_S a number")
+        if self.push_min_interval_s < 0:
+            raise ConfigError("AIRLOCK_PUSH_MIN_INTERVAL_S must be >= 0")
         if not 0.0 <= self.min_person_area < 1.0:
             raise ConfigError("AIRLOCK_MIN_PERSON_AREA must be in [0, 1)")
         self.dnn_prototxt = os.path.expanduser(v["AIRLOCK_DNN_PROTOTXT"].strip())
@@ -183,6 +199,34 @@ class EdgeConfig(object):
         self.forbidden_identities = frozenset(
             norm_identity(x) for x in v["AIRLOCK_FORBIDDEN_IDENTITIES"].split(",") if x.strip())
         self.token, self.identity, self.publish, self.publish_reason = self._auth(v)
+
+    @staticmethod
+    def _push_url(v):
+        """The presence push URL from AIRLOCK_PUSH_URL or AIRLOCK_PUSH_URL_FILE ("" = push off). Errors never
+        contain the URL or the topic."""
+        inline, path = v["AIRLOCK_PUSH_URL"].strip(), v["AIRLOCK_PUSH_URL_FILE"].strip()
+        if inline and path:
+            raise ConfigError("set AIRLOCK_PUSH_URL or AIRLOCK_PUSH_URL_FILE, not both")
+        url = inline
+        if path:
+            path = os.path.expanduser(path)
+            try:
+                st = os.stat(path)
+            except OSError:
+                raise ConfigError("AIRLOCK_PUSH_URL_FILE %s does not exist" % path)
+            if st.st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+                raise ConfigError("push URL file %s is readable by others (mode %o): chmod 600 it"
+                                  % (path, st.st_mode & 0o777))
+            with open(path) as f:
+                url = f.read().strip()
+            if not url:
+                raise ConfigError("push URL file %s is empty" % path)
+        if url:
+            try:
+                parse_push_url(url)
+            except PushConfigError as err:
+                raise ConfigError("AIRLOCK_PUSH_URL%s: %s" % ("_FILE" if path else "", err))
+        return url
 
     @staticmethod
     def _zones(v):
