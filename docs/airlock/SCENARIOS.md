@@ -102,7 +102,7 @@ intervention. P1 cases must be resolved before an unattended workplace pilot.
 
 | Case | Priority | Situation | Required behavior | Work to do |
 |---|---|---|---|---|
-| HUMAN-01 | P0 | A benign visitor triggers an audible message in a busy shared office. | No threats, insults, person labels, or public disclosure of the owner's work. Prefer quiet presence observation. | Review every spoken line and status label; test the no-template presence path and duplicate warning consumers. |
+| HUMAN-01 | P0 | A benign visitor triggers an audible message in a busy shared office. | No threats, insults, person labels, or public disclosure of the owner's work. Prefer quiet presence observation. | Review every spoken line and status label; test the no-template presence path, optional edge alarm and duplicate warning consumers. |
 | HUMAN-02 | P1 | Audio is routed to headphones or the wrong Bluetooth speaker. | Never report a local warning was heard merely because playback was queued. Preserve an accessible visual/remote path. | Test actual output routing and acoustic onset; preserve a readable alternative when audio goes elsewhere. |
 | HUMAN-03 | P0 | Speaker disconnects during an urgent event. | Core policy and evidence continue; warning failure is explicit and alternative configured channels are attempted. | Disconnect the speaker during a trial; report output failure while other valid monitoring continues. |
 | HUMAN-04 | P0 | Anyone says Stop talking. | Silence speech according to policy without disarming, changing approval rights, or deleting the incident. | Check that stop-talking only mutes speech, including while a real incident remains open. |

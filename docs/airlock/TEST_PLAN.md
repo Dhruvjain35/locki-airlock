@@ -10,7 +10,9 @@ defined in [ACCURACY_TRIALS.md](ACCURACY_TRIALS.md). The full scenario backlog i
 Use a test account, disposable files, harmless peripherals and consenting participants.
 Record the running Mac and Jetson revisions, configuration, peripheral baseline,
 app policy, camera position and workload. Check which watcher and warning services
-are active; duplicate consumers can make a single event look like several incidents.
+are active, including the optional edge alarm; duplicate consumers can make a single
+event look like several incidents. Check observer capability and accepted publication
+separately from HTTP health success.
 
 Run each relevant case with normal OS lock enabled. An unlocked demonstration does
 not establish what the product sees or prevents on a locked workstation. Keep real

@@ -47,14 +47,18 @@ demonstrate it. See [product behavior](PRODUCT.md) and [acceptance tests](TEST_P
 ### Once, before the event
 
 1. **Models.** Confirm the approved local `efficientdet_lite0.tflite` person model and `hand_landmarker.task` for configured hand zones. Face weights are not required. Software tests use injected inference and need no model downloads.
-2. **Zones.** Recommended, and nothing else may be using the camera. Run `.venv/bin/python scripts/airlock_zones.py`. Press `2` and click the corners of the keyboard, then `4` for the USB ports, then `s` to save.
+2. **Zones.** Recommended, and nothing else may be using the camera. From the repository root, run `(cd backend && .venv/bin/python scripts/airlock_zones.py)`. Press `2` and click the corners of the keyboard, then `4` for the USB ports, then `s` to save.
 3. **Camera in SpacetimeDB.** This is needed for the physical-plus-USB correlation in the database.
-   1. Run `.venv/bin/python scripts/airlock.py camera-setup`. It prints the owner's `enroll_device ... "jetson"` command; run that with your SpacetimeDB login.
-   2. Run `.venv/bin/python scripts/airlock.py camera-probe`.
-   3. Set `"enabled": true` in `data/airlock_vision/spacetime.json`.
+   1. From the repository root, run `(cd backend && .venv/bin/python scripts/airlock.py camera-setup)`. It prints the owner's `enroll_device ... "jetson"` command; run that with your SpacetimeDB login.
+   2. Run `(cd backend && .venv/bin/python scripts/airlock.py camera-probe)`.
+   3. Set `"enabled": true` in the generated `data/airlock_vision/spacetime.json` under the backend's configured data directory.
 4. **Nemotron.** Keep the tunnel to Mustafa's M5 open on `127.0.0.1:11435`. Readiness shows "Nemotron" when it answers.
 
-### Each demo
+### Camera diagnostic demo
+
+This older sequence exercises local camera modes on a test workstation. It includes
+unlocked typing and presence warnings; it is not proof of the required unattended
+product behavior. Use the product walkthrough above for that acceptance claim.
 
 1. **Backend.** In terminal 1, run `cd ~/locki-airlock && make airlock-mac VISION=1`. The speaker is on; add `QUIET=1` for silence. The microphone needs your go-ahead: start it from the dashboard's voice panel, or with `LOCKEDIN_VOICE_AUTOSTART=true`.
 2. **Dashboard.** In terminal 2, run `cd ~/locki-airlock/frontend && npm run dev`, then open http://127.0.0.1:5174/#demo (or press **Demo** in the top bar).
@@ -77,7 +81,10 @@ demonstrate it. See [product behavior](PRODUCT.md) and [acceptance tests](TEST_P
 - **Camera:** an armed session or a demo in the backend holds `data/airlock_vision/camera.lock`. The bench, zones and face scripts refuse while it is held, and the demo refuses to start beside the LOCKED IN focus camera.
 - **USB monitor:** the backend holds `data/security/usb-monitor.lock`. `airlock_watch.py` and the audible check need the backend stopped.
 
-## Feature status (A to P)
+## Historical feature reports (A to P)
+
+These are earlier team reports, including uses of “Live.” They do not certify the
+currently running build. Use [release acceptance](RELEASE_ACCEPTANCE.md) for open gates.
 
 | | Feature | Status |
 |---|---|---|
@@ -114,7 +121,7 @@ These earlier reported measurements do not validate the new face-disabled defaul
 | Enrollment duration, owner recognition after enrollment, visitor identification | not measured: nobody has enrolled yet | | 0 |
 | Event to speech, investigation | measured earlier outside the demo (see above); recorded per demo once run there | | |
 
-The Jetson has not been run. Every number here is from this M4.
+These measurements concern the M4 webcam; they do not measure Jetson performance.
 
 ## What each team needs to do
 

@@ -1,6 +1,6 @@
 # Product behavior
 
-Status: source snapshot `1bbbfbf`; integration and physical acceptance remain open.
+Source review: `4524d4d` (8 November 2026). Physical acceptance remains open.
 
 ## Problem
 
@@ -19,8 +19,10 @@ supported workflow.
 
 The Mac watches USB changes and visible application launches. Its camera pipeline
 reports presence and configured interaction zones; face identification is disabled
-by default. The included Jetson adapter supplies presence and camera health, not
-identity, permission or theft detection.
+by default. The Jetson edge runtime supplies presence and camera health, not
+identity, permission or theft detection. The older standalone adapter is also
+retained; select one runtime per camera/device identity. See the
+[edge guide](edge/README.md).
 
 SpacetimeDB owns sessions, frozen device/application policy, incidents and lock
 requests. Person presence alone is soft evidence. An unapproved USB observation

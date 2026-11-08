@@ -60,14 +60,23 @@ cd ~/locki-airlock/frontend && npm run dev
 #   Mac view and live demo:     http://127.0.0.1:5174/#demo
 ```
 
-Then follow "Each demo" in [docs/airlock/DEMO.md](DEMO.md):
+Then follow the [product walkthrough](DEMO.md#product-walkthrough):
 
 1. Start the demo and review camera and monitoring readiness. Face enrollment is not required.
-2. Arm on Sid's dashboard, and leave the desk.
-3. Bring in a volunteer to sit down, type, and plug in a harmless USB stick.
-4. Ask "LOCKI, what happened?"
-5. Come back and review the observations. The workstation stays armed until authenticated disarm.
-6. Disarm on the dashboard.
+2. Arm on the owner dashboard, lock the Mac normally, and leave a representative job running.
+3. Have a volunteer approach without interacting, then compare approved and unapproved harmless peripherals.
+4. Review the incident from the authorized second console. Ask "LOCKI, what happened?" through an available input.
+5. Check camera loss and recovery, then return, unlock and review the observations.
+6. Disarm through the authenticated owner controls.
+
+For the Jetson, use the [edge runtime guide](edge/README.md) and
+[deployment instructions](edge/DEPLOY.md). The imported `locki_edge` runtime and
+standalone `airlock_camera.py` are separate camera publishers. Select one for a
+camera/device identity; do not run both against the same stream and sequence state.
+For `locki_edge`, inspect the JSON from port 8765's `/health`: HTTP 200 alone does
+not establish person detection or successful publication. Its baseline observer is
+motion-only. Verify the configured person observer and accepted event receipts.
+The standalone adapter has a different health interface on port 8787.
 
 **Security desk on a second Mac (Areeb's).** On that Mac, after cloning: `npm ci --prefix frontend && make desk`, then open
 http://127.0.0.1:5180/?client=desk&view=desk. It is the dashboard as static files that talk only to SpacetimeDB, never to the M4's backend, and it

@@ -6,9 +6,10 @@ integration checklist; [PRD_STATUS.md](PRD_STATUS.md) retains historical lane ev
 **Full acceptance is not complete.** Verification activated no hardware, microphone,
 model or screen lock; cloud authorization tests used isolated fixture identities.
 
-Source update: `services/nemotron-investigator/` is present in main snapshot
-`1bbbfbf`. Earlier handoff notes describing it as absent are historical. Source
-import does not close the live model, deployment or tracing gates below.
+Source update through main snapshot `4524d4d`: `services/nemotron-investigator/`
+and Areeb's `edge/jetson/locki_edge/` runtime are now present. Earlier handoff notes
+describing those sources as absent are historical. Import does not close the live
+model, deployment, physical accuracy or tracing gates below.
 
 Final integration update: the full backend suite passed **1,562 tests, 20 skipped**;
 frontend **46 tests and production build** passed; module **149 transactional +28
@@ -45,7 +46,7 @@ Evidence levels used here:
 | P0 | Current integration evidence | Remaining release gate |
 |---|---|---|
 | 1 Authenticated arm/disarm and frozen baseline/app/camera/policy | Deployed owner-only reducers and narrow one-use ARM delegation; fresh cloud proof has 12 checks. Full owner-consent HTTP/private fixture CLI→production M4 service ARM/replay proof passed with zero locks and final fixture disarmed. Actual M4 owner ARM stored state was verified separately. | Actual running M4 owner-consent→voice→session-readback trial remains open; fixture credentials and direct owner ARM do not prove it. |
-| 2 Independent physical evidence and 20–40 consented trials | Sid's Jetson adapter plus Dhruv's distinct Mac CV code are present; two actual-session Jetson rows marked non-simulated were verified by authorized stored-data readback. Areeb's newer edge/Mission Control source remains absent. | Actual device inventory, capture/unplug recovery, publisher receipt/frame provenance and held-out volunteer activity/false-alert trials. Source face identification now defaults off; actual M4 privacy configuration remains unverified. |
+| 2 Independent physical evidence and 20–40 consented trials | Sid's Jetson adapter, Areeb's edge runtime and Dhruv's distinct Mac CV code are present; two actual-session Jetson rows marked non-simulated were verified by authorized stored-data readback. Separate Mission Control source remains absent. | Actual device inventory, capture/unplug recovery, publisher receipt/frame provenance and held-out volunteer activity/false-alert trials. Source face identification now defaults off; actual M4 privacy configuration remains unverified. |
 | 3 Real USB and visible app observations | M4 IOKit/NSWorkspace paths are present. Historical Sid app-launch proof is documented; README reports physical USB receipt/audio on M4. | Obtain original event/receipt/timing artifacts from the actual merged host, approved peripheral baseline and removal/insertion trial. App launch is not compromise. |
 | 4 Deterministic correlation | Server correlation, unknown USB and soft person observation are implemented; transactional tests cover scope and timing. | Real independent camera plus USB episode and benign concurrent-USB confound trial; compare server incident to local warning without promoting local CV mode to server severity. |
 | 5 Immediate warning and consented screen lock | Cached priority warning and dry-run lock paths exist; M4 README reports audio timings. | Full hardware-to-acoustic timing and actual expressly consented lock/unlock with observed confirmation. Dry run/executed is not confirmed locked. |
