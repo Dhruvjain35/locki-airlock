@@ -286,7 +286,7 @@ class LockedInRuntime:
         from .intelligence.nemotron_service import NemotronService
 
         self.nemotron_service = NemotronService()  # Mustafa's investigator through the M4 tunnel; used only when its key file exists
-        self._nemotron_run: tuple[str, asyncio.Future] | None = None  # (incident id, running investigation)
+        self._nemotron_runs: dict[str, asyncio.Future] = {}  # incident id -> its running investigation (one per incident)
         self._latency_marks: dict[str, float] = {}
         self._return_task: asyncio.Task | None = None
         self._tick_task: asyncio.Task | None = None
@@ -2211,25 +2211,34 @@ class LockedInRuntime:
         the service's own spoken summary. If it can't, LOCKI says so and reads only the local record, never presented as Nemotron's."""
         from .intelligence.nemotron_service import InvestigatorUnavailable
 
-        running = self._nemotron_run
-        if running is not None and not running[1].done() and running[0] == incident_id:
+        running = self._nemotron_runs.get(incident_id)
+        if running is not None and not running.done():
             return self._result(True, "already investigating this incident with Nemotron", self._say("security_checking"))  # one run per incident
         self._say("security_checking_nemotron")
         task = asyncio.ensure_future(self.nemotron_service.investigate(incident_id))
-        self._nemotron_run = (incident_id, task)
+        self._nemotron_runs[incident_id] = task
+        task.add_done_callback(lambda t, i=incident_id: self._nemotron_runs.pop(i, None) if self._nemotron_runs.get(i) is t else None)
+        run: dict = {"incident_id": incident_id, "status": "unavailable", "evidence_badge": None}
         try:
             view = await task
-        except InvestigatorUnavailable as exc:
-            reply = self._say("security_report", report=f"Nemotron couldn't review this one: {exc}. From the local record: {self.security.describe_record()}")
-            return self._result(False, f"Nemotron unavailable ({exc}); answered from the local record", reply, nemotron=self.nemotron_service.last)
-        text = str(view["spoken_summary"])
+            run = dict(view.get("run") or {})
+        except Exception as exc:  # anything that is not a live, answered result: say so honestly, never as Nemotron's assessment
+            reason = str(exc) if isinstance(exc, InvestigatorUnavailable) else "the investigator's answer could not be used"
+            if isinstance(exc, InvestigatorUnavailable) and isinstance(exc.run, dict):
+                run = dict(exc.run)
+            run.update(status="unavailable", error=reason, evidence_badge=None)
+            reply = self._say("security_report", report=f"Nemotron couldn't review this one: {reason}. From the local record: {self.security.describe_record()}")
+            return self._result(False, f"Nemotron unavailable ({reason}); answered from the local record", reply, nemotron=run)
+        text = view["spoken_summary"]
         turn = _TURN.get()
         trace = {"kind": "turn", "id": turn["id"], "t0": turn["heard_mono"]} if turn is not None else None
         audible = self.speaker.say(text, priority=1, category="nemotron_investigation", trace=trace)
+        if turn is not None:
+            turn["replies"].append({"category": "nemotron_investigation", "text": text})
         self.last_reply = {"text": text, "category": "nemotron_investigation", "at": time.time(), "audible": audible, "priority": 1}
         self.bus.publish(EventType.VOICE_RESPONSE_GENERATED, EventSource.VOICE, {"category": "nemotron_investigation", "text": text, "audible": audible,
-                                                                                 "investigation_id": view.get("investigation_id"), "evidence_badge": view.get("evidence_badge")})
-        return self._result(True, f"Nemotron {view.get('status')} ({view.get('evidence_badge')}) in {view.get('total_ms')} ms", text, nemotron=self.nemotron_service.last)
+                                                                                 "investigation_id": run.get("investigation_id"), "evidence_badge": run.get("evidence_badge")})
+        return self._result(True, f"Nemotron {run.get('status')} ({run.get('evidence_badge')}) in {run.get('total_ms')} ms", text, nemotron=run)
 
     def _recorded_security_refusal(self, kind: str) -> CommandResult:
         """A recording asked to arm or disarm. It never does either, and no grant is touched; LOCKI says so aloud and where the owner acts."""

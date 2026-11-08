@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { FileAudio, Mic, MicOff, Send, Square, X } from "lucide-react";
 import { api } from "../services/api";
 import { Badge, Button, Panel } from "./ui";
+import { addTurn } from "./recordedTurns";
 
-type Turn = { nemotron?: { investigation_id?: string; status?: string; evidence_badge?: string | null; total_ms?: number; error?: string } | null; file: string; ok: boolean; transcript?: string | null; reply?: string | null; intent?: string | null; error?: string; message?: string; stt_ms?: number; handled_ms?: number; audio?: { seconds: number } };
+type Turn = { key: string; nemotron?: { investigation_id?: string; status?: string; evidence_badge?: string | null; total_ms?: number; error?: string } | null; file: string; ok: boolean; transcript?: string | null; reply?: string | null; intent?: string | null; error?: string; message?: string; stt_ms?: number; handled_ms?: number; audio?: { seconds: number } };
 
 /** Mustafa's investigation record for one turn, read-only through this Mac's backend (the key never reaches the browser): headline first,
  *  then the grounded facts with their evidence ids, the tools that ran and on what data, and the total time. */
 function InvestigationRecord({ id }: { id: string }) {
   const [rec, setRec] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { let stop = false; api.investigation(id).then(r => { if (!stop) setRec(r); }).catch(e => { if (!stop) setError(e instanceof Error ? e.message : String(e)); }); return () => { stop = true; }; }, [id]);
+  useEffect(() => { let stop = false; setRec(null); setError(null); api.investigation(id).then(r => { if (!stop) setRec(r); }).catch(e => { if (!stop) setError(e instanceof Error ? e.message : String(e)); }); return () => { stop = true; }; }, [id]);
   if (error) return <p className="al-small al-text-amber">Investigation record unavailable: {error}</p>;
   if (!rec) return <p className="al-small al-muted">Loading the investigation record…</p>;
   return <div className="al-investigation-record">
@@ -40,8 +41,9 @@ export function RecordedVoicePanel() {
   }, []);
   const send = async (file: File) => {
     setBusy(file.name);
-    try { const t = await api.sendRecorded(file); setTurns(prev => [t, ...prev].slice(0, 12)); }
-    catch (e) { setTurns(prev => [{ file: file.name, ok: false, error: e instanceof Error ? e.message : String(e) }, ...prev].slice(0, 12)); }
+    const key = crypto.randomUUID();  // one stable identity per turn, so a new turn never inherits another's investigation view
+    try { const t = await api.sendRecorded(file); setTurns(prev => addTurn<Omit<Turn, "key">>(prev, t, key)); }
+    catch (e) { setTurns(prev => addTurn<Omit<Turn, "key">>(prev, { file: file.name, ok: false, error: e instanceof Error ? e.message : String(e) }, key)); }
     finally { setBusy(null); }
   };
   const stt = status?.stt?.state as string | undefined;
@@ -63,12 +65,12 @@ export function RecordedVoicePanel() {
       <span className="al-inline"><Button kind="primary" disabled={busy !== null || stt !== "ready"} onClick={() => void send(f)}><Send size={14} />{busy === f.name ? "Listening…" : "Send to LOCKI"}</Button>
         <button className="al-text-button" aria-label={`remove ${f.name}`} onClick={() => setFiles(prev => prev.filter(p => p !== f))}><X size={13} /></button></span>
     </div>)}</div>
-    {turns.map((t, n) => <div key={n} className="al-recorded-turn">
+    {turns.map(t => <div key={t.key} className="al-recorded-turn">
       <div className="al-inline al-spread"><Badge tone={t.ok ? "cyan" : "amber"}>{t.file}</Badge><span className="al-small">{t.stt_ms != null ? `heard in ${Math.round(t.stt_ms)} ms` : ""}{t.handled_ms != null ? ` · answered in ${Math.round(t.handled_ms)} ms` : ""}</span></div>
       {t.transcript != null && <p className="al-small">Recognized: <strong>“{t.transcript}”</strong>{t.intent ? ` · ${t.intent}` : ""}</p>}
       {t.nemotron?.status === "unavailable" && <p className="al-small al-text-amber">Nemotron unavailable for this turn: {t.nemotron.error}</p>}
       {t.nemotron?.investigation_id && t.nemotron.status !== "unavailable" && <p className="al-small"><Badge tone={t.nemotron.evidence_badge === "LIVE" ? "cyan" : "amber"}>Nemotron {t.nemotron.evidence_badge === "LIVE" ? "LIVE" : "not live"}</Badge> {t.nemotron.status} · {t.nemotron.investigation_id}{t.nemotron.total_ms != null ? ` · ${Math.round(t.nemotron.total_ms)} ms` : ""}</p>}
-      {t.nemotron?.investigation_id && t.nemotron.evidence_badge === "LIVE" && <InvestigationRecord id={t.nemotron.investigation_id} />}
+      {t.nemotron?.investigation_id && t.nemotron.evidence_badge === "LIVE" && <InvestigationRecord key={t.nemotron.investigation_id} id={t.nemotron.investigation_id} />}
       {t.reply && <p className="al-small">LOCKI: {t.reply}</p>}
       {t.error && <p className="al-small al-text-amber">{t.error}</p>}
       {!t.error && !t.ok && t.message && <p className="al-small al-muted">{t.message}</p>}
