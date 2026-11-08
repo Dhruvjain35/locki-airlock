@@ -1,267 +1,218 @@
-# LOCKI AIRLOCK
+<p align="center">
+  <img src="docs/assets/locki-airlock-banner.svg" alt="LOCKI AIRLOCK" width="100%">
+</p>
 
-LOCKI AIRLOCK guards a workstation while its owner is away. The Mac watches USB devices, app launches and, when armed, the desk camera. A
-SpacetimeDB module decides incidents, sessions and lock requests. LOCKI speaks a warning at once, changes its delivery with the security mode,
-and answers questions from the recorded evidence. An NVIDIA Nemotron model investigates incidents through approved, read-only tools.
+<h1 align="center">LOCKI AIRLOCK</h1>
 
-Built for HackUTD 2026 by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan.
+<p align="center"><strong>Watches your desk while you're away. Explains what happened when you're back.</strong></p>
 
-> **Status: integration snapshot, not a finished release.** Mustafa's service, its M4 client and Areeb's Jetson runtime are present in source.
-> The `f73c40a` M4 handoff, Areeb’s edge source and existing-owner recovery are merged with the reviewed client/runtime safeguards. Software checks pass; current host activation, a real runtime voice trial and physical acceptance remain separate gates. See [Remaining integration work](#remaining-integration-work).
+<p align="center">
+  <img alt="HackUTD 2026" src="https://img.shields.io/badge/built%20for-HackUTD%202026-4e7a00">
+  <img alt="NVIDIA Jetson" src="https://img.shields.io/badge/edge-NVIDIA%20Jetson-4e7a00">
+  <img alt="NVIDIA Nemotron" src="https://img.shields.io/badge/investigator-NVIDIA%20Nemotron-4e7a00">
+  <img alt="SpacetimeDB" src="https://img.shields.io/badge/database-SpacetimeDB-4e7a00">
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-4e7a00">
+  <img alt="React and TypeScript" src="https://img.shields.io/badge/React-TypeScript-4e7a00">
+</p>
 
-**Start here:** [Project map and ownership](docs/airlock/PROJECT_MAP.md) · [Original PRD](docs/airlock/PRD.md) ·
-[Acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) · [Wire contracts](docs/airlock/CONTRACTS.md) ·
-[M4 voice handoff](docs/airlock/M4_VOICE_ARM.md) · [M5 investigator contract](services/nemotron-investigator/INTEGRATION.md).
+LOCKI AIRLOCK guards a computer while its owner is away. An NVIDIA Jetson camera watches the desk, the Mac watches its USB ports and app launches, and a SpacetimeDB module decides with fixed rules when the two add up to an incident. Ask what happened, and NVIDIA Nemotron reviews only the evidence you approved while LOCKI, the Mac's voice, speaks the answer.
 
+> **Screenshots** will follow the dashboard redesign; see the [planned shots](docs/assets/README.md).
 
-## Existing M4 owner access
+## The problem
 
-For an **Unenrolled** console at `http://127.0.0.1:5174/?client=operator`, use
-**Recover existing owner access**. It validates an existing saved/local owner
-credential against the requested workstation before connecting, preserves the
-operator slot, and never creates a workstation or grants a role. Follow the
-[exact M4 recovery, live arming and evidence-approval steps](docs/airlock/OWNER_ACCESS.md).
-The workstation panel shows the committed session ID and explicit real/synthetic
-provenance. Owner evidence grants use the dedicated incident-scoped contract.
+Leave a laptop at a desk and the next person to sit down has a few unobserved seconds, enough to plug in a USB device. A camera might see them and the Mac might log the device, but neither fact alone tells the owner what happened. AIRLOCK joins the two with fixed rules and explains the evidence on request.
 
 ## How it works
 
+| Step | What happens |
+|---|---|
+| **Protect** | **Start protection** freezes the Mac's USB devices as the session baseline. It refuses while auto-lock is on. |
+| **Detect** | The Jetson publishes `person_in_zone`; the Mac publishes USB and app events. Each has its own enrolled identity. |
+| **Correlate** | An unknown USB device or unapproved app opens an incident; a person within 10 s of the USB event makes it high. A person alone gets only a spoken warning. |
+| **Investigate** | **Explain incident** asks the owner to approve that incident's evidence. Nemotron reads only those rows; LOCKI speaks the result. |
+| **Recover** | **Stop protection** disarms and revokes the investigator's access. Incidents stay in **History**. |
+
+New to SpacetimeDB? It's a database that runs app logic inside itself: clients call permission-checked functions (reducers) that write rows in one transaction, and subscribe only to rows they may see.
+
 ```mermaid
 flowchart LR
-    Owner[Authenticated owner] -->|Policy and bounded ARM consent| DB[SpacetimeDB: authoritative security state]
-    Mac[M4: USB, app and camera observations] -->|Authenticated events| DB
-    Jetson[Independent camera publisher] -->|Sanitized observations| DB
-    Mac -->|Immediate cached warning| Voice[Existing LOCKI voice pipeline]
-    DB -->|Caller-scoped subscriptions| Mac
-    DB -->|Incident and session state| Dashboard[Owner and reviewer dashboard]
-    DB -->|Explicitly approved incident evidence| Investigator[M5 Nemotron investigator API]
-    Mac -->|What happened: live incident ID| Investigator
-    Investigator -->|Live voice view| Mac
-    Investigator --> Report[Advisory report with evidence citations]
+owner(["Owner"])
+subgraph sensors["Sensors"]
+cam["Jetson + Logitech Brio<br/>person detector"]
+watch["Mac USB and app watchers"]
+end
+subgraph stdb["SpacetimeDB security record"]
+rules["Module reducers<br/>arm, classify, correlate"]
+incident["Incident + linked evidence"]
+scoped["Incident-scoped<br/>read-only views"]
+end
+subgraph mac["Protected Mac"]
+backend["Mac backend<br/>subscriber and voice"]
+dash["Owner dashboard"]
+speaker["Speaker"]
+end
+subgraph m5["Mustafa's M5 Pro"]
+nemo["Nemotron investigator<br/>7 read-only tools"]
+end
+cam -->|person_in_zone| rules
+watch -->|USB and app events| rules
+watch -.->|unknown USB, no waiting| backend
+rules --> incident
+incident -->|subscription| backend
+backend -->|warnings and spoken answers| speaker
+owner -->|Start, Stop, recovery| dash
+dash -->|arm and disarm| rules
+dash -->|owner grant| scoped
+incident --> scoped
+dash -->|Explain incident| backend
+backend -->|SSH tunnel| nemo
+scoped -->|approved rows only| nemo
+nemo -->|grounded result| backend
+backend -->|result| dash
 ```
 
-- **The module decides.** Arming, incidents, severity and lock requests belong to SpacetimeDB. The Mac observes local activity, issues immediate warnings, and reads the views
-  scoped to its own identity (`my_sessions`, `my_incidents`, `my_device_events`, `my_lock_requests`).
-- **The local warning never waits.** A USB warning plays from the voice cache before the server answers, so it waits for neither the module
-  nor Nemotron.
-- **Contracts:** [spacetime/CONTRACT.md](spacetime/CONTRACT.md) (reducers, rows, views) and [docs/airlock/CONTRACTS.md](docs/airlock/CONTRACTS.md)
-  (Mac and camera messages, metadata keys, health values, security modes).
+## A real security event
 
-**What an incident means.** A person in the desk zone is a soft observation. An unknown USB while armed opens an incident even without a
-camera; matching physical evidence within the same session's 10-second window raises server severity. An unapproved app requires review,
-not a declaration of compromise. The present camera adapter does not prove whether someone walked past, stood nearby or interacted with
-the computer. Those differences must be measured with [consenting volunteer trials](docs/airlock/ACCURACY_TRIALS.md).
+On 8 November 2026 the M4 ran an owner-armed live session: not simulated, one hour, auto-lock off, screen lock in dry run. A person at the desk and an unknown USB device, four seconds apart, became one high-severity incident: *"Unknown USB device detected within 10 seconds of a person in the desk zone."* The Mac spoke an unknown-USB warning and an intrusion warning; once the owner approved the evidence, Nemotron explained it.
 
-**Current source wiring.** For “what happened?” about an authoritative live `incident:<32 lowercase hex>`, the existing runtime selects
-`NemotronService` when its M4 API requester key is configured. That client sends `evidence_mode: "live"` to Mustafa's authenticated API and
-polls its voice view. Local cases retain `AirlockAgent` through the existing Ollama/fallback path. This is one route selection in the existing
-voice runtime. Credential/origin checks, report binding and stale-result handling have independent review and regression coverage. The read-only investigation-record route supplies the recorded-turn panel with grounded facts, evidence IDs, tools and latency, bound to the current result.
-Mustafa reports a real model investigation through the M4 tunnel; Sid separately verified that the exact owner-issued incident grant exists and the investigator has zero memberships. This does not verify activation of this revision or the runtime's actual speech path. Alerts never wait on this enrichment.
+```mermaid
+sequenceDiagram
+  participant J as Jetson jetson-01
+  participant DB as SpacetimeDB
+  participant M as Mac backend (M4)
+  actor O as Owner
+  participant N as Nemotron (M5 Pro)
+  J->>DB: person_in_zone, desk zone, confidence 0.76
+  DB-->>M: person row
+  Note over M: A person alone means WATCHFUL, not an incident
+  M->>M: unknown USB, warns at once
+  M->>DB: usb_added about 4 s later, not in baseline
+  Note over DB: correlated_usb_physical, severity high
+  DB-->>M: incident row, intrusion warning
+  O->>DB: grant 2 linked events and the frozen baseline
+  O->>M: what happened while I was gone?
+  M->>N: investigate, over the SSH tunnel
+  N->>DB: read the approved rows only
+  N-->>M: LIVE result in about 15.3 to 15.7 s
+  M->>O: LOCKI speaks the answer
+```
 
-**Independent edge source.** Areeb's runtime is now in `edge/jetson/locki_edge/`, with its [deployment runbook](docs/airlock/edge/DEPLOY.md).
-It supports explicit OpenCV DNN MobileNet-SSD person detection for JetPack 6, detectNet and motion-only alternatives, a durable metadata outbox,
-server sequence synchronization and bounded presence reassertion. Motion remains labelled as motion; person presence does not prove interaction or intent.
-Sid's earlier `airlock_camera.py` adapter remains available. Choose one publisher for each device and camera; their sequence stores are separate.
+Nemotron (`nemotron-3.5-bolt:e4b`) returned `completed_with_warnings`. The official severity, high, stands; Nemotron's own view was medium risk, low confidence. Four grounded findings: the person observation, the USB device added, its key missing from the baseline, and no app launches in the window. It asked for human review and reported the armed-session record as outside its approved scope. Latency: Jetson to SpacetimeDB about 306–325 ms (two device clocks), SpacetimeDB to the M4 about 69 ms, presence warning starts 0.5–0.7 s after the observation.
 
-## Repository layout
+- **Observation:** a person in the desk zone; a USB device the session had not seen.
+- **Suspicion:** both within 10 s in one armed session, hence a high-severity incident.
+- **Confirmed compromise:** not established. Nothing showed who the person was, that they plugged it in, or that it was harmful.
 
-| Path | What | Owner |
+## Technology
+
+| Component | What it does | Why it matters |
 |---|---|---|
-| `backend/app/security/` | Mac watchers, security service, SpacetimeDB adapter, security modes, demo mode, lock adapter (dry run) | Dhruv |
-| `backend/app/vision/airlock/` | Desk camera: person tracking and interaction zones; legacy face code is disabled by default | Dhruv |
-| `backend/app/voice/` | Speech queue, Kokoro / Fish Audio, Bluetooth tail fix, per-mode delivery (`delivery.py`), personality lines | Dhruv |
-| `backend/app/intelligence/` | Conversation, local investigator (`airlock_agent.py`), M5 API client (`nemotron_service.py`), Sid's transport (`nemotron_transport.py`) | Dhruv, Sid |
-| `services/nemotron-investigator/` | Authenticated Nemotron API, incident-scoped read tools, evidence grounding and benchmark artifacts | Mustafa |
-| `backend/app/` (other) | FastAPI runtime kept from LOCKED IN: API, bus, telemetry, voice input, and the robot and focus modules it still imports | Dhruv |
-| `frontend/src/airlock/`, `frontend/src/airlock-bindings/` | Security dashboard and generated SpacetimeDB bindings | Sid |
-| `frontend/src/demo/`, `frontend/src/components/` | Mac backend view and the live demo | Dhruv |
-| `spacetime/` | SpacetimeDB TypeScript module: enrollment, roles, sessions, correlation, approvals, lock requests, views | Sid |
-| `edge/jetson/` | Areeb's `locki_edge` runtime, contract fixtures and tools; Sid's earlier camera adapter retained separately | Areeb, Sid |
-| `scripts/` | TypeScript bridges, publishers, lock adapter, Nemotron tool adapter, Mac setup | Sid, Dhruv |
-| `examples/` | Sandbox case for the protected-tool gate, Code Quest template | Dhruv |
-| `docs/airlock/` | Contracts, demo, vision, voice, NVIDIA, handoff, evidence | all |
-| `docs/legacy/` | LOCKED IN robot-era docs that the retained code still cites | — |
+| NVIDIA Jetson + Logitech Brio | `locki_edge` detects people, publishes presence and camera health; frames never leave it | Physical evidence from a separate device |
+| macOS IOKit, NSWorkspace | USB arrivals and app launches; serials leave only as salted hashes | The digital half, from the OS |
+| SpacetimeDB module | Sessions, baselines, correlation, incidents, evidence grants, scoped views | One authority; no model changes severity |
+| NVIDIA Nemotron | Picks among 7 read-only tools for one granted incident; code keeps only grounded findings | Checkable, advisory explanations |
+| FastAPI, local Kokoro voice | Deterministic modes and priority warnings | Warnings never wait for a network or model |
+| React + TypeScript | Protection, Investigation, History; Start, Explain, Stop | Consent per incident |
 
-Integration choices are recorded in [docs/INTEGRATION_DECISIONS.md](docs/INTEGRATION_DECISIONS.md). The sources of this snapshot are in
-[docs/MIGRATION.md](docs/MIGRATION.md).
+- **Either order.** A person who appears after the USB device still upgrades the incident; the Jetson re-reports presence every 5 s.
+- **Strict ingest.** Events must come from the enrolled device, fall in the armed session, be under 120 s old and arrive in order.
+- **Least privilege.** The investigator reads three incident-scoped views and refuses to run if its identity holds any membership.
+- **Grounded output.** A finding survives only if every ID it cites came from a tool call.
 
-## Hardware and roles
+## Quickstart
 
-| Machine | Role |
-|---|---|
-| **M4 MacBook (Dhruv)** | The guarded workstation: backend on `127.0.0.1:8077`, USB and app watchers, desk webcam, speaker (tested with a JLab GO Party over Bluetooth), dashboard dev server on `:5174` |
-| **M5 MacBook Pro (Mustafa)** | Ollama with `nemotron-3.5-bolt:e4b`. The M4 reaches it over Tailscale through an SSH tunnel; Ollama itself listens on loopback only |
-| **NVIDIA Jetson (Areeb)** | Second camera publishing `person_in_zone` / `camera_*` events as an enrolled `jetson` device |
-| **SpacetimeDB maincloud** | Database `locki-w91bw` at `https://maincloud.spacetimedb.com` |
+The final target workstation is Areeb's M5 Pro, not yet verified; Dhruv's MacBook Air M4 is the tested fallback. The repository is private.
 
-## Setup (M4)
+### 1. Software only
 
-The Mac runtime needs macOS on Apple silicon, Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 24.22.1+ within Node 24, and SpacetimeDB CLI 2.14.1.
-For a fresh checkout, install the locked software dependencies without downloading model weights:
+Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 24.22.1+ on the Node 24 line.
 
 ```sh
-git clone https://github.com/Dhruvjain35/locki-airlock.git ~/locki-airlock
-cd ~/locki-airlock
+git clone https://github.com/Dhruvjain35/locki-airlock.git ~/locki-airlock && cd ~/locki-airlock
 uv sync --project backend --frozen --group dev --extra vision
-npm ci --prefix frontend --no-fund
-npm ci --prefix spacetime --no-fund
-make preflight
+npm ci --prefix frontend --no-fund && npm ci --prefix spacetime --no-fund
 ```
 
-`make setup` is the larger Mac/model setup; it installs all extras and downloads pinned models. Models and credentials stay out of Git.
-If the M4 backend is already running, use the [controlled integration handoff](docs/airlock/M4_VOICE_ARM.md) rather than starting a second copy.
-
-**SpacetimeDB identity.** Preserve the existing Mac, camera and owner credentials. On a genuinely new Mac, `backend/scripts/airlock.py
-spacetime-setup` creates its separate device identity; the owner must then enroll the verified identity as `mac`. Camera enrollment uses the
-verified configured publisher identity and the deployed `jetson` role. Never substitute a Mac/admin token for an owner or investigator.
-See [contracts and enrollment boundaries](docs/airlock/CONTRACTS.md).
-
-**Two different M5 connections.** Keep these contracts separate:
-
-| Connection | M4 endpoint | Purpose |
-|---|---|---|
-| Raw Ollama tunnel | `127.0.0.1:11435` → M5 `127.0.0.1:11434` | Retained in-process investigator for local cases; optional conversation uses separate settings |
-| Investigator API tunnel | `127.0.0.1:18787` → M5 `127.0.0.1:8787` | New M4 source client for authoritative live incident questions; current host activation remains unverified |
-
-The existing raw Ollama tunnel is:
+#### Tests
 
 ```sh
-ssh -N -L 11435:127.0.0.1:11434 <user>@<m5-tailscale-name>
+PYTHONPATH=backend backend/.venv/bin/python -m pytest -q backend/tests
+npm test --prefix spacetime && npm test --prefix frontend
 ```
 
-Then set `LOCKEDIN_AIRLOCK_OLLAMA_URL=http://127.0.0.1:11435`. Use the names from `tailscale status`, never a fixed address in committed config.
-That setting configures investigation. Conversation uses its own `LOCKEDIN_LOCAL_LLM_BACKEND=ollama` and `LOCKEDIN_OLLAMA_URL` settings.
-The API client uses `LOCKI_INVESTIGATOR_URL` (default `http://127.0.0.1:18787`) and `LOCKI_INVESTIGATOR_KEY_FILE`
-(default `~/.locki/investigator.key`). That M4 file holds the API requester key. It is distinct from the M5's `NI_STDB_TOKEN_FILE`, which
-holds the evidence-only SpacetimeDB investigator credential, and from the owner's grant credential. Follow the [v0.3 handoff](services/nemotron-investigator/INTEGRATION.md)
-and coordinate adoption of the reviewed client/runtime before a live trial; source configuration is not proof of a working tunnel or grant.
+All CI suites: [software checks](docs/airlock/PROJECT_MAP.md#software-checks). Synthetic rehearsal on a local database: `make airlock`, then the [local prototype runbook](docs/airlock/README.md#local-prototype-runbook).
 
-**Voice.** `LOCKEDIN_SECURITY_VOICE=am_onyx` speaks every security line in local Kokoro, offline. Pick the output device in the dashboard's
-voice settings. Fish Audio is optional: it needs `FISH_AUDIO_API_KEY` in `.env`, and it's skipped while the one security voice is on.
-
-**Camera.** `LOCKEDIN_AIRLOCK_VISION=true`, or `make airlock-mac VISION=1`, turns the desk camera on only while armed or in a demo. Draw the
-zones once with `cd backend && .venv/bin/python scripts/airlock_zones.py`: `2` marks the keyboard, `4` the USB ports, `s` saves.
-
-## Controlled demo procedure
-
-Before you start, check that nothing else is using the camera or the USB monitor, and run only one backend.
+### 2. Physical hardware
 
 ```sh
-# terminal 1: coordinated M5 tunnels (18787 API for live incident questions; 11435 raw Ollama for retained local/conversation paths)
-# terminal 2: inspect environment before starting the Mac runtime
-cd ~/locki-airlock
-make preflight
-# terminal 2: the Mac backend, with security on, the camera on while armed, and locks as dry runs
-make airlock-mac VISION=1 SPACETIME_URL=https://maincloud.spacetimedb.com SPACETIME_DB=locki-w91bw OLLAMA=http://127.0.0.1:11435
-# terminal 3: the dashboard
-cd ~/locki-airlock/frontend && npm run dev
-#   Sid's security dashboard:   http://127.0.0.1:5174/
-#   Mac view and live demo:     http://127.0.0.1:5174/#demo
+make setup    # extras, pinned models (several GB), dashboard build
+(cd backend && .venv/bin/python scripts/airlock.py spacetime-setup --workstation <workstation-id>)
+LOCKEDIN_SPACETIME_REMOTE_CAMERAS=jetson-01 make airlock-mac
+VITE_SPACETIMEDB_URI=https://maincloud.spacetimedb.com VITE_SPACETIMEDB_DATABASE=locki-w91bw npm run dev --prefix frontend
 ```
 
-Then follow "Each demo" in [docs/airlock/DEMO.md](docs/airlock/DEMO.md):
+The owner enrolls the identity `spacetime-setup` prints (**Advanced controls → Enroll identity**). Run the last two in separate terminals; without the remote-camera setting, Jetson events never reach the Mac's voice. Locks stay dry runs. Jetson: [deploy runbook](docs/airlock/edge/DEPLOY.md).
 
-1. Start the demo and review camera and monitoring readiness. Face enrollment is not required.
-2. Arm through the authenticated owner dashboard, or grant the next live voice ARM and verify the committed armed state; then leave the desk.
-3. Bring in a volunteer to sit down, type, and plug in a harmless USB stick.
-4. Ask "LOCKI, what happened?"
-5. Come back and review the observations. The workstation stays armed until authenticated disarm.
-6. Disarm on the dashboard.
+### 3. Full system
 
-`make airlock-check` is a separate active integration check: it opens/closes Calculator, creates a temporary local session and renders
-Kokoro audio without playing it. It is not an inspection-only preflight. Coordinate it with the operator and existing watcher process.
+Path 2 plus Mustafa's M5 Pro. Mustafa authorizes this Mac's own SSH key and issues an investigator key (`~/.locki/investigator.key`, mode 600).
 
-**Security desk on a second Mac (Areeb's).** On that Mac, after cloning: `npm ci --prefix frontend && make desk`, then open
-http://127.0.0.1:5180/?client=desk&view=desk. It is the dashboard as static files that talk only to SpacetimeDB, never to the M4's backend, and it
-listens on 127.0.0.1 only. The desk creates its own identity. The owner enrolls it with **Enroll identity → Grant human reviewer access**, with
-approval unchecked. It can view this workstation's incidents, evidence and investigation, and acknowledge them. Never make the M4's Vite server
-listen beyond 127.0.0.1: its `/api` proxy reaches the backend's routes.
+```sh
+LOCKI_M5_HOST=<m5-tailscale-name> LOCKI_M5_USER=<m5-account> bash scripts/airlock_launcher/install.sh
+```
 
-**Arming and disarming.** The authenticated owner may arm directly or choose **Authorize next voice ARM** on the dashboard. The owner reviews
-one enrolled Mac, its fresh baseline/app, approved apps and duration, then keeps the console connected. The Mac can consume that one-use
-permission within 30 seconds when told “LOCKI, watch my setup.” It confirms only after fresh database readback. Disarming requires the owner.
-See [existing M4 integration](docs/airlock/M4_VOICE_ARM.md). If only the M4 CLI is authenticated, the optional
-[local owner consent window](docs/airlock/OWNER_CONSENT.md) keeps that credential on the M4; no token enters voice and no second voice service is needed.
+Double-click **LOCKI AIRLOCK** on the Desktop. It starts or reuses the backend and dashboard, keeps the SSH tunnel to the M5 up, reports **READY** or what is missing, and opens the owner dashboard. It never arms, grants evidence or enables a real lock. See the [runbook](scripts/airlock_launcher/RUNBOOK.md).
 
+## Watch LOCKI in action
 
-## Offline and degraded behaviour
+No video yet. The demo, under three minutes:
 
-| If this is missing | What happens |
+1. **Arm.** **Start protection**; review the baseline. Status: *Protected*.
+2. **Quiet desk.** The owner leaves; baseline devices and approved apps raise nothing.
+3. **Someone sits down.** LOCKI: "Hey, someone's at your workstation while it's armed." Not an incident.
+4. **Unknown USB.** The Mac warns at once; with the person there, SpacetimeDB opens a high-severity incident.
+5. **Explain.** Approve that incident's evidence; about 15 s later LOCKI speaks Nemotron's review.
+6. **Stop and review.** **Stop protection** disarms and revokes access; **History** keeps the incident.
+
+Emergency Containment, a visual response view, is in development on unmerged branches: not shipped, and not a screen lock or OS isolation.
+
+## Verification and limitations
+
+| Area | Status |
 |---|---|
-| SpacetimeDB unreachable | Local warnings and modes still run. Events queue and retry when the server is unreachable or returns 5xx; a reducer error is final and recorded |
-| Nemotron / M5 unreachable | The investigation falls back to a local model, labelled "not Nemotron", or reports it's unavailable. Warnings still play |
-| Mustafa API or evidence grant unavailable | Its live investigation fails or is withheld; no silent substitution with fixture evidence. It does not delay local warnings |
-| Camera unavailable | The camera reports `camera_offline` and health `degraded` or `unavailable`. USB and app monitoring continue |
-| No internet | `LOCKEDIN_OFFLINE=true` (set by `make airlock-mac`): Fish Audio and model hubs are never contacted, and Kokoro speaks |
+| Automated tests | Local guarded run on `a89cb7c`, no real keys: backend 1929 passed, 3 skipped · investigator 428 passed, 3 live-model tests deselected · edge/jetson 241 passed, 2 skipped · node scripts 50/50 · frontend tsc clean, vitest 163/163, build OK. Module tests not included. |
+| GitHub Actions | **Not green.** Every recent run, including 42490844158 on `a89cb7c`, ended in `startup_failure` with no jobs. Cause not established. |
+| Real observation | One live correlated incident, above (n = 1). |
+| Real Nemotron | One LIVE investigation of it, spoken by LOCKI. The M5's code revision is unverified. |
+| Physical acceptance | **Not complete:** Jetson inventory and soak, consented accuracy trials, two-client review, outage recovery, the move to Areeb's M5 Pro. |
+| Screen lock | **Never executed.** Optional, owner-consented, dry run by default. |
 
-## Safety limits
+Gate by gate: [release acceptance](docs/airlock/RELEASE_ACCEPTANCE.md) (predates the command center).
 
-- **Screen locks are dry runs** unless the owner starts the backend with `LOCK=real`, after agreeing to a test with someone there to unlock.
-- **Face identification is disabled by default** (`LOCKEDIN_AIRLOCK_FACE_IDENTIFICATION=false`). The primary camera uses person and zone observations, preserving the PRD's no-biometric-recognition scope.
-- **Voice never authorizes.** Arming and disarming need the owner's authenticated action.
-- **Recordings are conversation input.** Uploaded speech cannot ARM or DISARM, even when a live voice grant exists.
-- **Investigator means read-only.** It receives only approved incident/event/frozen-baseline projections. `grant_reviewer(false)` still grants writes and is not an investigator role.
-- **Fixtures stay labelled.** Demo fixtures and simulated events are marked as such, and the live demo refuses them.
-- **Existing face templates stay unused by default.** Legacy face code is retained outside P0, behind a separate optional setting. Camera events carry no images,
-  identities or embeddings, and USB serials leave the Mac only as salted hashes.
-- **One consumer per device.** Locks on the camera and the USB monitor stop a second watcher. Sid's standalone `app.security.voice_service`
-  is a second voice path, and `mac_observer.py` is a second USB poller. Don't run them beside `make airlock-mac`
-  ([integration decisions](docs/INTEGRATION_DECISIONS.md)).
+1. **Presence is not intent.** No one is identified; being near a device does not prove plugging it in.
+2. **Unknown is not malicious.** A new device or app is a fact to review. Devices are never opened or scanned.
+3. **Detection, not containment.** No network cutoff, process kill or USB blocking; it cannot stop a device or program that has already acted.
+4. **The model is advisory.** It cannot act or lower a severity. Without the M5, warnings continue and LOCKI reads the local record.
+5. **Infrastructure.** Needs Internet for SpacetimeDB, the Jetson and Mustafa's M5 on Tailscale. Offline, only Mac USB and app monitoring and the voice continue.
+6. **Unmeasured.** No volunteer accuracy trials yet. The launcher enables face identification for the Mac's own camera (left off); the M4's setting is unverified.
 
-## Evidence and acceptance
+## Team
 
-The [release acceptance checklist](docs/airlock/RELEASE_ACCEPTANCE.md) maps all ten P0 requirements and every named PRD criterion to
-its evidence and remaining gate. The [latest merged verification](docs/airlock/evidence/merged-integration-verification.json) binds the checked source and logs; the [earlier manifest](docs/airlock/evidence/release-acceptance.json) preserves prior source scopes.
-Historical camera, audio and model timings in the runbooks are attributed team measurements; they are not fresh physical acceptance results.
+- **Dhruv Jain** ([Dhruvjain35](https://github.com/Dhruvjain35)): owner and integrator; the Mac backend (watchers, modes, publisher, voice warnings, investigator client), command center and launcher.
+- **Siddartha Kodithyala** ([s-k-28](https://github.com/s-k-28)): the SpacetimeDB module (sessions, correlation, voice-ARM delegation, evidence grants), the original dashboard and consent flows, bridge scripts, CI and acceptance docs.
+- **Areeb Hirani** ([areebhirani-beep](https://github.com/areebhirani-beep)): the Jetson edge runtime `locki_edge` (capture, person detection, outbox, publisher), deploy tools and runbooks.
+- **Mustafa Hassan** ([hasmus25](https://github.com/hasmus25)): the Nemotron investigator service and its M5 Pro host.
 
-## Verified so far
+## Documentation
 
-| Check | Status |
-|---|---|
-| Backend software | Merged cofounder/client/owner-recovery source: 1,905 passed; 20 skipped |
-| Investigator service software | Final authorization/evidence suite: 425 passed; one skipped; three real-model tests deliberately excluded |
-| Frontend | Merged record view and owner recovery: 137 tests passed; typecheck and production build passed |
-| GitHub Actions | Workflow published; latest inspected run failed at startup before any jobs. Cause unknown; local checks do not imply CI success |
-| Real M4 hardware | Team reports: USB (IOKit), app launches, webcam person detection, audible warnings over Bluetooth. The new face-disabled default has not been activated or verified on the running M4 |
-| Live SpacetimeDB | At 10:18 UTC, the existing workstation is disarmed with auto-lock off; Jetson remains enabled with its original identity and sequence 13. At 10:19 UTC, the owner-issued investigator grant and zero investigator memberships were independently read back. Owner browser recovery is still unverified |
-| Real Nemotron inference | Mustafa reports an 11.9-second LIVE M4-tunnel investigation with seven read tools and authoritative severity preserved. His host artifact and denied-access evidence have not been independently reproduced by Sid |
-| Real Jetson hardware | Team reports operation; stored non-simulated person events verified. Hardware inventory, soak, unplug recovery and accuracy trials remain open |
-| Real screen lock | **Not run** (dry run only, by design) |
+- **Architecture:** [project map](docs/airlock/PROJECT_MAP.md) · [module contract](spacetime/CONTRACT.md)
+- **Setup:** [new Mac](scripts/airlock_launcher/NEW_MAC_SETUP.md) · [Jetson](docs/airlock/edge/DEPLOY.md) · [investigator](services/nemotron-investigator/README.md)
+- **Demo:** [judge-day runbook](scripts/airlock_launcher/RUNBOOK.md) · [owner access](docs/airlock/OWNER_ACCESS.md)
+- **Security and privacy:** [evidence grants](docs/airlock/INVESTIGATOR_INTEGRATION.md) · [screen lock](docs/airlock/LOCK_ADAPTER.md)
+- **Tests and verification:** [release acceptance](docs/airlock/RELEASE_ACCEPTANCE.md) · [accuracy trials](docs/airlock/ACCURACY_TRIALS.md)
+- **Contributing and handoff:** [CONTRIBUTING.md](CONTRIBUTING.md) · [every doc](docs/airlock/README.md)
 
-## Remaining integration work
+LOCKI AIRLOCK extends LOCKED IN, built by Dhruv Jain, Siddartha Kodithyala, Areeb Hirani and Mustafa Hassan for HackUTD 2026 and preserved from `Dhruvjain35/locked-in` (branch `milestone-2`, commit `59d3208`). Its robot-era docs remain in [docs/legacy/](docs/legacy/) and at the top of `docs/`; AIRLOCK's requirements and no-motor, no-flash rules supersede their instructions. See [SOURCE_NOTICE.md](SOURCE_NOTICE.md). No license has been assigned to the team's source.
 
-- **Edge host acceptance.** The `e1c1a7b` snapshot of Areeb's `feature/airlock-edge` and its follow-ups are included in the pinned `afd008e` handoff.
-  Source presence closes the missing-edge-code gate. Actual inventory, capture/receipt provenance, soak/unplug recovery and 20–40 consented activity/false-alert trials remain open. The new [edge runbook](docs/airlock/edge/README.md) and Sid's [retained adapter runbook](edge/jetson/README.md) describe separate publishers, not two processes to run together.
-- **Mustafa's live investigator host.** The source and v0.3 contract are included under `services/nemotron-investigator/`.
-  The merged M4 runtime client and record view passed the software checks above. Activate the reviewed revisions through the existing host owners, run an actual recorded or live “what happened?” turn against a granted current incident, and capture the dashboard trace and spoken result. The existing grant covers one approved incident; new incidents need separate owner approval. Model weights, credentials and private live investigation records stay outside git.
-- **Existing owner console.** Update only the existing M4 frontend, recover the existing owner credential locally, and read back a real session ID with auto-lock disabled. A browser client name does not authenticate the owner; follow [OWNER_ACCESS.md](docs/airlock/OWNER_ACCESS.md).
-
-To add a missing lane, follow "Adding your lane" in [CONTRIBUTING.md](CONTRIBUTING.md). It copies a snapshot of your files without the old history.
-
-## Tests
-
-Run from the repository root with Python 3.12, uv and Node.js 24. Install the locked
-software test dependencies first:
-
-```sh
-uv sync --project backend --frozen --group dev --extra vision
-npm ci --prefix frontend --no-fund
-npm ci --prefix spacetime --no-fund
-```
-
-The vision extra supplies the locked OpenCV package used to decode synthetic
-frames and verify markers in the tests. Model weights are separate and are not
-downloaded by this setup; tests requiring them skip when the files are absent.
-
-```sh
-PYTHONPATH=backend backend/.venv/bin/python -m pytest -q backend/tests               # full backend software suite
-PYTHONPATH=services/nemotron-investigator/src backend/.venv/bin/python -m pytest -q -c services/nemotron-investigator/pyproject.toml services/nemotron-investigator/tests
-npm run check --prefix spacetime && npm test --prefix spacetime                     # module types and transactional tests
-npm test --prefix frontend && npm run build --prefix frontend                       # dashboard
-node frontend/node_modules/tsx/dist/cli.mjs --test scripts/*.test.ts scripts/tests/*.test.ts   # bridges and adapters
-node --test scripts/airlock_owner_consent_http.test.mjs scripts/airlock_investigator_verify.test.mjs
-PYTHONPATH=backend backend/.venv/bin/python -m unittest discover -s edge/jetson/tests            # Jetson adapter
-```
-
-The [CI workflow](.github/workflows/airlock.yml) defines software checks without real model inference or OS actions. Its current startup
-failure remains open. Physical camera, USB, audio, model, Relay and screen-lock checks require separate honest acceptance artifacts.
+<p align="center"><strong>Step away. Come back. Ask LOCKI what happened.</strong></p>

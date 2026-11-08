@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
+  <title id="title">LOCKI AIRLOCK</title>
+  <desc id="desc">The LOCKI AIRLOCK wordmark beside its mark, two vertical bars and a chevron inside a square. The steps protect, detect, correlate, investigate and recover run underneath. On the right, a person sits inside a detection box labelled person in zone, 0.76.</desc>
+  <defs>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="1.3" fill="#2a3227"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#131713"/>
+      <stop offset="1" stop-color="#131713" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="320" rx="24" fill="#090b0a"/>
+  <rect x="16" y="16" width="1248" height="288" rx="16" fill="#131713" stroke="#222920" stroke-width="1.5"/>
+  <rect x="780" y="36" width="460" height="248" fill="url(#dots)"/>
+  <rect x="780" y="36" width="240" height="248" fill="url(#fade)"/>
+
+  <g fill="none" stroke="#76b900" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="84" y="96" width="128" height="128" rx="16"/>
+    <polyline points="139,140 157,160 139,180" stroke="#eef2ea"/>
+  </g>
+  <rect x="108" y="124" width="12" height="72" rx="3" fill="#76b900"/>
+  <rect x="176" y="124" width="12" height="72" rx="3" fill="#76b900"/>
+
+  <g font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="252" y="170" font-size="78" font-weight="800" fill="#eef2ea" textLength="246" lengthAdjust="spacingAndGlyphs">LOCKI</text>
+    <text x="524" y="170" font-size="78" font-weight="800" fill="#76b900" textLength="356" lengthAdjust="spacingAndGlyphs">AIRLOCK</text>
+    <text x="255" y="214" font-size="16" font-weight="600" fill="#97a293" letter-spacing="3" textLength="625" lengthAdjust="spacing">PROTECT · DETECT · CORRELATE · INVESTIGATE · RECOVER</text>
+    <rect x="968" y="44" width="196" height="26" rx="4" fill="#76b900"/>
+    <text x="979" y="62" font-size="13" font-weight="700" fill="#0b0e0a" letter-spacing="1" textLength="174" lengthAdjust="spacing">PERSON IN ZONE · 0.76</text>
+  </g>
+
+  <g fill="#2a3427">
+    <circle cx="1082" cy="130" r="26"/>
+    <path d="M1022 250C1022 198 1046 172 1082 172C1118 172 1142 198 1142 250Z"/>
+  </g>
+  <path d="M968 94V70h24M1172 70h24v24M1196 226v24h-24M992 250h-24v-24" fill="none" stroke="#76b900" stroke-width="3" stroke-opacity="0.8"/>
+  <circle cx="1180" cy="57" r="6" fill="#e5484d"/>
+</svg>
