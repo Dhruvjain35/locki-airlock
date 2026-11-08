@@ -63,6 +63,14 @@ def check_backend_and_mac():
                     f"Watcher error: {usb.get('error') or apps.get('error') or 'not running'}. Retry; if it persists restart LOCKI while disarmed."))
     out.append(item("Screen lock is dry run", sec.get("lock_mode") == "dry_run", f"lock mode {sec.get('lock_mode')}",
                     "The backend is not in dry_run. Stop and relaunch with the launcher (it never enables real locks)."))
+    tk = sec.get("takeover")
+    nat = (tk or {}).get("native") or {}
+    if tk is None:
+        out.append(item("Native alert window", False, "this backend has no native alert support yet",
+                        "Restart the backend from the updated checkout while disarmed (locki_launch.sh --stop, then launch again).", group="Alert"))
+    else:
+        out.append(item("Native alert window", nat.get("connected"), f"LOCKI Alert.app polling the backend (pid {nat.get('pid')})" if nat.get("connected") else "LOCKI Alert.app is not polling the backend",
+                        "Press Retry (the launcher starts it). If it is missing, build it: native/locki-alert/build.sh, or run install.sh again.", group="Alert"))
     sess = sec.get("session") or {}
     out.append(item("Protection", True, f"ARMED · session {sess.get('session_id')}" if sec.get("armed") else "disarmed · press START PROTECTION in the dashboard",
                     required=False))

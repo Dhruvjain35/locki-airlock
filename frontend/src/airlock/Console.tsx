@@ -7,6 +7,7 @@ import { type Row, ago, clock, milliseconds, words } from "./format";
 import { maySubmitLiveArm } from "./armConsent";
 import { type MacLink, type Stage, STAGES, remoteFreshness, reportedStage } from "./macSecurity";
 import { type ProtectionState, EXPLAIN_QUESTION, INVESTIGATOR_IDENTITY, countdown, describeEvent, playbackLabel, startReview } from "./protection";
+import { type Takeover, RESPONSE_ROWS, nativeStatus, readTakeover, responseTone, responseWord } from "./takeover";
 import "./console.css";
 
 export type ConsoleView = "protection" | "investigation" | "history";
@@ -80,6 +81,7 @@ function Sidebar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: Con
   const macTone = m.mac.status === "live" ? "ok" : m.mac.status === "offline" ? "alert" : "muted";
   const st = m.mac.data?.spacetimedb;
   const dbTone = m.db.connected && st?.connected && st?.authorized ? "ok" : m.db.connected || st?.connected ? "warn" : "alert";
+  const alertWin = nativeStatus(readTakeover(m.mac), m.now);
   const jet = jetsonStatus(m);
   const tabs: { id: ConsoleView; icon: ReactNode; count?: string; countTone?: string }[] = [
     { id: "protection", icon: <ShieldCheck size={17} /> },
@@ -98,6 +100,7 @@ function Sidebar({ m, a, view }: { m: ConsoleModel; a: ConsoleActions; view: Con
         <li title={m.mac.status === "live" ? "This Mac's security backend is responding" : m.mac.error || "Waiting for this Mac's security backend"}><Server size={16} /><span>Mac</span><Dot tone={macTone} /></li>
         <li title={jet.detail}><Radar size={16} /><span>{jet.label}</span><Dot tone={jet.tone} /></li>
         <li title={`Owner console ${m.db.connected ? "subscribed" : m.db.status} · Mac publisher ${st?.connected ? st?.authorized ? "authorized" : "not authorized" : "offline"} · ${m.db.database}`}><Database size={16} /><span>SpacetimeDB</span><Dot tone={dbTone} /></li>
+        <li title={alertWin.detail}><ShieldAlert size={16} /><span>Alert window</span><Dot tone={alertWin.tone} /></li>
       </ul>
     </div>
     <div className="lk-side-card">
@@ -256,6 +259,27 @@ function LiveActivity({ m }: { m: ConsoleModel }) {
       : m.live ? <div className="lk-calm"><span className="lk-calm-icon"><ShieldCheck size={22} strokeWidth={1.8} /></span><div><strong>Your workstation is protected.</strong><span>No incidents in this session.</span></div></div>
       : <div className="lk-calm lk-calm-off"><span className="lk-calm-icon"><ShieldOff size={22} strokeWidth={1.8} /></span><div><strong>{m.owner ? "Protection is off." : "Owner sign-in required."}</strong><span>{m.owner ? "Start protection to watch this desk with the Jetson camera and this Mac's USB and app sensors." : "Recover owner access to see this workstation's live activity."}</span></div></div>}
     {m.live && <><h4 className="lk-sub">Observations this session</h4>{feed.length ? <ul className="lk-events lk-timeline">{feed.map(e => <EventRow key={String(e.id)} e={e} now={m.now} />)}</ul> : <p className="lk-empty">No sensor observations yet in this session.</p>}</>}
+  </section>;
+}
+
+/** The backend's critical takeover for this session, mirrored here: the same headline, sentence and response states the native alert
+ *  window shows, and whether that window is actually running. Nothing in it is decided by this page. */
+function TakeoverCard({ m, t }: { m: ConsoleModel; t: Takeover }) {
+  const r = t.record!;
+  const native = nativeStatus(t, m.now);
+  const nativeLine = !t.native?.connected ? "Native alert window not running: this tab is the only alert (degraded)"
+    : r.acknowledged_at_ms ? `Native alert dismissed ${clock(r.acknowledged_at_ms)} · protection stays armed`
+    : r.shown_at_ms ? `Native alert shown ${clock(r.shown_at_ms)}${r.shown_latency_ms != null ? ` · ${(r.shown_latency_ms / 1000).toFixed(2)} s after the event` : ""}`
+    : "Native alert window running";
+  return <section className={`lk-card lk-takeover${r.live ? "" : " is-rehearsal"}`} role="alert" aria-labelledby="lk-takeover-title">
+    <div className="lk-takeover-head">
+      <span className="lk-takeover-kicker"><span className="lk-takeover-pulse" aria-hidden="true" />{r.live ? "Critical security event" : "Rehearsal · sample, not a security event"}</span>
+      <span className="lk-takeover-native" title={native.detail}><Dot tone={t.native?.connected ? "ok" : "warn"} />{nativeLine}</span>
+    </div>
+    <h2 id="lk-takeover-title">{r.headline}</h2>
+    <p className="lk-takeover-sentence">{r.sentence}</p>
+    {!r.local_mode_verified && <p className="lk-takeover-note">Server-confirmed incident · local CRITICAL not verified (this Mac reports {words(r.local_mode)}).</p>}
+    <ul className="lk-takeover-response" aria-label="Security response">{RESPONSE_ROWS.map(row => { const s = r.response?.[row.key]; return s ? <li key={row.key} title={s.detail}><span>{row.label}</span><strong className={`lk-text-${responseTone(s.state)}`}>{responseWord(s.state)}</strong></li> : null; })}</ul>
   </section>;
 }
 
@@ -470,11 +494,17 @@ export function StopDialog({ state, onConfirm, onClose }: { state: StopState; on
 }
 
 export function Console({ m, a, view, history, drawer, drawerOpen, closeDrawer, notice, dialogs }: { m: ConsoleModel; a: ConsoleActions; view: ConsoleView; history: ReactNode; drawer: ReactNode; drawerOpen: boolean; closeDrawer: () => void; notice?: ReactNode; dialogs?: ReactNode }) {
+  // Only a takeover for the live session counts, and only while the backend reports it; a record from another session is never shown.
+  const takeoverInfo = readTakeover(m.mac);
+  const takeover = Boolean(takeoverInfo?.record && m.live && takeoverInfo.sessionId === String(m.live.id));
+  const critical = takeover && Boolean(takeoverInfo?.record?.live);
+  useEffect(() => { document.title = critical ? "● Critical security event · LOCKI AIRLOCK" : "LOCKI AIRLOCK"; }, [critical]);
   return <div className={`lk-app lk-state-${m.state.toLowerCase()}`}>
     <Sidebar m={m} a={a} view={view} />
     <div className="lk-body">
       <TopBar m={m} a={a} view={view} />
       <main className="lk-main">
+        {view === "protection" && takeover && <TakeoverCard m={m} t={takeoverInfo!} />}
         {view === "protection" && <div className="lk-overview"><Hero m={m} a={a} /><StageTrack m={m} /><SensorTiles m={m} /><LiveActivity m={m} /><ResponseCard m={m} a={a} /></div>}
         {view === "investigation" && <InvestigationView m={m} a={a} />}
         {view === "history" && <div className="lk-history airlock-app lk-legacy">{m.owner && m.openGrants > 0 && <GrantsOpen m={m} a={a} />}{history}</div>}

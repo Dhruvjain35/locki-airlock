@@ -3,7 +3,10 @@
 #
 #   locki_launch.sh [--app]    start or reuse everything, wait for READY (max 30 s), open the owner dashboard
 #   locki_launch.sh --check    readiness only, starts nothing
-#   locki_launch.sh --stop     stop what THIS launcher started (refuses while protection is armed); tunnels keep running
+#   locki_launch.sh --stop     stop what THIS launcher started and the alert window (refuses while protection is armed); tunnels keep running
+#
+# The native alert window (LOCKI Alert.app, built by native/locki-alert/build.sh into ~/.locki/alert/) is started here too. It only
+# reads this Mac's backend and shows a critical takeover above other apps; it never arms, disarms, grants or locks anything.
 #
 # Reuse first: anything already healthy on :8077, :5174, :18787 or :11435 is left exactly as it is, whoever started it.
 # It never arms, never turns the camera or microphone on, never enables a real screen lock, never grants evidence.
@@ -28,7 +31,7 @@ if [ "${1:-}" = "--check" ]; then readiness; exit $?; fi
 if [ "${1:-}" = "--stop" ]; then
   armed=$(/usr/bin/curl -s -m 3 http://127.0.0.1:8077/api/security | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("armed"))' 2>/dev/null)
   if [ "$armed" = "True" ]; then echo "Protection is ARMED. Press STOP PROTECTION in the dashboard first; nothing was stopped."; exit 2; fi
-  for svc in frontend backend; do
+  for svc in alert frontend backend; do
     f="$RUN/$svc.pid"; [ -f "$f" ] || continue; pid=$(cat "$f")
     if kill -0 "$pid" 2>/dev/null; then kill "$pid"; log "stopped $svc pid $pid (launcher-owned)"; echo "stopped $svc"; fi
     rm -f "$f"
@@ -59,6 +62,7 @@ else
     ( cd "$root/backend" && LOCKEDIN_SECURITY_ENABLED=true LOCKEDIN_OFFLINE=true LOCKEDIN_SPACETIME_REMOTE_CAMERAS="${LOCKI_REMOTE_CAMERAS:-jetson-01}" \
       LOCKEDIN_LOCAL_LLM_BACKEND=ollama LOCKEDIN_OLLAMA_URL=http://127.0.0.1:11435 LOCKEDIN_AIRLOCK_OLLAMA_URL=http://127.0.0.1:11435 \
       LOCKEDIN_AIRLOCK_FACE_IDENTIFICATION="${LOCKI_FACE_IDENTIFICATION:-true}" \
+      LOCKI_ALERT_TOKEN_FILE="$RUN/alert.token" \
       nohup .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8077 --timeout-graceful-shutdown 2 >> "$LOGS/backend.log" 2>&1 & echo $! > "$RUN/backend.pid" )
     log "backend: started pid $(cat "$RUN/backend.pid") from $root"
   fi
@@ -76,6 +80,13 @@ elif [ -z "$(listener 5174)" ]; then
   fi
 fi
 printf 'LAST_BACKEND_ROOT=%q\nLAST_FRONTEND_DIR=%q\n' "${LAST_BACKEND_ROOT:-}" "${LAST_FRONTEND_DIR:-}" > "$STATE"
+
+# 3b. Native alert window: one instance (the app also refuses a second copy itself), opened in the background without taking focus.
+ALERT_APP="$LOCKI/alert/LOCKI Alert.app"
+apid=$(cat "$RUN/alert.pid" 2>/dev/null)
+if [ -n "$apid" ] && kill -0 "$apid" 2>/dev/null; then log "alert window: reusing pid $apid"
+elif [ -d "$ALERT_APP" ]; then /usr/bin/open -g -j "$ALERT_APP" && log "alert window: started"
+else log "alert window: not installed (run scripts/airlock_launcher/install.sh)"; fi
 
 # 4. Wait for READY (at most 30 s from launch), checking once a second.
 result=""; state="NOT READY"

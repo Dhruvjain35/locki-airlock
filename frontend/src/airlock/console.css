@@ -462,3 +462,23 @@
 
 /* Dev-only fixture banner (never rendered in a production build) */
 .lk-fixture-banner { position: fixed; z-index: 70; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 7px 16px; border-radius: 999px; background: #f2a93b; color: #000; font: 600 12.5px/1.4 "Archivo Variable", system-ui, sans-serif; text-align: center; }
+
+/* Critical takeover mirror: the backend's decision for the live session, above the overview while it stands. Red is kept for this and
+   incidents; amber marks a rehearsal. The native alert window shows the same words full screen. */
+.lk-takeover { margin-bottom: 20px; border-color: rgba(242, 86, 79, 0.55); background: color-mix(in srgb, var(--red) 6%, var(--card)); animation: lk-rise 0.2s ease-out; }
+.lk-takeover.is-rehearsal { border-color: rgba(242, 169, 59, 0.55); background: color-mix(in srgb, var(--amber) 6%, var(--card)); }
+.lk-takeover-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.lk-takeover-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--red); }
+.lk-takeover.is-rehearsal .lk-takeover-kicker { color: var(--amber); }
+.lk-takeover-pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: lk-breathe 1.6s ease-in-out infinite; }
+.lk-takeover-native { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+.lk-takeover h2 { margin-top: 10px; font-size: 28px; font-weight: 650; line-height: 1.15; letter-spacing: -0.01em; color: var(--text); }
+.lk-takeover-sentence { margin-top: 6px; max-width: 75ch; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+.lk-takeover-note { margin-top: 8px; font-size: 13px; color: var(--amber); }
+.lk-takeover-response { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.lk-takeover-response li { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--r-inner); background: var(--raise); }
+.lk-takeover-response span { font-size: 12px; color: var(--text-3); }
+.lk-takeover-response strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+@media (max-width: 1180px) { .lk-takeover-response { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .lk-takeover-response { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lk-takeover h2 { font-size: 22px; } }
+@media (prefers-reduced-motion: reduce) { .lk-takeover, .lk-takeover-pulse { animation: none; } }

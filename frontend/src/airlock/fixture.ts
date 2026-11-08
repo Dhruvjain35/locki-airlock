@@ -5,6 +5,7 @@
 //   ?fixture=1 or ?fixture=incident  armed session with an open high-severity incident (investigator access approved)
 //   ?fixture=armed                    armed session, no incident
 //   ?fixture=off                      protection off, one past session in History
+//   &native=off                       (with an armed scenario) the native alert window is reported as not running
 import { useState } from "react";
 import type { AirlockData, ConnectionConfig } from "./client";
 import { INVESTIGATOR_IDENTITY } from "./protection";
@@ -22,6 +23,7 @@ const T0 = Date.now();
 const at = (secondsAgo: number) => T0 - secondsAgo * 1000;
 const armed = SCENARIO !== "off";
 const withIncident = SCENARIO === "incident";
+const nativeUp = FIXTURE_ACTIVE && new URLSearchParams(location.search).get("native") !== "off";
 
 function data(): AirlockData {
   const armedAt = at(14 * 60);
@@ -92,6 +94,23 @@ function security(now: number) {
     locks: withIncident ? [{ session_id: SESSION, status: "dry_run_recorded", dry_run: true }] : [],
     monitor: { running: true, usb: { connected: 3, error: null }, apps: { error: null } },
     spacetimedb: { connected: true, authorized: true },
+    takeover: {
+      now_ms: now, armed, session_id: armed ? SESSION : null, workstation_id: WS, active: withIncident,
+      takeover: withIncident ? {
+        id: "usb:c41e7b20-58aa-4d0e-9a61-2b7f0c9de114", live: true, rehearsal: false, trigger: "correlated_incident", detected_at_ms: at(367.9), fresh: true,
+        local_mode: "CRITICAL", local_mode_verified: true, headline: "Unauthorized device activity detected",
+        sentence: "Unknown USB storage connected 4.0 s after a person entered the desk zone.", sentence_source: "spacetimedb_summary",
+        evidence: [], incident_id: INCIDENT, acknowledged_at_ms: null, shown_at_ms: nativeUp ? at(367.6) : null, shown_latency_ms: nativeUp ? 310 : null,
+        response: {
+          audio: { state: "played", detail: "Kokoro played the correlated warning." }, tools: { state: "not_configured", detail: "Freezing LOCKI tools is off in this session's policy." },
+          lock: { state: "dry_run", detail: "Dry run recorded: the screen was not locked." }, monitoring: { state: "running", detail: "USB and app watchers running." },
+          nemotron: { state: "available", detail: "The M5 investigator answers through the tunnel; not asked yet." }, evidence: { state: "recorded", detail: "Recorded in SpacetimeDB (2 evidence ids)." },
+        },
+      } : null,
+      blocked: withIncident ? [] : [armed ? "no_critical_evidence" : "not_armed"],
+      native: nativeUp ? { connected: true, last_poll_ms: now - 150, pid: 4242, version: "1" } : { connected: false, last_poll_ms: null },
+      handoff: null,
+    },
   };
 }
 
