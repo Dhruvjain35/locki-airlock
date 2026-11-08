@@ -48,8 +48,29 @@ curl -s localhost:8765/health | python3 -m json.tool
 | `edge/jetson/contract/locki-w91bw.pinned.json` | deployed reducer/table signatures (read-only describe) |
 | `edge/jetson/tools/stdb_live.py` | mint / whoami / denied / publish / verify against the real DB |
 | `edge/jetson/tools/contract_check.py` | drift check vs the deployed module |
-| `edge/jetson/tools/soak.py` | EDGE-01 soak → `docs/airlock/edge/soak/*/SUMMARY.md` |
+| `edge/jetson/tools/soak.py` | EDGE-01 soak → `docs/airlock/edge/soak/*/SUMMARY.md` (local output, not committed) |
 | `edge/jetson/tests/test_contract.py`, `test_runtime_failures.py` | contract, capture, normalizer, outbox, auth, e2e tests |
-| `docs/airlock/edge/STATUS.md` · `HANDOFF.md` · `DEPLOY.md` | truth table · what each teammate does · Jetson runbook |
+| `docs/airlock/edge/DEPLOY.md` | Jetson runbook |
 
 Legacy: `locki_edge/service.py` + `publish.py` speak the superseded single-string contract; kept for history, not used by the runtime except `SequenceStore`.
+
+## Next to Sid's adapter
+
+`edge/jetson/` also holds Sid's camera adapter (`airlock_camera.py`, `inventory.py`, `edge/jetson/README.md` and
+`tests/test_camera_adapter.py`). The two share no code or files. `locki_edge` is the publisher deployed on `jetson-01`
+(systemd unit `locki-airlock-edge`, API on 127.0.0.1:8765, state in `~/.local/state/locki-edge`); Sid's adapter serves on
+127.0.0.1:8787 with its own state file. Never run both for the same device id: each keeps its own `seq` (the reducer rejects
+`seq <= last_seq`) and both open the camera. Start the runtime as `python3 -m locki_edge.runtime` from `edge/jetson`, never as
+`edge.jetson.locki_edge`, so its modules load only once.
+
+## Tests
+
+Run them from the repo root, as CI does (Sid's tests import `edge.jetson.*`, so they need the root as working directory):
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python -m unittest discover -s edge/jetson/tests
+```
+
+Tests that need OpenCV skip where `cv2` is not installed, and `test_shellcheck` skips without `shellcheck`. On the device,
+`scripts/edge_deploy.sh` and `scripts/edge_jetson_install.sh` run the same folder from `~/locki-airlock-edge` with
+`/usr/bin/python3`.

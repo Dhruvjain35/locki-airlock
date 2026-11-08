@@ -40,14 +40,14 @@ Never improvise power. Never power the Jetson from the Zeus robot's motor supply
    timedatectl | grep -i synchronized
    curl -sS -m 5 -o /dev/null -w '%{http_code}\n' https://maincloud.spacetimedb.com
    ```
-3. **Deploy** (on the Mac, repo root). Sends `edge/jetson scripts docs/airlock/edge hardware`, never `.env` / token files, then runs detect + unit tests with the device's `/usr/bin/python3`. One ssh password prompt at most.
+3. **Deploy** (on the Mac, repo root). Sends `edge/jetson`, the `scripts/edge_*.sh`, `docs/airlock/edge` and `hardware/` if present, never `.env` / token files, then runs detect + the `edge/jetson/tests` unit tests from `~/locki-airlock-edge` with the device's `/usr/bin/python3`. One ssh password prompt at most.
    ```bash
    bash scripts/edge_deploy.sh <user>@<jetson-host>
    ```
-4. **Inventory** (on the Jetson, read-only), then copy it back to the Mac and commit it.
+4. **Inventory** (on the Jetson, read-only), then copy it back to the Mac to read it. It is device data: this repo has no `hardware/` folder, so it is not committed here.
    ```bash
    cd ~/locki-airlock-edge && bash scripts/edge_jetson_inventory.sh
-   scp <user>@<jetson-host>:locki-airlock-edge/hardware/jetson_inventory.md hardware/   # on the Mac
+   scp <user>@<jetson-host>:locki-airlock-edge/hardware/jetson_inventory.md .   # on the Mac
    ```
 5. **Read the plan.** Dry run by default: prints detected facts and the numbered plan, changes nothing.
    ```bash
@@ -67,7 +67,7 @@ Never improvise power. Never power the Jetson from the Zeus robot's motor supply
    cd ~/locki-airlock-edge/edge/jetson && python3 tools/stdb_live.py mint --out ~/.config/locki-edge/device_token
    python3 tools/stdb_live.py wait-enrolled --token-file ~/.config/locki-edge/device_token
    ```
-9. **Config.** Set `AIRLOCK_EDGE_RUNTIME=jetson`, `AIRLOCK_DEVICE_ID=jetson-01`, `AIRLOCK_CAMERA_SOURCE=<by-id path>`, `AIRLOCK_OBSERVER=detectnet` (only if `--with-detectnet` built; `baseline` motion is local-audit only because role `jetson` may not publish `motion_in_zone`). Keep `AIRLOCK_SESSION_ID=auto` and `AIRLOCK_CONTRACT_FILE=contract/locki-w91bw.live.json` from the template: the module only accepts `person_in_zone` with `{}` metadata inside the live armed session, and a heartbeat under 15 s (see STATUS.md "Live answers"). Also from the template: `AIRLOCK_EXIT_S=15` (arm with the zone empty that long, then walk in) and `AIRLOCK_FORBIDDEN_IDENTITIES` = Dhruv's owner identity (the runtime refuses to start on that token). Set `AIRLOCK_RESTART_ON_STALL_S=60` on the Jetson: a V4L2 read hung that long exits 3 and systemd restarts it in 3 s. Zone: `AIRLOCK_ZONES=desk_01:x1,y1,x2,y2` with the numbers calibrated in docs/hardware/README.md row 7.
+9. **Config.** Set `AIRLOCK_EDGE_RUNTIME=jetson`, `AIRLOCK_DEVICE_ID=jetson-01`, `AIRLOCK_CAMERA_SOURCE=<by-id path>`, `AIRLOCK_OBSERVER=detectnet` (only if `--with-detectnet` built; `baseline` motion is local-audit only because role `jetson` may not publish `motion_in_zone`). Keep `AIRLOCK_SESSION_ID=auto` and `AIRLOCK_CONTRACT_FILE=contract/locki-w91bw.live.json` from the template: the module only accepts `person_in_zone` with `{}` metadata inside the live armed session, and a heartbeat under 15 s (see `_live_answers` in `edge/jetson/contract/locki-w91bw.live.json`). Also from the template: `AIRLOCK_EXIT_S=15` (arm with the zone empty that long, then walk in) and `AIRLOCK_FORBIDDEN_IDENTITIES` = Dhruv's owner identity (the runtime refuses to start on that token). Set `AIRLOCK_RESTART_ON_STALL_S=60` on the Jetson: a V4L2 read hung that long exits 3 and systemd restarts it in 3 s. Zone: `AIRLOCK_ZONES=desk_01:x1,y1,x2,y2`, normalized to the frame and calibrated for this desk on the device.
    ```bash
    mkdir -p -m 700 ~/.config/locki-edge
    install -m 600 ~/locki-airlock-edge/edge/jetson/airlock.env.example ~/.config/locki-edge/airlock.env

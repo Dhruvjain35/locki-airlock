@@ -1,6 +1,6 @@
 """Unit + integration tests. stdlib unittest only (runs on the Jetson's Python 3.6 too).
 
-    cd edge/jetson && python3 -m unittest discover -s tests -v
+    python3 -m unittest discover -s edge/jetson/tests -v     # from the repo root: the folder also holds Sid's tests
 """
 import json
 import os

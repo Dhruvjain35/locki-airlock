@@ -1,5 +1,5 @@
 {
-  "_what": "Rules the DEPLOYED locki-w91bw module enforces for a device enrolled with role \"jetson\", learned from live reducer answers on 2026-11-08 (evidence: docs/airlock/edge/evidence/). Use with AIRLOCK_CONTRACT_FILE.",
+  "_what": "Rules the DEPLOYED locki-w91bw module enforces for a device enrolled with role \"jetson\", learned from live reducer answers on 2026-11-08 (the run evidence stays in Areeb's edge repo and is not imported). Use with AIRLOCK_CONTRACT_FILE.",
   "_live_answers": {
     "motion_in_zone": "Event kind not permitted for publisher role (00:27:32Z)",
     "person_left_zone": "Event kind not permitted for publisher role (00:39:57Z)",

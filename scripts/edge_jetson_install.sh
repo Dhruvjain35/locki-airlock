@@ -282,14 +282,15 @@ step_verify() {
   local out rc=0
   step "verify: unit tests with $PY + hardware inventory"
   if [ "$MODE" != apply ]; then
-    note "would run: (cd edge/jetson && $PY -m unittest discover -s tests)"
+    note "would run: $PY -m unittest discover -s edge/jetson/tests   # from the repo root"
     note "would run: bash scripts/edge_jetson_inventory.sh   # writes hardware/jetson_inventory.md"
     return 0
   fi
-  note "\$ (cd edge/jetson && $PY -m unittest discover -s tests)"
-  out="$(cd "$REPO/edge/jetson" && "$PY" -m unittest discover -s tests 2>&1)" || rc=$?
+  # From the repo root: edge/jetson/tests is shared with Sid's adapter tests, which import edge.jetson.*
+  note "\$ $PY -m unittest discover -s edge/jetson/tests"
+  out="$(cd "$REPO" && "$PY" -m unittest discover -s edge/jetson/tests 2>&1)" || rc=$?
   printf '%s\n' "$out" | tail -n 4 | sed 's/^/      /'
-  [ "$rc" = 0 ] || fail "unit tests failed (exit $rc). Details: cd edge/jetson && $PY -m unittest discover -s tests -v"
+  [ "$rc" = 0 ] || fail "unit tests failed (exit $rc). Details: cd $REPO && $PY -m unittest discover -s edge/jetson/tests -v"
   note "\$ bash scripts/edge_jetson_inventory.sh"
   bash "$SCRIPT_DIR/edge_jetson_inventory.sh" | sed 's/^/      /' || fail "inventory script failed"
 }

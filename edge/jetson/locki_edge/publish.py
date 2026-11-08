@@ -71,7 +71,7 @@ def make_event(seq_store, source, kind, confidence=None, metadata=None, observed
 
 
 def validate_event(e):
-    """Same rules as contracts/security_event_v1.schema.json. Raises ValueError."""
+    """Rules of the superseded single-string schema (tests/fixtures/legacy_jetson_events.json). Raises ValueError."""
     missing = [k for k in REQUIRED if k not in e]
     if missing:
         raise ValueError("missing fields: %s" % missing)

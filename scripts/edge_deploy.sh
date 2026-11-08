@@ -2,7 +2,7 @@
 #
 # LOCKI AIRLOCK edge: push the edge code from the Mac to a Jetson and check it there.
 #   bash scripts/edge_deploy.sh <user>@<host> [--install [--yes] [--with-detectnet] [--with-jetpack-meta] [--venv]]
-# 1. rsync edge/jetson scripts docs/airlock/edge hardware -> ~/locki-airlock-edge/ on the target.
+# 1. rsync edge/jetson, scripts/edge_*.sh, docs/airlock/edge, hardware -> ~/locki-airlock-edge/ on the target.
 #    Never sent: .venv, __pycache__, *.pyc, *.env, *token*, keys, state dirs. Files already in the device's
 #    hardware/ are never overwritten (a device-written inventory survives the next deploy).
 # 2. Over ssh: scripts/edge_jetson_detect.sh + the unit tests with the device's own /usr/bin/python3.
@@ -58,7 +58,7 @@ CODE_PATHS=""
 for p in edge/jetson scripts docs/airlock/edge; do
   if [ -e "$p" ]; then CODE_PATHS="$CODE_PATHS $p"; else echo "note: $p not in this checkout, skipped"; fi
 done
-[ -n "$CODE_PATHS" ] || { echo "nothing to send: run from the locki-airlock-edge repo" >&2; exit 1; }
+[ -n "$CODE_PATHS" ] || { echo "nothing to send: run it from a checkout of the repo" >&2; exit 1; }
 
 # shellcheck disable=SC2086
 SECRETS="$(find $CODE_PATHS hardware \( -name '*.env' -o -name '.env' -o -name '*token*' -o -name '*.pem' -o -name '*.key' \) -not -path '*/.venv/*' 2>/dev/null || true)"
@@ -75,7 +75,13 @@ if [ "$rc" != 0 ]; then echo "rsync is missing on the Jetson. On the Jetson run:
 # One rsync per directory, trailing slashes: --delete only prunes stale files INSIDE that directory.
 # (With -R, macOS openrsync also deleted in the implied parents edge/ and docs/: never use -R --delete here.)
 for p in $CODE_PATHS; do
-  rsync -az --delete "${EXCLUDES[@]}" -e "ssh $SSH_OPTS" "$p/" "$TARGET:$DEST_DIR/$p/"
+  if [ "$p" = scripts ]; then
+    # scripts/ is shared with the rest of the repo: send only the edge's own scripts. Excluded files are never
+    # deleted on the device either, so --delete prunes only stale edge_*.sh there.
+    rsync -az --delete "${EXCLUDES[@]}" "--include=edge_*.sh" "--exclude=*" -e "ssh $SSH_OPTS" "$p/" "$TARGET:$DEST_DIR/$p/"
+  else
+    rsync -az --delete "${EXCLUDES[@]}" -e "ssh $SSH_OPTS" "$p/" "$TARGET:$DEST_DIR/$p/"
+  fi
 done
 if [ -d hardware ]; then
   rsync -az --ignore-existing "${EXCLUDES[@]}" -e "ssh $SSH_OPTS" hardware/ "$TARGET:$DEST_DIR/hardware/"
@@ -91,7 +97,8 @@ esac
 
 echo "  unit tests with the device's /usr/bin/python3 (about a minute on a Nano)..."
 TRC=0
-TESTS="$(remote "cd ~/$DEST_DIR/edge/jetson && /usr/bin/python3 -m unittest discover -s tests" 2>&1)" || TRC=$?
+# From the repo root: edge/jetson/tests is shared with Sid's adapter tests, which import edge.jetson.*
+TESTS="$(remote "cd ~/$DEST_DIR && /usr/bin/python3 -m unittest discover -s edge/jetson/tests" 2>&1)" || TRC=$?
 printf '%s\n' "$TESTS" | tail -n 12 | sed 's/^/  /'
 if [ "$TRC" = 0 ]; then echo "  unit tests: PASS"; else echo "  unit tests: FAIL (exit $TRC)"; fi
 

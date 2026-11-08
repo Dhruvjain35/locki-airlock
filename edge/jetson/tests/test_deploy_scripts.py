@@ -361,7 +361,7 @@ class TestInstaller(ShimCase):
             self.assertNotIn("usermod", log)
         else:
             self.assertIn("sudo usermod -aG", log)
-        self.assertIn("-m unittest discover -s tests", self.pycalls())
+        self.assertIn("-m unittest discover -s edge/jetson/tests", self.pycalls())   # from the repo root
         self.assertTrue(os.path.isfile(os.path.join(repo, "hardware", "jetson_inventory.md")), out)
         self.assertIn("DONE", out)
 
@@ -573,12 +573,16 @@ class TestDeploy(ShimCase):
     EXCLUDES = ("--exclude=.venv/", "--exclude=__pycache__/", "--exclude=*.pyc", "--exclude=*.env",
                 "--exclude=*token*")
 
-    def deploy(self, *args):
+    def deploy(self, *args, **kw):
         # A throwaway repo layout with every folder the script can send, so the rsync list does not depend on
         # which folders this checkout has (the shared repo has no hardware/: the device writes its own).
         repo = self.repo_copy()
-        for parts in (("docs", "airlock", "edge", "README.md"), ("hardware", "jetson_inventory.md")):
-            os.makedirs(os.path.join(repo, *parts[:-1]))
+        files = [("docs", "airlock", "edge", "README.md"), ("scripts", "airlock_not_edge.ts")]
+        if kw.get("hardware", True):
+            files.append(("hardware", "jetson_inventory.md"))
+        for parts in files:
+            if not os.path.isdir(os.path.join(repo, *parts[:-1])):
+                os.makedirs(os.path.join(repo, *parts[:-1]))
             open(os.path.join(repo, *parts), "w").close()
         return self.run_script("edge_deploy.sh", args, scripts_dir=os.path.join(repo, "scripts"))
 
@@ -603,6 +607,12 @@ class TestDeploy(ShimCase):
             for p in ("edge/jetson", "scripts", "docs/airlock/edge")), code)
         for line in rsyncs:
             self.assertNotIn(" -azR", line)              # -R + --delete also prunes implied parent dirs
+        # scripts/ is shared with the rest of the repo: only edge_*.sh go, and only that rsync filters by name
+        for argv in self.argvs("rsync"):
+            if argv[-2] == "scripts/":
+                self.assertLess(argv.index("--include=edge_*.sh"), argv.index("--exclude=*"), argv)
+            else:
+                self.assertNotIn("--exclude=*", argv)
         hardware = [l for l in rsyncs if "--ignore-existing" in l]
         self.assertEqual(len(hardware), 1, rsyncs)
         self.assertTrue(hardware[0].endswith(" hardware/ areeb@jetson.local:locki-airlock-edge/hardware/"),
@@ -610,8 +620,15 @@ class TestDeploy(ShimCase):
         self.assertNotIn("--delete", hardware[0])
         ssh = self.lines("ssh")
         self.assertTrue(any("bash scripts/edge_jetson_detect.sh" in l for l in ssh), ssh)
-        self.assertTrue(any("/usr/bin/python3 -m unittest discover -s tests" in l for l in ssh), ssh)
+        # from the repo root: edge/jetson/tests also holds Sid's adapter tests, which import edge.jetson.*
+        self.assertTrue(any("cd ~/locki-airlock-edge && /usr/bin/python3 -m unittest discover -s edge/jetson/tests" in l
+                            for l in ssh), ssh)
         self.assertEqual(self.installer_calls(), [])
+
+    def test_without_a_hardware_folder_nothing_is_sent_there(self):
+        rc, out = self.deploy("areeb@jetson.local", hardware=False)
+        self.assertEqual(rc, 0, out)
+        self.assertEqual([argv[-2] for argv in self.argvs("rsync")], ["edge/jetson/", "scripts/", "docs/airlock/edge/"])
 
     def test_install_without_yes_is_a_remote_dry_run(self):
         rc, out = self.deploy("areeb@jetson.local", "--install")
