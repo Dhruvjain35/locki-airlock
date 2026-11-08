@@ -1,7 +1,7 @@
 # Integration contract: Nemotron investigator
 
 Owner: Mustafa (M5 Pro). Consumers: Dhruv's Mac backend and LOCKI voice, Sid's dashboard.
-Status: **v0.2 (2026-11-08), to be confirmed with Dhruv and Sid.** It replaces v0.1. The breaking changes are listed in §9.
+Status: **v0.3 (2026-11-08).** It replaces v0.2. v0.3 reads Sid's owner-granted evidence views and moves the M4 tunnel to port 18787. The breaking changes are listed in §9.
 
 ## 0. Quick start
 
@@ -38,40 +38,59 @@ The service never sends `keep_alive` or `num_ctx` to Ollama, so it never reconfi
 
 ### On Dhruv's M4 (client)
 
-1. Open a *separate* SSH local forward. It is a new process; the existing `11435` Ollama tunnel is not touched or restarted:
+The M5 accepts Dhruv's M4 key (the one listed at `github.com/Dhruvjain35.keys`, SHA256 `WeBg+LR4...nY/o`) for tunnels only.
+
+**What the key may do.** It works only from the M4's Tailscale address. It may open local forwards to `127.0.0.1:8787` (this API) and `127.0.0.1:11434` (Ollama) and nothing else.
+
+**What it can't do.** It gets no shell, pty, commands, `scp`/`sftp` or agent forwarding, and remote forwards can't bind a usable port. These restrictions were verified on the M5's sshd with a test key, which was then removed.
+
+The existing `11435` Ollama tunnel is not touched.
+
+1. **Open the investigator tunnel** as a separate process; port 18787 on the M4. `BatchMode=yes` refuses a password fallback, so this only connects if the key is accepted:
 
    ```bash
-   ssh -N -o ExitOnForwardFailure=yes -L 8787:127.0.0.1:8787 mustafah@<m5-tailscale-name>
+   ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -L 18787:127.0.0.1:8787 mustafah@<m5-tailscale-name>
    ```
 
-   If local port 8787 is taken, use `-L 8788:127.0.0.1:8787` and call port 8788 instead.
-
-2. Store the API key you receive out of band in a file only you can read, for example `~/.locki/investigator.key` with mode 0600. Mustafa's copy is `.secrets/handoff/dhruv-m4-backend.key`. Keys are never pasted into chat, code or the repo.
-
-3. Suggested client settings (the names are yours to choose):
+2. **Collect the API key once.** It is read once and then deleted on the M5. It goes straight into a 0600 file and is never shown:
 
    ```bash
-   LOCKI_INVESTIGATOR_URL=http://127.0.0.1:8787
+   mkdir -p -m 700 ~/.locki && (umask 077; ssh -o BatchMode=yes mustafah@<m5-tailscale-name> investigator-key > ~/.locki/investigator.key)
+   ```
+
+   - **Scope.** The key belongs to requester `dhruv-m4-backend` and is valid only for workstation `dhruv-m4-air` and the six `ws:fixture-*` test workstations.
+   - **If the file comes back empty.** Ask Mustafa for a new key. A second fetch is refused, because the handoff copy is deleted after the first read.
+
+3. **Client settings.** The names are yours to choose:
+
+   ```bash
+   LOCKI_INVESTIGATOR_URL=http://127.0.0.1:18787
    LOCKI_INVESTIGATOR_KEY_FILE=~/.locki/investigator.key
    ```
 
-4. Verify. These commands pass the key without echoing it or putting it in the process list:
+4. **Verify through the tunnel.** These commands pass the key without echoing it or putting it in the process list:
 
    ```bash
    AUTH() { printf 'Authorization: Bearer %s' "$(cat ~/.locki/investigator.key)"; }
-   curl -s -H @<(AUTH) http://127.0.0.1:8787/health | python3 -m json.tool
-   # expect evidence_modes.default = "live"; until Sid's grant, evidence_backends.live.memberships = 0
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:18787/health        # 401: the tunnel works, a key is required
+   curl -s -H @<(AUTH) http://127.0.0.1:18787/health | python3 -m json.tool
+   # expect evidence_modes.default = "live"; until Dhruv grants an incident: degraded = ["live_evidence_has_no_incident_grant"]
 
-   # a TEST DATA run (works today):
+   # a TEST DATA run (works now):
    curl -s -H @<(AUTH) -H 'Content-Type: application/json' \
      -d '{"incident_id":"incident:fixture-b-person-then-usb","evidence_mode":"fixture"}' \
-     http://127.0.0.1:8787/investigations
-   curl -s -H @<(AUTH) "http://127.0.0.1:8787/investigations/<investigation_id>?view=voice" | python3 -m json.tool
+     http://127.0.0.1:18787/investigations
+   curl -s -H @<(AUTH) "http://127.0.0.1:18787/investigations/<investigation_id>?view=voice" | python3 -m json.tool
 
-   # a LIVE run (after Sid's grant), with a real id from LOCKI:
+   # a LIVE run, after the owner's grant (§7), for the granted incident:
    curl -s -H @<(AUTH) -H 'Content-Type: application/json' \
-     -d '{"incident_id":"incident:<32 hex>","evidence_mode":"live"}' http://127.0.0.1:8787/investigations
+     -d '{"incident_id":"incident:<32 hex>","evidence_mode":"live"}' http://127.0.0.1:18787/investigations
    ```
+
+**Never block an alert on Nemotron.** LOCKI raises and speaks the deterministic alert first. The investigation is extra detail that comes later:
+- `POST /investigations` returns 202 in a few milliseconds, and the run happens in the background, warm in about 9–10 s.
+- Call it from a background task, never in the alert path.
+- On 409/422/429/503 or a timeout, skip the enrichment. Never delay or suppress the alert because of it.
 
 Operator end-to-end check on the M5, through the same API: `.venv/bin/python bench/live_e2e.py --key-file .secrets/handoff/mustafa-operator.key`. It prints the incident id, tool trace, latency and unsupported claims, and stores the full record only under `var/live/`.
 
@@ -92,22 +111,14 @@ It refuses to run when:
   - Scopes default to `investigations:create`, `investigations:read` and `health:read`. `--scope health:admin` must be named explicitly.
 - **Current keys** (in `.secrets/handoff/`, mode 0600, never printed):
 
-  | key | scopes | workstations |
-  |---|---|---|
-  | `dhruv-m4-backend` | `investigations:create`, `investigations:read`, `health:read` | `*` |
-  | `mustafa-operator` | the default scopes plus `health:admin` | `*` |
+  | key | scopes | workstations | where |
+  |---|---|---|---|
+  | `dhruv-m4-backend` | `investigations:create`, `investigations:read`, `health:read` | `dhruv-m4-air`, `ws:fixture-a`, `ws:fixture-b`, `ws:fixture-c`, `ws:fixture-n1`, `ws:fixture-n2`, `ws:fixture-n3` | collected once by the M4 over SSH (§0); the M5 keeps only its digest |
+  | `mustafa-operator` | the default scopes plus `health:admin` | `*` | `.secrets/handoff/mustafa-operator.key` on the M5 |
+
+  The earlier `dhruv-m4-backend` key for `*` was never handed out and is revoked.
 
   `*` is still bounded by the investigator identity's SpacetimeDB memberships, which Sid controls: the service can only see the workstations Sid grants.
-- **Narrowing Dhruv's key.** Once the demo workstation id is known, the key is reissued for exactly that workstation plus the six fixture workstations. Workstation grants are exact matches; there are no prefix globs.
-
-  ```bash
-  .venv/bin/python -m nemotron_investigator create-key --requester dhruv-m4-backend --workstation <demo ws> \
-    --workstation ws:fixture-a --workstation ws:fixture-b --workstation ws:fixture-c \
-    --workstation ws:fixture-n1 --workstation ws:fixture-n2 --workstation ws:fixture-n3 \
-    --out .secrets/handoff/dhruv-m4-backend.v2.key
-  ```
-
-  Then revoke the old entry (set `"revoked": true` on it in `.secrets/api_keys.json`).
 - **Reading investigations:** a requester reads only its own investigations, and only for workstations its current key still covers. Any other id returns 404.
 - **The key file is validated strictly:** malformed entries are skipped, a revocation always wins, and a file writable by group or others is refused.
 
@@ -315,37 +326,64 @@ How `spoken_summary` is built. It is deterministic, and this service plays no au
   - **Per-run detection.** Each run measures its prompt size independently of Ollama's own count, because that count is reported after any truncation. It flags `truncation_suspected` when the reported size stops growing with the request or falls far below the estimate.
   - **Limit.** Token-level eviction inside a runner cannot be seen in token counts at all. Only the probe verifies it, which is why any runtime the probe has not covered is `unverified` above its nominal context.
 
-## 7. Request to Sid (SpacetimeDB access): needs your action
+## 7. Live evidence access (Sid's minimum authorization)
 
-- **Investigator identity, created 2026-11-07:** `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883`. It is not the owner, and its token stays on the M5 at mode 0600. No owner credential is used anywhere.
-- **Probed live 2026-11-08, read-only:**
-  - 0 memberships and 0 visible incidents;
-  - a direct `SELECT * FROM incidents` is refused ("no such table ... may be marked private");
-  - the bounded `my_*` queries with `LIMIT` are accepted.
+Sid's module, deployed to `locki-w91bw` (see `docs/airlock/INVESTIGATOR_INTEGRATION.md`), gives the investigator identity `c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883` **per-incident, owner-granted, read-only evidence**.
 
-  The redacted record is in `bench/results/stdb_live_probe.json`.
-- **Ask:** grant read-only membership on the demo workstation, without approval rights:
+**What the identity is not.** It is not a member of any workstation (no `grant_reviewer`, no role), and it can call no reducer that changes anything. No owner credential is used anywhere.
 
-  ```bash
-  spacetime call --server maincloud locki-w91bw grant_reviewer '"<workstation_id>"' '"c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883"' false
-  ```
+**What it reads.** The service reads only:
+- `my_investigator_incidents`: the incident, with its authoritative `severity`, `approved_event_ids_json` and `evidence_complete`;
+- `my_investigator_events`: the approved events only;
+- `my_investigator_baselines`: the frozen `session:<id>` baseline only, as an array of redacted USB device keys.
 
-  (`grant_reviewer(workstationId, identityHex, canApprove=false)`.) The grant is reversible with `revoke_member`. An over-privileged grant is never treated as success:
-  - every health check reports a `can_approve` or owner membership as a least-privilege violation (`live_evidence_identity_over_privileged`, service `degraded`);
-  - `bench/wait_for_grant.py` exits 4 instead of 0;
-  - `bench/live_e2e.py` refuses to run.
-- **Please confirm:**
-  1. That a reviewer with `canApprove=false` cannot call write reducers such as `acknowledge_incident`, `resolve_incident`, `request_lock` or `decide_action`. If it can, a view-only role would be safer. The investigator never calls any reducer, but the token should not carry more than reads.
-  2. That reviewer members see rows in `my_incidents`, `my_sessions`, `my_device_events`, `my_baseline_snapshots` and `my_device_health`.
-  3. The real `device_events.source` and `kind` vocabularies. The current guesses are in `categories.py`.
-  4. The shape of `sessions.baseline_json`. The parser expects `usb_devices: [{vendor_id, product_id, serial_hash, name}]`.
-- **Not done on purpose:** `record_agent_step` exists, but it is a write. If you want traces in the dashboard, we can add a deterministic (non-model) trace sink after you approve it.
+**What is outside the scope.** These are reported as out of scope and never invented:
+- the rule and summary;
+- acknowledgement and resolution;
+- the session record (armed state);
+- device health and camera status.
+
+`evidence_complete=false` adds the `incident_evidence_incomplete` advisory.
+
+**Live vocabulary.**
+
+| field | values |
+|---|---|
+| kinds | `usb_added`, `usb_removed`, `app_launched`, `person_in_zone`, `person_cleared`, `camera_offline`, `camera_online`, `heartbeat` |
+| sources | `mac`, `jetson`, `service`, `fixture` |
+| metadata keys | `deviceKey`, `appId`, `label`, `detail`, `captureMode`, `bootId` |
+
+The USB baseline is matched on `deviceKey`.
+
+**Granting.** The workstation owner (Dhruv) grants exactly one incident, its approved events and its frozen baseline, with his own CLI. Sid prepared this command for the verified USB incident:
+
+```bash
+spacetime call --no-config --server https://maincloud.spacetimedb.com locki-w91bw grant_incident_evidence \
+  '"dhruv-m4-air"' '"c200b5b1765c4d0dbc9951485cfe94e3b47977725051b23037df5b6043e88883"' \
+  '"incident:<the incident id>"' '"[\"<approved event id>\"]"' true
+```
+
+**Verify and revoke.**
+- Once granted, the M5 runs Sid's read-only verifier, `node scripts/airlock_investigator_verify.mjs --token-file .secrets/stdb_investigator.token --incident <id> --output <report>` from the monorepo. Its non-secret report can be shared.
+- It then runs `.venv/bin/python bench/live_e2e.py --key-file .secrets/handoff/mustafa-operator.key`.
+- Afterwards the owner revokes the grant with `revoke_incident_evidence`.
+
+**Watching the grant.**
+- `bench/wait_for_grant.py` polls read-only for a grant. It exits 0 once a grant is visible and the identity holds no membership, and exits 4 if the identity is ever over-privileged.
+- `/health` reports `authorized_incidents`, and `live_evidence_has_no_incident_grant` until a grant exists.
 
 ## 8. Monorepo placement
 
-The package is self-contained and goes to `services/nemotron-investigator/` in `Dhruvjain35/locki-airlock` as one fresh commit; the standalone git history is not pushed. The clean snapshot is produced by `scripts/export_snapshot.sh`, which excludes `.git`, `.venv`, `.secrets`, `var/`, caches and any live evidence. Its audit report is next to the snapshot.
+The package lives at `services/nemotron-investigator/` in `Dhruvjain35/locki-airlock`, imported on `main` as an audited snapshot; the standalone repository's git history is not imported. The clean snapshot is produced by `scripts/export_snapshot.sh`, which excludes `.git`, `.venv`, `.secrets`, `var/`, caches and any live evidence. Its audit report is next to the snapshot.
 
-## 9. Changes from v0.1 (breaking for clients)
+## 9. Changes (breaking for clients)
+
+v0.3:
+- **New tunnel.** The tunnel port on the M4 is now 18787: `LOCKI_INVESTIGATOR_URL=http://127.0.0.1:18787`. The key is collected over SSH.
+- **Live evidence.** It now comes from Sid's owner-granted `my_investigator_*` views. Live results carry no rule id or summary, because the projection omits them. The headline reads "Official severity <level>." with no rule.
+- **Health fields.** `/health` adds `authorized_incidents` and `evidence_scope` to the live backend, and the degraded code `live_evidence_has_no_incident_grant`.
+
+v0.2, from v0.1:
 
 - **Voice view renames.** `risk_level` and `risk_confidence` are now `nemotron_risk_level` and `nemotron_risk_confidence`, alongside the new `official_severity`, `effective_severity`, `headline`, `evidence_mode`, `evidence_badge` and `evidence_banner`.
 - **Fixture incident ids** are now `incident:fixture-<slug>`. The old fixture id that reused a real incident id is gone.

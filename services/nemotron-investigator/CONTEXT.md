@@ -262,8 +262,42 @@ Teammates and their areas (do not edit their modules):
 ### Snapshot (requirement 7)
 - `scripts/export_snapshot.sh [OUT]` = `git archive HEAD` of this package (so untracked/ignored files cannot leak) minus `scripts/snapshot_exclude.txt`, then `scripts/audit_snapshot.py` (exact secret values from `.secrets/` compared without printing, credential patterns, weights/archives/large/binary files, forbidden dirs, live-looking incident ids, and every identifier listed in the private `var/live/forbidden_identifiers.txt`). Writes `AUDIT.md`, `MANIFEST.sha256` and a tarball; fails without a tarball if the audit fails.
 
+## Product integration pass (2026-11-08 ~08:00Z): monorepo main, Sid's investigator views, M4 tunnel
+
+### Instructions (condensed)
+- Monorepo `Dhruvjain35/locki-airlock`, **main only** (no feature branch or PR). This overrides CONTRIBUTING.md's develop/PR flow for this import.
+- Accept the hasmus25 invitation.
+- Coordinate with Dhruv's integration session before pushing.
+- Import the audited snapshot into `services/nemotron-investigator/` without the standalone git ancestry, with separate commits only for genuine changes.
+- Get minimum read-only access through Sid; no owner credentials.
+- M4 tunnel on M4 port 18787, using the actual M4 public key with valid OpenSSH forwarding restrictions. Transfer Dhruv's credential securely and never print it.
+- Test through the M4 tunnel. Do not block alerts on Nemotron.
+
+### What changed
+- **Invitation.** The `Dhruvjain35/locki-airlock` invitation was accepted (write access). The `Dhruvjain35/Locki` invitation was left pending, because it was not asked for.
+- **Sid's minimum authorization is deployed live** (`docs/airlock/INVESTIGATOR_INTEGRATION.md` in the monorepo).
+  - The owner grants one incident with `grant_incident_evidence(workstation, identity, incident, eventIdsJson, includeBaseline)`.
+  - The investigator then reads only `my_investigator_incidents`, `my_investigator_events` and `my_investigator_baselines`.
+  - It must hold NO membership: `grant_reviewer` was the wrong ask and is withdrawn.
+  - Sid prepared the grant for the real USB incident `incident:23000b77...` (workstation `dhruv-m4-air`, simulated=false). Only Dhruv, as the owner, can run it.
+- **Adapter.** Now defaults to those views (`NI_STDB_VIEWS=investigator`). There are strict row types for the projection, which omits the rule, summary, actor and action fields; tools report those as "not in the evidence scope". Sessions and device health are outside the grant, so no query is made for them. Sid's real vocabulary (`usb_added`, `app_launched`, `person_in_zone`, ...) is categorized, and baselines that are JSON arrays of redacted device keys are matched on `deviceKey`. `evidence_complete=false` raises the `incident_evidence_incomplete` advisory.
+  - Ping reports `authorized_incidents`, and any enabled membership is a least-privilege violation.
+  - `/health` shows `live_evidence_has_no_incident_grant` until a grant exists.
+  - Live probe: the three views accept the adapter's exact SQL (HTTP 200, 0 rows before any grant), the private table is still refused, and memberships are 0.
+- **SSH on the M5.** There was no `~/.ssh` at all: that was the "rejection", and Dhruv logged in with a password.
+  - `~/.ssh/authorized_keys` now holds exactly one line: Dhruv's only GitHub key (`github.com/Dhruvjain35.keys`, SHA256 `WeBg+LR4BsmiTgaZBBlxuUWBOktOQcywFpDyIo4nY/o`). Its options are `from=<M4 tailscale address>,restrict,port-forwarding`, permitopen 127.0.0.1/localhost on 8787 and 11434, `permitlisten="127.0.0.1:1"`, and forced command `~/.ssh/locki_tunnel_command.sh`.
+  - Verified on this sshd with a throwaway key over localhost, then removed:
+    - the API forward gives 401 without a key and 200 with one;
+    - the `localhost` spelling also works;
+    - a forward to :22 is "administratively prohibited";
+    - shell, command and `scp` are refused, and `-R` fails;
+    - the one-time handoff returns its content once, then refuses.
+  - The existing password-based Ollama tunnel session (since 2026-11-07 15:55) was not touched.
+- **Dhruv's API key reissued** for exactly `dhruv-m4-air` plus the six `ws:fixture-*` workstations. The old `*` key was never handed out and is revoked. The plaintext exists only as the one-time handoff file, deleted when the M4 reads it with `ssh <m5> investigator-key > ~/.locki/investigator.key`.
+- **Docs.** INTEGRATION.md v0.3: 18787 tunnel, key fetch, alerts never wait on Nemotron, §7 = Sid's grant. No fixed private IPs (CONTRIBUTING), and `tests/test_api.py` uses a documentation address.
+
 ## Next steps
-- Sid: `grant_reviewer("<demo workstation>", "c200b5b1…e88883", false)` (INTEGRATION.md §7), confirm a reviewer cannot call write reducers, the event vocabularies (`categories.py`) and the `baseline_json` shape. Then `bench/live_e2e.py` for the real end-to-end run.
+- Dhruv (owner): run Sid's prepared `grant_incident_evidence` for the USB incident. Then the M5 runs Sid's verifier and `bench/live_e2e.py`, and Dhruv revokes the grant afterwards.
 - Dhruv: separate SSH forward `-L 8787:127.0.0.1:8787` (INTEGRATION.md §0), receive the key out of band, poll `?view=voice` and speak `spoken_summary`; render `evidence_badge` and `headline`.
 - Repo: after the invitation is accepted, clone `Dhruvjain35/locki-airlock`, branch `feature/nemotron-investigator`, copy `~/locki-airlock-export/services/nemotron-investigator/` in as ONE fresh commit, push the branch and open a draft PR. No standalone history, nothing on main, no merge without approval. Re-run `scripts/export_snapshot.sh` first if anything changed.
 
